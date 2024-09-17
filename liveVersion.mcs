@@ -67,8 +67,7 @@ function Controller:new()
     self.RTH_Y = ThumbstickAxis:new(self, "RTH_Y_Val")
     self.inputs = {
         self.UP, self.DOWN, self.RIGHT, self.LEFT, self.A, self.B, self.X, self.Y, self.START,
-        self.BACK, self.LTH, self.RTH, self.LSB, self.RSB, self.LTR, self.RTR, self.LTH_X, self.LTH_Y,
-        self.RTH_X, self.RTH_Y
+        self.BACK, self.LTH, self.RTH, self.LSB, self.RSB, self.LTR, self.RTR
     }
     self.axes = {self.LTH_X, self.LTH_Y, self.RTH_X, self.RTH_Y}
     self.shift_btn = nil
@@ -107,16 +106,23 @@ function Controller:new()
 end
 
 function Controller:xcGetRegValue(reg)
+	self:xcCntlLog("xcGetRegValue called with: "..reg,4)
     if self:typeCheck({reg},{"string"},"xcGetRegValue") then return end
+	self:xcCntlLog("after type check",4)
     local hreg, rc = mc.mcRegGetHandle(inst, reg)
+	self:xcCntlLog("after mcRegGetHandle call",4)
     if rc == mc.MERROR_NOERROR then
         local val, rc = mc.mcRegGetValueLong(hreg)
         if rc == mc.MERROR_NOERROR then
+			self:xcCntlLog("xcGetRegValue returning: "..val,4)
             return val
+			
         else
+			self:xcCntlLog("Error in mcRegGetValueLong", 1)
             self:xcCntlLog(mc.mcCntlGetErrorString(inst, rc), 1)
         end
     else
+		self:xcCntlLog("Error in mcRegGetHandle",1)
         self:xcCntlLog(mc.mcCntlGetErrorString(inst, rc), 1)
     end
 end
@@ -147,8 +153,12 @@ function Controller:xcCntlLog(msg, level)
 	if self.logLevel == 0 then return end
     if Controller.typeCheck({msg,level},{"string","number"},"Controller:xcCntlLog") then return end
     if level <= self.logLevel then
-        mc.mcCntlLog(inst, "[[XBOX CONTROLLER "..self.logLevels[self.logLevel].."]]: "..msg, "", -1)
-    end
+		if mc.mcInEditor() ~= 1 then
+			mc.mcCntlLog(inst, "[[XBOX CONTROLLER "..self.logLevels[self.logLevel].."]]: "..msg, "", -1)
+		else
+			print("[[XBOX CONTROLLER "..self.logLevels[self.logLevel].."]]: "..msg)
+		end
+	end
 end
 
 function Controller:xcErrorCheck(rc)	if not self then return end	
@@ -159,26 +169,42 @@ function Controller:xcErrorCheck(rc)	if not self then return end
 end
 
 function Controller:xcJogSetInc(val)
-	if not self then return end	
-    if self.typeCheck({val},{"number"},"Controller:xcJogSetInc") then return end
+	self:xcCntlLog("Entered xcJogSetInc with val = " .. tostring(val), 4)  -- Log the input value
+    
+    if not self then
+        self:xcCntlLog("Self is nil in xcJogSetInc", 1)  -- Log if `self` is nil
+        return
+    end
+    
+    if self.typeCheck({val},{"number"},"Controller:xcJogSetInc") then
+        self:xcCntlLog("Type check failed in xcJogSetInc", 1)  -- Log if type check fails
+        return
+    end
+    
     self.jogIncrement = val
+    self:xcCntlLog("Set jogIncrement to " .. tostring(self.jogIncrement), 4)  -- Log the updated value
 end
 
 function Controller:update()
-	if not self then return end
+	mc.mcCntlSetLastError(inst, "Controller:update() called!")
+	if not self then 
+		mc.mcCntlSetLastError(inst, "Controller failed self check")
+		return end
+	self:xcCntlLog("After self check",4)
     if self.shift_btn ~= nil then
         self.shift_btn:getState()
     end
+	self:xcCntlLog("After shift button check",4)
     for i, input in ipairs(self.inputs) do
         input:getState()
     end
+	self.xcCntlLog("After input button check",4)
     for i, axis in ipairs(self.axes) do
         axis:update()
     end
 end
 
 function Controller:assignShift(input)
-	print(input)
 	if not self then return end
     if Controller.typeCheck({input},{{"Button","Trigger"}},"Controller:assignShift") then return end
     self.shift_btn = input
@@ -266,12 +292,15 @@ function Signal:connect(slot)
 	if not self then return end
 	if Controller:typeCheck({slot},{"Slot"},"Signal:connect") then return end
     self.slot = slot
+	self.controller:xcCntlLog(self.btn.id..self.id.." connected to Slot "..tostring(self.slot),4)
+	
 end
 
 function Signal:altConnect(slot)
 	if not self then return end
 	if Controller:typeCheck({slot},{"Slot"},"Signal:altConnect") then return end
     self.altSlot = slot
+	self.controller:xcCntlLog(self.btn.id..self.id.." connected to Slot "..tostring(self.altSlot),4)
 end
 
 function Signal:emit()
@@ -302,7 +331,9 @@ function Button:new(controller, name)
 end
 
 function Button:getState()
-	local state = self.controller.xcGetRegValue(string.format("mcX360_LUA/%s", self.id))
+	self.controller:xcCntlLog("getState called for "..self.id,4)
+	local state = self.controller:xcGetRegValue(string.format("mcX360_LUA/%s", self.id))
+	self.controller:xcCntlLog("state is: "..state,4)
     if (state == 1) and (not self.pressed) then
         self.pressed = true
         self.down:emit()
@@ -310,6 +341,7 @@ function Button:getState()
         self.pressed = false
         self.up:emit()
     end
+	self.controller:xcCntlLog("exiting getState",4)
 end
 
 Trigger = {}
@@ -331,6 +363,8 @@ function Trigger:new(controller, id)
 end
 
 function Trigger:getState()
+	self.controller:xcCntlLog("getState called for "..self.id,4)
+	if not self then return end
     local val = self.controller:xcGetRegValue(string.format("mcX360_LUA/%s", self.id))
     if type(val) == "number" then
         self.value = val
@@ -346,7 +380,7 @@ function Trigger:getState()
             self.pressed = false
         end
     else
-        self.controller:xcCntlLog(val, 1)
+        self.controller:xcCntlLog("Value for Trigger:getState method is not a number", 1)
     end
 end
 
@@ -370,19 +404,10 @@ function ThumbstickAxis:new(controller, id)
     self.inverted = false
     self.deadzone = 10
     self.rate = nil
+	self.value = 0
     self.moving = false
     self.rateSet = false
     return self
-end
-
-function ThumbstickAxis:getState()
-	if not self then return end
-    local val = self.controller:xcGetRegValue(string.format("mcX360_LUA/%s", self.id))
-    if type(val) == "number" then
-        self.value = val
-    else
-        self.controller:xcCntlLog(val, 1)
-    end
 end
 
 function ThumbstickAxis:setDeadzone(deadzone)
@@ -406,7 +431,9 @@ end
 function ThumbstickAxis:update()
 	if not self then return end
     if self.axis == nil then return end
-
+	
+	self.value = self.controller:xcGetRegValue(string.format("mcX360_LUA/%s", self.id))
+	
     if not self.moving and not self.rateReset then
         if mc.mcJogGetRate(inst, self.axis) ~= self.rate then
             mc.mcJogSetRate(inst, self.axis, self.rate)
@@ -458,7 +485,7 @@ local XBOX = Controller:new()
 -- Log messages will only be displayed for the current log level and all lower log levels.
 -- Default logLevel is 1, so there is no need to set it if you only want error message output.
 -- This call is simply provided as an example.
-XBOX.logLevel = 1
+XBOX.logLevel = 4
 
 -- Assign left trigger as shift
 -- You can use any Button or Analog object.  The Analog object defines its self.pressed
@@ -507,8 +534,29 @@ XBOX.RSB.down:connect(XBOX.xcCntlEnable)
 -- currently running, or mcCntlFeedHold if Gcode is currently running.
 XBOX.X.down:connect(XBOX.xcCntlCycleStart)
 
----------------------------------
 
+
+---------------------------------
+if not mcLuaPanelParent then
+    XBOX:xcCntlLog("mcLuaPanelParent is nil!", 1)
+else
+    XBOX:xcCntlLog("mcLuaPanelParent is valid: " .. tostring(mcLuaPanelParent), 4)
+end
+XBOX:xcCntlLog("Creating X360_timer",4)
 X360_timer = wx.wxTimer(mcLuaPanelParent)
-mcLuaPanelParent:Connect(wx.wxEVT_TIMER, function(event) XBOX:update(event) end)
-X360_timer:Start(100)
+XBOX:xcCntlLog("Attempting to connect timer event", 4)
+mcLuaPanelParent:Connect(wx.wxEVT_TIMER, function(event)
+    XBOX:xcCntlLog("Timer event triggered", 4)
+    XBOX:update(XBOX)
+end)
+XBOX:xcCntlLog("Timer event connected", 4)
+
+XBOX:xcCntlLog("Calling update once",4)
+XBOX:update()
+XBOX:xcCntlLog("Starting X360 timer with interval 100ms", 4)
+if XBOX then
+    XBOX:xcCntlLog("XBOX object is valid, starting timer", 4)
+    X360_timer:Start(100)
+else
+    mc.mcCntlSetLastError(inst, "XBOX object is nil before starting timer")
+end
