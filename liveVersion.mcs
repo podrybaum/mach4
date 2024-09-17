@@ -1,56 +1,88 @@
 inst = mc.mcGetInstance()
 
+function customType(object)
+    -- Check if the object is a table before trying to access its metatable or fields
+    if type(object) == "table" then
+        local mt = getmetatable(object)
+        -- Check if __type exists on the object itself first, then fallback to the metatable
+        return object.__type or (mt and mt.__type) or "table"
+    else
+        -- If object is not a table, return its native type (e.g., "function", "string", etc.)
+        return type(object)
+    end
+end
+
 Controller = {}
+Controller.__index = Controller
+Controller.__type = Controller
+
+function Controller.typeCheck(objects, types, funcName)
+    for i, object in ipairs(objects) do
+        local expectedTypes = types[i]
+        local actualType = customType(object)
+
+        if type(expectedTypes) == "string" then
+            expectedTypes = { expectedTypes }
+        end
+        
+        local typeMatch = false
+        for _, expectedType in ipairs(expectedTypes) do
+            if actualType == expectedType then
+                typeMatch = true
+                break
+            end
+        end
+        
+        if not typeMatch then
+            print("Parameter "..i.." of function "..funcName.." expected one of "..table.concat(expectedTypes, ", ")..", got "..tostring(actualType)..".")
+            return true
+        end
+	end
+end
+
 
 function Controller:new()
-    local object = {}
-    setmetatable(object, {__index = self})
-    object.UP = Button:new(object, "DPad_UP")
-    object.DOWN = Button:new(object, "DPad_DOWN")
-    object.RIGHT = Button:new(object, "DPad_RIGHT")
-    object.LEFT = Button:new(object, "DPad_LEFT")
-    object.A = Button:new(object, "Btn_A")
-    object.B = Button:new(object, "Btn_B")
-    object.X = Button:new(object, "Btn_X")
-    object.Y = Button:new(object, "Btn_Y")
-    object.START = Button:new(object, "Btn_START")
-    object.BACK = Button:new(object, "Btn_BACK")
-    object.LTH = Button:new(object, "Btn_LTH")
-    object.RTH = Button:new(object, "Btn_RTH")
-    object.LSB = Button:new(object, "Btn_LS")
-    object.RSB = Button:new(object, "Btn_RS")
-    object.LTR = Analog:new(object, "LTR_Val")
-    object.RTR = Analog:new(object, "RTR_Val")
-    object.LTH_X = Analog:new(object, "LTH_X_Val")
-    object.LTH_Y = Analog:new(object, "LTH_Y_Val")
-    object.RTH_X = Analog:new(object, "RTH_Val")
-    object.RTH_Y = Analog:new(object, "RTH_Y_Val")
-    object.inputs = {
-        object.UP, object.DOWN, object.RIGHT, object.LEFT, object.A, object.B, object.X, object.Y, object.START,
-        object.BACK, object.LTH, object.RTH, object.LSB, object.RSB, object.LTR, object.RTR, object.LTH_X, object.LTH_Y,
-        object.RTH_X, object.RTH_Y
+	local self = {} -- Create the new object
+    self.__type = "Controller" -- Set __type on the instance itself
+    setmetatable(self, Controller)
+    self.UP = Button:new(self, "DPad_UP")
+    self.DOWN = Button:new(self, "DPad_DOWN")
+    self.RIGHT = Button:new(self, "DPad_RIGHT")
+    self.LEFT = Button:new(self, "DPad_LEFT")
+    self.A = Button:new(self, "Btn_A")
+    self.B = Button:new(self, "Btn_B")
+    self.X = Button:new(self, "Btn_X")
+    self.Y = Button:new(self, "Btn_Y")
+    self.START = Button:new(self, "Btn_START")
+    self.BACK = Button:new(self, "Btn_BACK")
+    self.LTH = Button:new(self, "Btn_LTH")
+    self.RTH = Button:new(self, "Btn_RTH")
+    self.LSB = Button:new(self, "Btn_LS")
+    self.RSB = Button:new(self, "Btn_RS")
+    self.LTR = Trigger:new(self, "LTR_Val")
+    self.RTR = Trigger:new(self, "RTR_Val")
+    self.LTH_X = ThumbstickAxis:new(self, "LTH_X_Val")
+    self.LTH_Y = ThumbstickAxis:new(self, "LTH_Y_Val")
+    self.RTH_X = ThumbstickAxis:new(self, "RTH_Val")
+    self.RTH_Y = ThumbstickAxis:new(self, "RTH_Y_Val")
+    self.inputs = {
+        self.UP, self.DOWN, self.RIGHT, self.LEFT, self.A, self.B, self.X, self.Y, self.START,
+        self.BACK, self.LTH, self.RTH, self.LSB, self.RSB, self.LTR, self.RTR, self.LTH_X, self.LTH_Y,
+        self.RTH_X, self.RTH_Y
     }
-    object.LTH_X_Axis = ThumbstickAxis:new(object, object.LTH_X)
-    object.LTH_Y_Axis = ThumbstickAxis:new(object, object.LTH_Y)
-    object.RTH_X_Axis = ThumbstickAxis:new(object, object.RTH_X)
-    object.RTH_Y_Axis = ThumbstickAxis:new(object, object.RTH_Y)
-    object.axes = {object.LTH_X_Axis, object.LTH_Y_Axis, object.RTH_X_Axis, object.RTH_Y_Axis}
-    object.shift_btn = nil
-    object.jogIncrement = 0.1
-    object.logLevel = 1
-    object.xcLOG_ERROR = "ERROR"
-    object.xcLOG_WARNING = "WARNING"
-    object.xcLOG_INFO = "INFO"
-    object.xcLOG_DEBUG = "DEBUG"
-    object.logLevels = {object.xcLOG_ERROR, object.xcLOG_WARNING, object.xcLOG_INFO, object.xcLOG_DEBUG}
+    self.axes = {self.LTH_X, self.LTH_Y, self.RTH_X, self.RTH_Y}
+    self.shift_btn = nil
+    self.jogIncrement = 0.1
+    self.logLevel = 1
+    self.logLevels = {"ERROR", "WARNING", "INFO", "DEBUG"}
 
-    object.xcCntlEStop = Slot:new(function()
+    self.xcCntlEStop = Slot:new(function()
 		local hsig = mc.mcSignalGetHandle(inst, mc.ISIG_EMERGENCY)
 		local state = mc.mcSignalGetState(hsig) > 0
 		mc.mcSignalSetState(hsig, not state)
     end)
 
-    object.xcCntlTorchOn = Slot:new(function()
+    self.xcCntlTorchOn = Slot:new(function()
 		local hsig = mc.mcSignalGetHandle(inst, mc.OSIG_OUTPUT3)
 		local hsig2 = mc.mcSignalGetHandle(inst, mc.OSIG_OUTPUT4)
 		local state = mc.mcSignalGetState(hsig) > 0
@@ -59,51 +91,81 @@ function Controller:new()
 		mc.mcSignalSetState(hsig2, not state)
     end)
 
-    object.xcCntlEnable = Slot:new(function()
-		local hsig = mc.mcSignalGetHandle(inst, mc.OSIG_MACHINE_ENABLED)
-		local state = mc.mcSignalGetState(hsig) > 0
-		mc.mcCntlEnable(inst, not state)
+    self.xcCntlEnable = Slot:new(function()
+		self:xcErrorCheck(mc.mcCntlEnable(inst, not self:getMachSignalState(mc.OSIG_MACHINE_ENABLED)))
     end)
 
-    object.xcCntlCycleStart = Slot:new(function()
-		local hsig = mc.mcSignalGetHandle(inst, mc.OSIG_RUNNING_GCODE)
-		local state = mc.mcSignalGetState(hsig) > 0
-		if state then
-			mc.mcCntlFeedHold(inst)
+    self.xcCntlCycleStart = Slot:new(function()
+		if self:getMachSignalState(mc.OSIG_RUNNING_GCODE) then
+			self:xcErrorCheck(mc.mcCntlFeedHold(inst))
 		else
-			mc.mcCntlCycleStart(inst)
+			self:xcErrorCheck(mc.mcCntlCycleStart(inst))
 		end
     end)
 
-    return object
+    return self
+end
+
+function Controller:xcGetRegValue(reg)
+    if self:typeCheck({reg},{"string"},"xcGetRegValue") then return end
+    local hreg, rc = mc.mcRegGetHandle(inst, reg)
+    if rc == mc.MERROR_NOERROR then
+        local val, rc = mc.mcRegGetValueLong(hreg)
+        if rc == mc.MERROR_NOERROR then
+            return val
+        else
+            self:xcCntlLog(mc.mcCntlGetErrorString(inst, rc), 1)
+        end
+    else
+        self:xcCntlLog(mc.mcCntlGetErrorString(inst, rc), 1)
+    end
+end
+
+function Controller:getMachSignalState(signal)
+    if self:typeCheck({signal},{"number"},"getMachSignalState") then return end
+    local hsig, rc = mc.mcSignalGetHandle(inst, signal)
+    if rc == mc.MERROR_NOERROR then
+        local val, rc = mc.mcSignalGetState(hsig)
+        if rc == mc.MERROR_NOERROR then
+            return val > 0
+        else
+            self:xcCntlLog(mc.mcCntlGetErrorString(inst, rc),1)
+        end
+    else
+        self:xcCntlLog(mc.mcCntlGetErrorString(inst, rc),1)
+    end
+end
+
+function Controller:xcToggleMachSignalState(signal)
+	if not self then return end
+	if Controller.typeCheck({signal},{"number"},"Controller:xcToggleMachSignalState") then return end
+    self:xcErrorCheck(mc.mcSignalSetState(signal, not self.getMachSignalState(signal)))
 end
 
 function Controller:xcCntlLog(msg, level)
-    if self.logLevel == 0 then return end
+	if not self then return end
+	if self.logLevel == 0 then return end
+    if Controller.typeCheck({msg,level},{"string","number"},"Controller:xcCntlLog") then return end
     if level <= self.logLevel then
         mc.mcCntlLog(inst, "[[XBOX CONTROLLER "..self.logLevels[self.logLevel].."]]: "..msg, "", -1)
     end
 end
 
-function Controller:xcErrorCheck(rc)
+function Controller:xcErrorCheck(rc)	if not self then return end	
+	if Controller.typeCheck({rc},{"number"},"Controller:xcErrorCheck")then return end
     if rc ~= mc.MERROR_NOERROR then
         self:xcCntlLog(mc.mcCntlGetErrorString(inst, rc), 1)
     end
 end
 
-function Controller:xcJogGetInc()
-    return self.jogIncrement
-end
-
 function Controller:xcJogSetInc(val)
-    if type(val) ~= "number" then
-        self:xcCntlLog("Jog increment must be a number.", 1)
-        return
-    end
+	if not self then return end	
+    if self.typeCheck({val},{"number"},"Controller:xcJogSetInc") then return end
     self.jogIncrement = val
 end
 
 function Controller:update()
+	if not self then return end
     if self.shift_btn ~= nil then
         self.shift_btn:getState()
     end
@@ -116,12 +178,11 @@ function Controller:update()
 end
 
 function Controller:assignShift(input)
-    if type(input) ~= "table" then
-        self:xcCntlLog("Parameter (input) of Controller:assignShift method expected Button or Analog, got "..type(input), 1)
-        return
-    end
+	print(input)
+	if not self then return end
+    if Controller.typeCheck({input},{{"Button","Trigger"}},"Controller:assignShift") then return end
     self.shift_btn = input
-    self:xcCntlLog(""..input.id.." assigned as controller shift button.", 3)
+    self:xcCntlLog(""..self.shift_btn.id.." assigned as controller shift button.", 3)
     for i, input in ipairs(self.inputs) do
         if input == self.shift_btn then
             table.remove(self.inputs, i)
@@ -131,10 +192,8 @@ function Controller:assignShift(input)
 end
 
 function Controller:mapSimpleJog(reversed)
-    if type(reversed) ~= "boolean" and reversed ~= nil then
-        self:xcCntlLog("Parameter (reversed) of xc.mapSimpleJog expected boolean, got "..type(reversed), 1)
-        return
-    end
+	if not self then return end
+    if self.typeCheck({reversed},{"boolean"},"Controller:mapSimpleJog") then return end
     reversed = reversed and true or false
 	self:xcCntlLog("Jog reverse flag set to: "..tostring(reversed),4)
     -- DPad regular jog
@@ -188,63 +247,62 @@ function Controller:mapSimpleJog(reversed)
 end
 
 Signal = {}
+Signal.__index = Signal
+Signal.__type = "Signal"
 
-function Signal:new(controller, btn, id)
-    local object = {}
-    setmetatable(object, {__index = self})
-    object.id = id
-    object.btn = btn
-    object.slot = nil
-    object.altSlot = nil
-    object.controller = controller
-    return object
+function Signal:new(controller, button, id)
+	if Controller.typeCheck({controller, button, id},{"Controller",{"Button","Trigger"},"string"},"Signal:new") then return end
+    local self = setmetatable({},Signal)
+	if not self then return end
+    self.id = id
+    self.btn = button
+    self.slot = nil
+    self.altSlot = nil
+    self.controller = controller
+    return self
 end
 
 function Signal:connect(slot)
-    if type(slot) ~= "table" then
-        self.controller:xcCntlLog("Parameter (slot) of Signal:connect method expected a Slot, got "..type(slot), 1)
-        return
-    end
+	if not self then return end
+	if Controller:typeCheck({slot},{"Slot"},"Signal:connect") then return end
     self.slot = slot
-    self.slot.btn = self.btn
 end
 
 function Signal:altConnect(slot)
-    if type(slot) ~= "table" then
-        self.controller:xcCntlLog("Parameter (slot) of Signal:altConnect method expected a Slot, got "..type(slot), 1)
-        return
-    end
+	if not self then return end
+	if Controller:typeCheck({slot},{"Slot"},"Signal:altConnect") then return end
     self.altSlot = slot
-    self.altSlot.btn = self.btn
 end
 
 function Signal:emit()
+	if not self then return end
     self.controller:xcCntlLog("Signal "..self.btn.id..self.id.." emitted.", 3)
     if (not self.controller.shift_btn.pressed) and (self.slot ~= nil) then
         self.slot.func()
+	elseif (self.controller.shift_btn.pressed) and (self.altSlot == nil and self.slot ~= nil) then 
+		self.slot.func()
     elseif (self.controller.shift_btn.pressed) and (self.altSlot ~= nil) then
         self.altSlot.func()
     end
 end
 
 Button = {}
+Button.__index = Button
+Button.__type = "Button"
 
 function Button:new(controller, name)
-    local object = {}
-    setmetatable(object, {__index = self})
-    object.controller = controller
-    object.id = name
-    object.pressed = false
-    object.up = Signal:new(object.controller, object, "up")
-    object.down = Signal:new(object.controller, object, "down")
-    return object
+	if Controller.typeCheck({controller, name},{"Controller","string"},"Button:new") then return end
+    local self = setmetatable({}, Button)
+    self.controller = controller
+    self.id = name
+    self.pressed = false
+    self.up = Signal:new(self.controller, self, "up")
+    self.down = Signal:new(self.controller, self, "down")
+    return self
 end
 
 function Button:getState()
-    local hreg, rc = mc.mcRegGetHandle(inst, string.format("mcX360_LUA/%s", self.id))
-    --self.controller:xcErrorCheck(rc)
-    local state, rc = mc.mcRegGetValueLong(hreg)
-    --self.controller:xcErrorCheck(rc)
+	local state = self.controller.xcGetRegValue(string.format("mcX360_LUA/%s", self.id))
     if (state == 1) and (not self.pressed) then
         self.pressed = true
         self.down:emit()
@@ -254,104 +312,135 @@ function Button:getState()
     end
 end
 
-Analog = {}
+Trigger = {}
+Trigger.__index = Trigger
+Trigger.__type = "Trigger"
 
-function Analog:new(controller, name)
-    local object = {}
-    setmetatable(object, {__index = self})
-    object.controller = controller
-    object.id = name
-    object.value = 0
-    object.pressed = false
-    return object
+function Trigger:new(controller, id)
+	if Controller.typeCheck({controller,id},{"Controller","string"},"Trigger:new") then return end
+    local self = setmetatable({}, Trigger)
+	if not self then return end
+    self.controller = controller
+    self.id = id
+    self.value = 0
+    self.pressed = false
+    self.down = Signal:new(self.controller, self, "down")
+    self.up = Signal:new(self.controller, self, "up")
+    self.func = nil
+    return self
 end
 
-function Analog:getState()
-    local hreg, rc = mc.mcRegGetHandle(inst, string.format("mcX360_LUA/%s", self.id))
-    --self.controller:xcErrorCheck(rc)
-    local val, rc = mc.mcRegGetValueLong(hreg)
-    --self.controller:xcErrorCheck(rc)
-    self.pressed = math.abs(val) > 25
-    self.value = val
+function Trigger:getState()
+    local val = self.controller:xcGetRegValue(string.format("mcX360_LUA/%s", self.id))
+    if type(val) == "number" then
+        self.value = val
+        if self.func ~= nil then
+            self.func(self.value)
+            return
+        end
+        if math.abs(val) > 125 and not self.pressed then
+            self.down.emit()
+            self.pressed = true
+        elseif math.abs(val) < 5 and self.pressed then
+            self.up.emit()
+            self.pressed = false
+        end
+    else
+        self.controller:xcCntlLog(val, 1)
+    end
+end
+
+function Trigger:connect(func)
+	if not self then return end
+    if Controller.typeCheck({func},{"function"},"Trigger:connect") then return end
+    self.func = func
 end
 
 ThumbstickAxis = {}
+ThumbstickAxis.__index = ThumbstickAxis
+ThumbstickAxis.__type = "ThumbstickAxis"
 
-function ThumbstickAxis:new(controller, analog)
-    local object = {}
-    setmetatable(object, {__index = self})
-    object.controller = controller
-    object.analog = analog
-    object.axis = nil
-    object.deadzone = 10
-    object.rate = nil
-    object.moving = false
-    object.rateSet = false
-    return object
+function ThumbstickAxis:new(controller, id)
+	if Controller.typeCheck({controller, id},{"Controller","string"},"ThumbstickAxis:new") then return end
+    local self = setmetatable({},ThumbstickAxis)
+	if not self then return end
+    self.controller = controller
+    self.id = id
+    self.axis = nil
+    self.inverted = false
+    self.deadzone = 10
+    self.rate = nil
+    self.moving = false
+    self.rateSet = false
+    return self
 end
 
-function ThumbstickAxis:connect(axis)
-    if type(axis) ~= "number" then
-        self.controller:xcCntlLog("Parameter (axis) of ThumbstickAxis:connect method expected axis number, got "..type(axis), 1)
-        return
+function ThumbstickAxis:getState()
+	if not self then return end
+    local val = self.controller:xcGetRegValue(string.format("mcX360_LUA/%s", self.id))
+    if type(val) == "number" then
+        self.value = val
+    else
+        self.controller:xcCntlLog(val, 1)
     end
+end
+
+function ThumbstickAxis:setDeadzone(deadzone)
+	if not self then return end
+    if self.controller.typeCheck({deadzone},{"number"},"ThumbstickAxis:setDeadzone") then return end
+    self.deadzone = math.abs(deadzone)
+end
+
+function ThumbstickAxis:connect(axis,inverted)
+	if not self then return end
+    if self.controller.typeCheck({axis,inverted},{"number","boolean"},"ThumbstickAxis:connect") then return end
     self.axis = axis
+    self.inverted = inverted
+    local rc
     self.rate, rc = mc.mcJogGetRate(inst, self.axis)
     self.controller:xcErrorCheck(rc)
-    self.controller:xcCntlLog(tostring(self.analog).." connected to "..tostring(self.axis), 4)
-    self.controller:xcCntlLog("Initial rate = "..self.rate, 4)
+    self.controller:xcCntlLog(self.id.." connected to "..tostring(self.axis), 4)
+    self.controller:xcCntlLog("Initial jog rate for "..tostring(self.axis).." = "..self.rate, 4)
 end
 
 function ThumbstickAxis:update()
+	if not self then return end
     if self.axis == nil then return end
 
-    if not self.moving and not self.rateSet then
+    if not self.moving and not self.rateReset then
         if mc.mcJogGetRate(inst, self.axis) ~= self.rate then
             mc.mcJogSetRate(inst, self.axis, self.rate)
-            self.rateSet = true
+            self.rateReset = true
         end
     end
 
-    if math.abs(self.analog.value) > self.deadzone then
-        if not self.moving then
-            self.moving = true
-            self.rateSet = false
-        end
-        rc = mc.mcJogSetRate(inst, self.axis, math.abs(self.analog.value))
-        self.controller:xcErrorCheck(rc)
-        if self.analog.value > 0 then
-            rc = mc.mcJogVelocityStart(inst, self.axis, mc.MC_JOG_POS)
-            self.controller:xcErrorCheck(rc)
-        elseif self.analog.value < 0 then
-            mc.mcJogVelocityStart(inst, self.axis, mc.MC_JOG_NEG)
-            self.controller:xcErrorCheck(rc)
-        end
+    if math.abs(self.value) > self.deadzone and not self.moving then
+        self.moving = true
+        self.rateReset = false
+        self.controller:xcErrorCheck(mc.mcJogSetRate(inst, self.axis, math.abs(self.value)))
+        self.controller:xcErrorCheck(mc.mcJogVelocityStart(inst, self.axis, (self.inverted and self.value > 0) and mc.MC_JOG_POS or mc.MC_JOG_NEG))
     end
 
-    if math.abs(self.analog.value) < self.deadzone and self.moving then
-        rc = mc.mcJogVelocityStop(inst, self.axis)
-        self.controller:xcErrorCheck(rc)
+    if math.abs(self.value) < self.deadzone and self.moving then
+        self.controller:xcErrorCheck(mc.mcJogVelocityStop(inst, self.axis))
         self.moving = false
-        rc = mc.mcJogSetRate(inst, self.axis, self.rate)
-        self.controller:xcErrorCheck(rc)
+        self.controller:xcErrorCheck(mc.mcJogSetRate(inst, self.axis, self.rate))
+        self.rateReset = true
     end
 end
+
 
 Slot = {}
+Slot.__index = Slot
+Slot.__type = "Slot"
 
 function Slot:new(func)
-    local object = {}
-    setmetatable(object, {__index = self})
-    object.func = func
-    if type(func) ~= "function" then
-        Controller:xcCntlLog("Parameter (func) of Slot:new method expected function, got "..type(func), 1)
-        return
-    end
-    object.btn = nil
-    return object
+    if Controller.typeCheck({func},{"function"},"Slot:new") then return end
+    local self = setmetatable({},Slot)
+	if not self then return end
+    self.func = func
+    return self
 end
-
-
 ---------------------------------
 --- Custom Configuration Here ---
 
@@ -375,6 +464,7 @@ XBOX.logLevel = 1
 -- You can use any Button or Analog object.  The Analog object defines its self.pressed
 -- attribute as true when the value is over 25, so if you use a trigger for your shift
 -- button, shift will be active as long as the trigger is at least 25% depressed.
+
 XBOX:assignShift(XBOX.LTR)
 
 -- Connect machine Z Axis to Right thumbstick Y axis
@@ -382,7 +472,7 @@ XBOX:assignShift(XBOX.LTR)
 -- Simply call the connect method and pass it a Mach4 axis to enable analog control of that 
 -- axis via the assigned thumbstick axis.  Here, the machine's Z axis is connected to the
 -- "up and down" axis of the right thumbstick
-XBOX.RTH_Y_Axis:connect(mc.Z_AXIS)
+XBOX.RTH_Y:connect(mc.Z_AXIS)
 
 -- Map simple jogging to the DPad
 -- pass true to reverse orientation of X and Y axes
