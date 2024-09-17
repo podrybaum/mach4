@@ -128,3 +128,5 @@ function machineIsIdle()
         return false
     end
 end
+
+return{mc,wx,mcLuaPanelParent}
