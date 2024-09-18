@@ -88,12 +88,12 @@ So to assign the Left trigger (for example) as the Controller's shift button:
 ```lua
 xc:assignShift(xc.LTR)
 ```
->**IMPORTANT:** Note the use of a colon rather than a period in this line.  In the previous example, we were accessing one of the Controller object's *attributes*.  Attribute access uses the period form, as in 'xc.logLevel'.  Here, we are calling one of the Controller object's **methods**.  Method access uses the colon form.  Using a period instead of a colon to access a method of an object in Lua can produce unexpected, undesireable or undefined behavior, due to some very technical details of how Lua internally handles object-oriented code.  We definitely don't want our machines doing anything unexpected, undesireable or undefined, so to avoid those issues, this library implements a check on all method calls that will simply return from the method call without doing anything and log an error message if you attempt to use the period form to call a method.  
+>**IMPORTANT:** Note the use of a colon rather than a period in this line.  In the previous example, we were accessing one of the Controller object's *attributes*.  Attribute access uses the period form, as in 'xc.logLevel'.  Here, we are calling one of the Controller object's **methods**.  Method access uses the colon form.  Using a period instead of a colon to access a method of an object in Lua can produce unexpected, undesireable or undefined behavior, due to some very technical (and somewhat stupid) details of how Lua internally handles object-oriented code.  We definitely don't want our machines doing anything unexpected, undesireable or undefined, so to avoid those issues, this library implements a check on all method calls that will simply return from the method call without doing anything and log an error message if you attempt to use the period form to call a method.  
 
 Now let's get the controller actually doing things with the machine.  We'll start with assigning analog control of our Z axis to the right thumbstick's Y axis.  (*The Y axis of a thumbstick is its up and down axis, and the X axis is its left to right axis.*)
 
 ```lua
-xc.LTH_Y:connect(mc.Z_AXIS)
+xc.RTH_Y:connect(mc.Z_AXIS)
 ```
 
 That's all it takes to enable analog control of an axis!  (*Analog control means that if we move the stick only a small amount, the axis will move slowly, and increase speed up to its maximum velocity as we continue to push the stick farther.*) Here, we've passed 'mc.Z_AXIS', which is an identifer provided by the Mach4 Core API representing the Z axis of the machine, as the parameter to the Left ThumbstickAxis object's 'connect' **method** (so remember to use a colon!).
@@ -146,9 +146,9 @@ And, that's it.  The Controller's B button now toggles the E-stop.  Most users w
 
 ## Advanced Usage
 
-This library represents an attempt to produce a simple interface for configuring and customizing the Xbox controller in Mach4.  To that end, a number of convenience methods (or Slots in this case) have been predefined, and it is the aim of this project that the corpus of predefined Slots will cover the needs of 90% of users.  But for the other 10% who have special requirements not covered by the API's predefined Slots, or for those users who really just like to tinker, the Signal > Slot mechanism leaves the door wide open for infinite customization.
+This library represents an attempt to produce a simple interface for configuring and customizing the Xbox controller in Mach4.  To that end, a number of convenience methods (or Slots in some cases) have been predefined, and it is the aim of this project that the corpus of predefined Slots will cover the needs of 90% of users.  But for the other 10% who have special requirements not covered by the API's predefined Slots, or for those users who really just like to tinker, the Signal > Slot mechanism leaves the door wide open for infinite customization.
 
-A Slot is simply a data structure that encapsulates some function, a particular set of parameters to pass to the function, and some syntax sugar that streamlines the process of establishing an event loop with callback functions.  There are no restrictions whatsoever on what manner of function is referenced by a given Slot object, but if the function call a user wants to assign to a Slot normally requires paramaters, do note that the parameter values will need to be assigned when the Slot function is defined, as there is currently no straightforward way to pass parameters to a Slot function when it is being called.  (No need for such a feature has yet presented itself.)
+A Slot is simply a data structure that encapsulates some function, a particular set of parameters to pass to the function, and some syntax sugar that streamlines the process of establishing an event loop with callback functions.  There are no restrictions whatsoever on what manner of function is referenced by a given Slot object, but if the function call a user wants to assign to a Slot normally requires parameters, do note that the parameter values will need to be assigned when the Slot function is defined, as there is currently no straightforward way to pass parameters to a Slot function when it is being called.  (No need for such a feature has yet presented itself.)
 
 Thus, anything that can be achieved with a function call in Lua can be assigned as a Slot function, conected to a Signal, and subsequently executed whenever that Signal is emitted.  Custom slots can be defined like this:
 ```lua
@@ -163,12 +163,15 @@ end
 
 mySlot = Slot:new(myFunction)
 ```
-This example is entirely equivalent to the proceeding example.  Do take care that when passing a reference to a function by name that you don't include parentheses behind the function name.  Doing so *calls* the function rather than providing a reference to it.  As a good example of a slot encapsulating more in-depth logic, refer to the definition of xc.xcCntlTorchToggle:
-```lua
-self.xcCntlTorchToggle = Slot.new(function()
-    self:toggleMachSignalState(mc.OSIG_OUTPUT3)
-    self:toggleMachSignalState(mc.OSIG_OUTPUT4)
-    end)
-```
+This example is entirely equivalent to the proceeding example.  Do take care that when passing a reference to a function by name that you don't include parentheses behind the function name.  Doing so *calls* the function rather than passing a reference to it.  
 
-While much of the logic is abstraced away behind the toggleMachSignalState method, hopefully it's readily apparent that the Slot function is manipulating not one but two output signals of the machine.  
+The vast majority of things you might want to map to controller inputs can be achieved by reading register values and/or toggling the state of various Mach4 signals.  To facilitate those two processes some handy helper methods have been defined in the API:
+
+|method|parameters|description|
+|:----------------|:----------|:------------
+|xc.xcGetRegValue|reg(string) - A string containing the register name to read from|As the name implies, this method retrieves a value from a register. Inlines the logic for acquiring register handles and error checking.|
+|xc.xcGetMachSignalState|signal(number) - Any of Mach4's enums representing input or output signals. ex: mc.ISIG_EMERGENCY|Much like xcGetRegValue, but for signals.  Note that unlike the Mach4 mc.mcGetSignalState, which returns 1 or 0, this method returns a boolean (true or false)|
+|xc.xcToggleMachSignalState|signal(number) - Any of Mach4's enums representing input or output signals. ex: mc.ISIG_EMERGENCY|This method will toggle the state of the signal, so if it's currently 1, it will be set to 0 and vice versa.|
+|
+
+With these methods, it's possible to control anything operated by Mach4 signals, and poll register values with ease.   

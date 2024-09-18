@@ -1,3 +1,6 @@
+if not mc then
+    require("mocks")
+end
 inst = mc.mcGetInstance()
 
 Controller = {}
@@ -478,6 +481,7 @@ local xc = Controller.new()
 xc.logLevel = 2
 xc:assignShift(xc.LTR)
 xc.RTH_Y:connect(mc.Z_AXIS)
+print(xc.UP)
 xc:mapSimpleJog(true)
 xc.B.down:connect(xc.xcCntlEStopToggle)
 xc.Y.down:connect(xc.xcCntlTorchToggle)
