@@ -446,8 +446,14 @@ function Controller.ThumbstickAxis:update()
         self.moving = true
         self.rateReset = false
         self.controller:xcErrorCheck(mc.mcJogSetRate(inst, self.axis, math.abs(self.value)))
-        self.controller:xcErrorCheck(mc.mcJogVelocityStart(inst, self.axis,
-            (self.inverted and self.value > 0) and mc.MC_JOG_POS or mc.MC_JOG_NEG))
+        local direction
+        if self.inverted then
+            direction = (self.value > 0) and mc.MC_JOG_NEG or mc.MC_JOG_POS
+        else
+            direction = (self.value > 0) and mc.MC_JOG_POS or mc.MC_JOG_NEG
+        end
+
+        self.controller:xcErrorCheck(mc.mcJogVelocityStart(inst, self.axis, direction))
     end
 
     if math.abs(self.value) < self.deadzone and self.moving then
