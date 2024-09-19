@@ -1,8 +1,3 @@
----@diagnostic disable: undefined-global
-if not mc then
-    require("mocks")
-end
-
 inst = mc.mcGetInstance()
 
 Controller = {}
