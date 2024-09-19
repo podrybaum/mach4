@@ -337,7 +337,7 @@ end
 
 function Controller.Button:getState()
     if not self then self.controller.selfError() return end
-    local state = self.controller:getRegValue(string.format("mcX360_LUA/%s", self.id))
+    local state = self.controller:xcGetRegValue(string.format("mcX360_LUA/%s", self.id))
     if type(state) ~= "number" then
         self.controller:xcCntlLog(string.format("Invalid state for %s", self.id), 1)
         return
@@ -374,7 +374,7 @@ end
 
 function Controller.Trigger:getState()
     if not self then Controller.selfError() return end
-    self.value = self.controller:getRegValue(string.format("mcX360_LUA/%s", self.id))
+    self.value = self.controller:xcGetRegValue(string.format("mcX360_LUA/%s", self.id))
     if type(self.value) ~= "number" then
         self.controller:xcCntlLog("Invalid state for " .. self.id, 1)
         return
@@ -497,7 +497,7 @@ end
 xc = Controller.new()
 ---------------------------------
 --- Custom Configuration Here ---
-
+xc.logLevel = 4
 xc:assignShift(xc.LTR)
 xc.RTH_Y:connect(mc.Z_AXIS)
 xc:mapSimpleJog(true)
@@ -505,8 +505,8 @@ xc.B.down:connect(xc.xcCntlEStopToggle)
 xc.Y.down:connect(xc.xcCntlTorchToggle)
 xc.RSB.down:connect(xc.xcCntlEnableToggle)
 xc.X.down:connect(xc.xcCntlCycleStart)
-xc.START.down:connect(xc.xcAxisHomeAll)
-xc.BACK.down:connect(xc.xcAxisHomeZ)
+xc.BACK.down:altConnect(xc.xcAxisHomeAll)
+xc.START.down:altConnect(xc.xcAxisHomeZ)
 
 -- End of custom configuration ---
 ----------------------------------
