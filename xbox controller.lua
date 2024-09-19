@@ -79,7 +79,7 @@ function Controller.new()
     self.axes = { self.LTH_X, self.LTH_Y, self.RTH_X, self.RTH_Y }
     self.shift_btn = nil
     self.jogIncrement = 0.1
-    self.logLevel = 1
+    self.logLevel = 2
     self.logLevels = { "ERROR", "WARNING", "INFO", "DEBUG" }
 
     self.xcCntlEStopToggle = self:newSlot(function()
@@ -99,9 +99,26 @@ function Controller.new()
         )
     end)
 
+    self.xcCntlAxisLimitOverride = self:newSlot(function()
+        self:xcToggleMachSignalState(mc.ISIG_LIMITOVER) end)
+
+    self.xcJogTypeToggle = self:newSlot(function()
+            self:xcToggleMachSignalState(mc.OSIG_JOG_INC)
+            self:xcToggleMachSignalState(mc.OSIG_JOG_CONT)
+        end)
+    
+    self.xcAxisHomeAll = self:newSlot(function() self:xcErrorCheck(mc.mcAxisHomeAll(inst)) end)
+    self.xcAxisHomeX = self:newSlot(function() self:xcErrorCheck(mc.mcAxisHome(inst, mc.X_AXIS)) end)
+    self.xcAxisHomeY = self:newSlot(function() self:xcErrorCheck(mc.mcAxisHome(inst, mc.Y_AXIS)) end)
+    self.xcAxisHomeZ = self:newSlot(function() self:xcErrorCheck(mc.mcAxisHome(inst, mc.Z_AXIS)) end)
+    
+    self.xcCntlGotoZero = self:newSlot(function() self:xcErrorCheck(mc.mcCntlGotoZero(inst)) end)
+    self.xcCntlReset = self:newSlot(function() self:xcErrorCheck(mc.mcCntlReset(inst)) end)
+
     self.xcCntlCycleStart = self:newSlot(function()
         if self:xcGetMachSignalState(mc.OSIG_RUNNING_GCODE) then
             self:xcErrorCheck(mc.mcCntlFeedHold(inst))
+            self:xcErrorCheck(mc.mcCntlCycleStop(inst))
         else
             self:xcErrorCheck(mc.mcCntlCycleStart(inst))
         end
@@ -482,18 +499,19 @@ function Controller.Slot.new(controller, func)
     return self
 end
 
-local xc = Controller.new()
+xc = Controller.new()
 ---------------------------------
 --- Custom Configuration Here ---
 
-xc.logLevel = 4
 xc:assignShift(xc.LTR)
 xc.RTH_Y:connect(mc.Z_AXIS)
 xc:mapSimpleJog(true)
 xc.B.down:connect(xc.xcCntlEStopToggle)
 xc.Y.down:connect(xc.xcCntlTorchToggle)
 xc.RSB.down:connect(xc.xcCntlEnableToggle)
-xc.X.down:connect(xc.xcCntlCycleToggle)
+xc.X.down:connect(xc.xcCntlCycleStart)
+xc.START.down:connect(xc.xcAxisHomeAll)
+xc.BACK.down:connect(xc.xcAxisHomeZ)
 
 -- End of custom configuration ---
 ----------------------------------
