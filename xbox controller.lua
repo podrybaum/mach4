@@ -1,6 +1,8 @@
+---@diagnostic disable: undefined-global
 if not mc then
     require("mocks")
 end
+
 inst = mc.mcGetInstance()
 
 Controller = {}
@@ -92,7 +94,7 @@ function Controller.new()
     self.xcCntlEnableToggle = self:newSlot(function()
         self:xcErrorCheck(
             mc.mcCntlEnable(
-                inst, not self.xcGetMachSignalState(mc.OSIG_MACHINE_ENABLED)
+                inst, not self:xcGetMachSignalState(mc.OSIG_MACHINE_ENABLED)
             )
         )
     end)
@@ -145,7 +147,7 @@ end
 function Controller:xcToggleMachSignalState(signal)
     if not self then Controller.selfError() return end
     if self.typeCheck({ signal }, { "number" }) then return end
-    self:xcErrorCheck(mc.mcSignalSetState(signal, self.xcGetMachSignalState(signal) and 0 or 1))
+    self:xcErrorCheck(mc.mcSignalSetState(signal, not self:xcGetMachSignalState(signal)))
 end
 
 function Controller:xcCntlLog(msg, level)
@@ -365,7 +367,7 @@ function Controller.Trigger:getState()
         self.controller:xcCntlLog("Invalid state for " .. self.id, 1)
         return
     end
-    --Semi-important to return here, we want to lock out Button type functionality
+    --important to return here, we want to lock out Button type functionality
     --if a Trigger has been assigned as an analog control.
     if self.func ~= nil then
         self.func(self.value)
@@ -484,7 +486,7 @@ local xc = Controller.new()
 ---------------------------------
 --- Custom Configuration Here ---
 
-xc.logLevel = 2
+xc.logLevel = 4
 xc:assignShift(xc.LTR)
 xc.RTH_Y:connect(mc.Z_AXIS)
 xc:mapSimpleJog(true)
@@ -495,6 +497,7 @@ xc.X.down:connect(xc.xcCntlCycleToggle)
 
 -- End of custom configuration ---
 ----------------------------------
+
 xc:xcCntlLog("Creating X360_timer", 4)
 X360_timer = wx.wxTimer(mcLuaPanelParent)
 mcLuaPanelParent:Connect(wx.wxEVT_TIMER, function() xc:update() end)
