@@ -149,7 +149,7 @@ To connect a `Signal` from a `Button` to a `Slot`:
 xc.B.down:connect(xc.xcCntlEStopToggle)
 ```
 
-And, that's it.  The `Controller`'s B button now toggles the E-stop.  Most users will find everything they might want to map in the controller is already defined in the API, so the custom controller configuration will boil down to just a few lines of statements connecting S`ignal`s to pre-defined `Slot`s.
+And, that's it.  The `Controller`'s B button now toggles the E-stop.  Most users will find everything they might want to map in the controller is already defined in the API, so the custom controller configuration will boil down to just a few lines of statements connecting `Signal`s to pre-defined `Slot`s.
 
 ## Advanced Usage
 
@@ -179,7 +179,6 @@ The vast majority of things you might want to map to controller inputs can be ac
 |`xc:xcGetRegValue`|reg(string) - A string containing the register name to read from|As the name implies, this method retrieves a value from a register. Inlines the logic for acquiring register handles and error checking.|
 |`xc:xcGetMachSignalState`|signal(number) - Any of Mach4's enums representing input or output signals. ex: `mc.ISIG_EMERGENCY`|Much like `xcGetRegValue`, but for signals.  Note that unlike the Mach4 `mc.mcGetSignalState`, which returns 1 or 0, this method returns a boolean (`true` or `false`)|
 |`xc:xcToggleMachSignalState`|signal(number) - Any of Mach4's enums representing input or output signals. ex: `mc.ISIG_EMERGENCY`|This method will toggle the state of the signal, so if it's currently 1, it will be set to 0 and vice versa.|
-|
 
 With these methods, it's possible to control anything operated by Mach4 signals, and poll register values with ease.
 
@@ -203,7 +202,15 @@ xc.X.down.connect(require("myscript"))
 |xc.xcCntlEstopToggle|Slot|Pre-defined Slot: toggles the E-Stop state||
 |xc.xcCntlTorchToggle|Slot|Pre-defined Slot: toggles the torch off or on. *Note that this pre-defined Slot assumes that the torch on/off signal and the THC on/off signal are on OSIG_OUTPUT3 and OSIG_OUTPUT4, respectively.  If your machine is different, you can define your own slot and call xc.xcToggleMachSignal with the appropriate signal numbers for your setup*||
 |xc.xcCntlEnableToggle|Slot|Pre-defined Slot: toggles the machine enable state.||
-|xc.xcCntlCycleStart|Slot|Pre-defined Slot: executes a Cycle Start if G-code is not currently running, or a Feed Hold if G-code is currently running.||
+|xc.xcCntlAxisLimitOverride|Slot|Pre-defined Slot: toggles the state of Axis Limit Override.||
+|xc.xcJogTypeToggle|Slot|Pre-defined Slot: toggles between incremental and continuous jogging.||
+|xc.xcAxisHomeAll|Slot|Pre-defined Slot: Starts all axes homing.||
+|xc.xcAxisHomeX|Slot|Pre-defined Slot: Starts X axis homing.||
+|xc.xcAxisHomeY|Slot|Pre-defined Slot: Starts Y axis homing.||
+|xc.xcAxisHomeZ|Slot|Pre-defined Slot: Starts Z axis homing.||
+|xc.xcCntlGotoZero|Slot|Pre-defined Slot: Move the X,Y,A,B,C and then the Z axis to zero of the current fixture offset.||
+|xc.xcCntlReset|Slot|Pre-defined Slot: Resets the machine to an idle state and rewinds a currently loaded G-code file to the first line.||
+|xc.xcCntlCycleStart|Slot|Pre-defined Slot: executes a Cycle Start if G-code is not currently running, or a Feed Hold followed by a Cycle Stop if G-code is currently running.||
 |xc:xcGetRegValue|function|Returns a value from a register.|reg(string) - a string containing the name of the register to fetch the value of.|
 |xc:xcGetMachSignalState|function|Returns a boolean representing the state of a Mach4 signal.|signal(number) - One of Mach4's enums representing a signal to fetch the state of.|
 |xc:xcToggleMachSignalState|function|Toggles the state of a Mach4 signal.|signal(number) - One of Mach4's enums representing a signal to toggle.|
