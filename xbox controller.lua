@@ -1,204 +1,5 @@
 inst = mc.mcGetInstance()
 
-function RefAllHome()
-	--local valEnable = mc.mcProfileGetInt(inst, "AvidCNC_Profile", "iConfigEnableSoftLimitsAfterHomed", 1)
-
-	local homingAxes, rc = acHoming:GetAxesActiveForHoming()
-	if (rc ~= mc.MERROR_NOERROR) then 
-		mc.mcAxisDerefAll()
-	end
-
-	mc.mcAxisHomeAll(inst)
-    coroutine.yield()
-  
-	--forcing ESS Z sync on homing to clear any THC distance offset
-	local hreg, rc = mc.mcRegGetHandle(inst, "ESS/HC/Z_DRO_Force_Sync_With_Aux")
-	if (rc ~= mc.MERROR_NOERROR) then
-		mc.mcCntlLog(inst, "Failure to acquire register handle for ESS/HC/Z_DRO_Force_Sync_With_Aux", "", -1)
-	else
-		mc.mcRegSetValueLong(hreg, 1)
-		mc.mcCntlLog(inst, "Home All button forcing an ESS Z sync", "", -1)
-	end
-
-  -- Check if homing was successful for axes we tried to home
-	local isHomed, rc = acHoming:GetAllAxesHomed(homingAxes)
-	if not isHomed then return end
-  
-  
-    pf.EnableSoftLimits()
-	wx.wxMessageBox("Homing of machine is complete. Soft limits will now be enabled.")
-
-end
-
-function Reset()
-	local cuttingTool = mc.mcProfileGetString(inst, "AvidCNC_Profile", "sCuttingTool", "not found")
-	local hEssHcZ_DRO_Force_Sync_With_Aux = mc.mcRegGetHandle(inst, "ESS/HC/Z_DRO_Force_Sync_With_Aux")
-
-	mc.mcCntlReset(inst)
-	mc.mcSpindleSetDirection(inst, 0)
-	mc.mcCntlSetLastError(inst, '')
-
-	-- Sync Z-axis DRO with Z-axis AUX DRO
-	if (hEssHcZ_DRO_Force_Sync_With_Aux == 0) then
-		-- Failure to acquire a handle!
-		mc.mcCntlLog(inst, 'TMC3in1 ESS/HC/Z_DRO_Force_Sync_With_Aux Handle Failure', "", -1) -- This will send a message to the log window
-	else
-		mc.mcRegSetValueLong(hEssHcZ_DRO_Force_Sync_With_Aux, 1)
-		mc.mcCntlLog(inst, 'Reset forcing an ESS Z sync', "", -1) -- This will send a message to the log window
-	end
-
-	-- reset manual tool change
-	StopManualToolChange(false)
-
-	-- Reset soft limit enabled states
-	if (cuttingTool == "Plasma") then ResetSoftLimitEnabledStates() end;
-
-	-- Kill spindle warm-up coroutine
-	warmUpRunning = false
-end
-
-function GoToWorkZero()
-	local inst = mc.mcGetInstance("GoToWorkZero()")
-	local val = mc.mcCntlGetPoundVar(inst, mc.SV_MOD_GROUP_3)
-	local msg = "G0 G90 X0 Y0\nG" .. val
-	mc.mcCntlMdiExecute(inst, msg)
-
-	--mc.mcCntlMdiExecute(inst, "G00 X0 Y0")--Without A and Z moves
-	--mc.mcCntlMdiExecute(inst, "G00 X0 Y0 A0")--Without Z moves
-    --mc.mcCntlMdiExecute(inst, "G00 G53 Z0\nG00 X0 Y0 A0\nG00 Z0")--With Z moves
-end
-
-
-function CycleStart()
-	local tab, rc = scr.GetProperty("nbGCodeMDI1", "Current Tab")
-
-  -- Process a tool change if one is in progress.
-  ProcessToolChange("CycleStart()", true, true, false)
-
-  -- Perform the cycle start.
-	if (tonumber(tab) == 1) then
-		-- MDI tab active
-		local state = mc.mcCntlGetState(inst)
-		if (state == mc.MC_STATE_MRUN_MACROH) then 
-			mc.mcCntlCycleStart(inst)
-			mc.mcCntlSetLastError(inst, "Do Cycle Start")
-		else 
-			scr.ExecMdi('mdi1')
-			mc.mcCntlSetLastError(inst, "Do MDI 1")
-		end
-	else
-		-- G-Code tab active
-		local isHomed, rc = acHoming:GetAllAxesHomed()
-		if (rc ~= mc.MERROR_NOERROR) then
-			mc.mcCntlLog(inst, "Failed to determine if machine is homed, rc = "..rc, "", -1)
-		end
-
-		if acv.enforcingHomed and not isHomed then
-			wx.wxMessageBox("Your machine must be homed before starting a G-Code program.", "Cycle Start")
-		else
-			--Do CycleStart
-			mc.mcCntlSetLastError(inst, "Do Cycle Start")
-			mc.mcCntlCycleStart(inst)
-		end
-	end
-end
-
-function CycleStartClicked()
-
-  local inst = mc.mcGetInstance("Cycle Start Btn");
-  local cuttingTool = mc.mcProfileGetString(inst, "AvidCNC_Profile", "sCuttingTool", "not found");
-  local msg = "Cycle Start Btn:";
-
-  -- Cycle Start button needs to be enabled in FRUN state in order to get our of Raster Feed Hold
-  -- bail out if FRUN and not rastering
-  local mcState = mc.mcCntlGetState(inst)
-  local rasterPaused = IsLaserRasterPaused()
-  if (mcState == mc.MC_STATE_FRUN) and (not rasterPaused) then
-    msg = "Cycle Start clicked while machine state is File Running. Cycle Start ignored."
-    mc.mcCntlLog(inst, msg, "", -1)
-    mc.mcCntlSetLastError(inst, msg)
-    return
-  end
-
-  -- Pre-cycle start checks for spindle cutting tool
-  if (cuttingTool == "Spindle") then
-    local hsig_Ptc, rc = mc.mcSignalGetHandle(inst, mc.ISIG_INPUT10);
-    
-    if (rc ~= mc.MERROR_NOERROR) then
-      msg = string.format("%s Failure to acquire signal handle, rc=%s", msg, rc);
-      mc.mcCntlLog(inst, msg, "", -1);
-    else
-      local statePtc = mc.mcSignalGetState(hsig_Ptc);
-      
-      if (statePtc == 1) then
-        wx.wxMessageBox("VFD fault signal active!\nCorrect before running G-Code or MDI", "Cycle Start");
-        
-        return;
-      end
-    end
-
-  -- Pre-cycle start checks for plasma cutting tool
-  elseif (cuttingTool == "Plasma") then
-    -- Check for active communications with TMC3in1 by checking
-    -- TMC3in1 STATUS and STATE_VALUE
-    local hreg_GREEN, rc = mc.mcRegGetHandle(inst, "W9_HC/REPORT_STATUS_GREEN");
-    local hreg_RED, rc = mc.mcRegGetHandle(inst, "W9_HC/REPORT_STATUS_RED");
-    local hreg_STATE, rc = mc.mcRegGetHandle(inst, "W9_HC/STATE_VALUE");
-    
-    if (hreg_GREEN == 0) or (hreg_RED == 0) or (hreg_STATE == 0) then
-      msg = string.format("%s Failure to acquire register handle for TMC3in1 status", msg);
-      mc.mcCntlLog(inst, msg, "", -1);
-    else
-      local green = mc.mcRegGetValueLong(hreg_GREEN);
-      local red = mc.mcRegGetValueLong(hreg_RED);
-      local state = mc.mcRegGetValueLong(hreg_STATE);
-      
-      if (green ~= 1 or state ~= 6) then
-        -- TMC3in1 does not have active communications, don't allow cycle start
-        local msg = "TMC3in1 did not have active communications\nwhile trying to Cycle Start G-Code"
-        
-        if (red == 1) then
-          msg = "TMC3in1 is updating firmware!!\nPlease wait for this process to finish before starting G-Code."
-        end
-
-        wx.wxMessageBox(msg);
-        
-        return;
-      end
-    end
-    
-    -- Check if we need to disable soft limits to allow probing during G-Code
-    local hreg_reset, rc = mc.mcRegGetHandle(inst, "iRegs0/AvidCNC/Config/Soft_Limits/Reset_Enabled_States");
-    
-    if (rc ~= mc.MERROR_NOERROR) then
-      msg = string.format("%s Failure to acquire register handle, rc=%s", msg, rc);
-      mc.mcCntlLog(inst, msg, "", -1);
-    else
-      local reset = mc.mcRegGetValue(hreg_reset);
-      
-      if (reset ~= 1) then
-        pf.DisableSoftLimit(2);
-      end
-    end
-
-  -- OR, the cutting tool is laser and it is rastering ..
-  elseif (IsLaserRastering()) then
-    local log = msg.."laser is rastering, ";
-    if IsLaserRasterPaused() then
-      log = log.."laser is paused, resuming ..";
-      mc.mcCntlLog(inst, log, "", -1);
-      RasterResume()
-    else
-      log = log.."laser is not paused.";
-      mc.mcCntlLog(inst, log, "", -1);
-    end
-    return
-  end
-
-  CycleStart();
-end
-
-
 Controller = {}
 Controller.__index = Controller
 Controller.__type = "Controller"
@@ -280,30 +81,17 @@ function Controller.new()
         self:xcToggleMachSignalState(mc.ISIG_EMERGENCY)
     end)
 
-	self.xcCntlTorchToggle = self:newSlot(function()
-       -- self:xcToggleMachSignalState(mc.OSIG_OUTPUT3)
-        --self:xcToggleMachSignalState(mc.OSIG_OUTPUT4)
-		local hreg = mc.mcRegGetHandle(inst, "ESS/HC/Command") 
-		local CurrentStr = "(ESS_TORCH_TOGGLE=1)"
-		mc.mcRegSetValueString(hreg, CurrentStr)		
-		self:xcCntlLog(inst, 'Toggled Torch On/Off', 3)
-	end)
+    self.xcCntlTorchToggle = self:newSlot(function()
+        self:xcToggleMachSignalState(mc.OSIG_OUTPUT3)
+        self:xcToggleMachSignalState(mc.OSIG_OUTPUT4)
+    end)
 
     self.xcCntlEnableToggle = self:newSlot(function()
-        --self:xcErrorCheck(
-        --    mc.mcCntlEnable(
-                --inst, not self:xcGetMachSignalState(mc.OSIG_MACHINE_ENABLED)
-				--))
-		local state = mc.mcCntlGetState(inst)
-		local enableState = self:xcGetMachSignalState(mc.OSIG_MACHINE_ENABLED)
-		if not enableState then
-			if (state ~= mc.MC_STATE_IDLE) then
-				scr.StartTimer(2, 250, 1);
-			end
-			self:xcErrorCheck(scr.DoFunctionName("Enable Off"))
-		else
-			self:xcErrorCheck(scr.DoFunctionName("Enable On"))
-		end
+        self:xcErrorCheck(
+            mc.mcCntlEnable(
+                inst, not self:xcGetMachSignalState(mc.OSIG_MACHINE_ENABLED)
+            )
+        )
     end)
 
     self.xcCntlAxisLimitOverride = self:newSlot(function()
@@ -314,26 +102,20 @@ function Controller.new()
             self:xcToggleMachSignalState(mc.OSIG_JOG_CONT)
         end)
     
-    self.xcAxisHomeAll = self:newSlot(function() --self:xcErrorCheck(mc.mcAxisHomeAll(inst)) 
-			wait = coroutine.create(RefAllHome)
-		end)
+    self.xcAxisHomeAll = self:newSlot(function() self:xcErrorCheck(mc.mcAxisHomeAll(inst)) end)
     self.xcAxisHomeX = self:newSlot(function() self:xcErrorCheck(mc.mcAxisHome(inst, mc.X_AXIS)) end)
     self.xcAxisHomeY = self:newSlot(function() self:xcErrorCheck(mc.mcAxisHome(inst, mc.Y_AXIS)) end)
     self.xcAxisHomeZ = self:newSlot(function() self:xcErrorCheck(mc.mcAxisHome(inst, mc.Z_AXIS)) end)
     
-    self.xcCntlGotoZero = self:newSlot(function() --self:xcErrorCheck(mc.mcCntlGotoZero(inst)) 
-			GoToWorkZero()
-		end)
-    self.xcCntlReset = self:newSlot(function() --self:xcErrorCheck(mc.mcCntlReset(inst)) 
-			Reset()
-		end)
+    self.xcCntlGotoZero = self:newSlot(function() self:xcErrorCheck(mc.mcCntlGotoZero(inst)) end)
+    self.xcCntlReset = self:newSlot(function() self:xcErrorCheck(mc.mcCntlReset(inst)) end)
 
     self.xcCntlCycleStart = self:newSlot(function()
         if self:xcGetMachSignalState(mc.OSIG_RUNNING_GCODE) then
             self:xcErrorCheck(mc.mcCntlFeedHold(inst))
             self:xcErrorCheck(mc.mcCntlCycleStop(inst))
         else
-            CycleStartClicked()
+            self:xcErrorCheck(mc.mcCntlCycleStart(inst))
         end
     end)
 
@@ -377,7 +159,8 @@ end
 function Controller:xcToggleMachSignalState(signal)
     if not self then Controller.selfError() return end
     if self.typeCheck({ signal }, { "number" }) then return end
-    self:xcErrorCheck(mc.mcSignalSetState(mc.mcSignalGetHandle(inst, signal), not state))
+	hsig = mc.mcSignalGetHandle(inst, signal)
+    self:xcErrorCheck(mc.mcSignalSetState(hsig, not state))
 end
 
 function Controller:xcCntlLog(msg, level)
@@ -728,6 +511,88 @@ xc.START.down:altConnect(xc.xcAxisHomeZ)
 
 -- End of custom configuration ---
 ----------------------------------
+
+if mc.mcInEditor() == 1 then
+	wx = require("wx")
+	mcLuaPanelParent = wx.wxPanel()
+end
+
+-- Create the main sizer (horizontal layout with input list on the left and properties on the right)
+local mainSizer = wx.wxBoxSizer(wx.wxHORIZONTAL)
+
+-- Create the input list (left side)
+local inputList = wx.wxListCtrl(mcLuaPanelParent, wx.wxID_ANY, wx.wxDefaultPosition, wx.wxSize(200, -1), wx.wxLC_REPORT + wx.wxLC_SINGLE_SEL)
+inputList:InsertColumn(0, "Inputs")
+inputList:InsertColumn(1, "Description")
+
+-- Add items to the list (example inputs)
+for i, input in ipairs(xc.inputs) do
+	inputList:InsertItem(i, input.id)
+end
+for i, axis in ipairs(xc.axes) do
+	inputList:InsertItem(i + #xc.inputs, axis.id)
+end
+
+mainSizer:Add(inputList, 0, wx.wxEXPAND + wx.wxALL, 5)
+
+-- Event handler for when an input is selected
+inputList:Connect(wx.wxEVT_COMMAND_LIST_ITEM_SELECTED, function(event)
+    local selectedInput = inputList:GetItemText(event:GetIndex())
+    -- Refresh the properties panel based on selected input
+    refreshPropertiesPanel(selectedInput)
+end)
+
+-- Create the properties panel (right side)
+local propertiesPanel = wx.wxPanel(mcLuaPanelParent, wx.wxID_ANY)
+local propertiesSizer = wx.wxFlexGridSizer(2, 5, 5)  -- 2 columns: label and control
+
+propertiesPanel:SetSizer(propertiesSizer)
+mainSizer:Add(propertiesPanel, 1, wx.wxEXPAND + wx.wxALL, 5)
+choiceOptions = {"","Shift","FunctionName"}
+
+-- Function to refresh the properties panel when a new input is selected
+function refreshPropertiesPanel(input)
+    -- Clear the existing controls in the properties panel
+    propertiesSizer:Clear(true)
+
+    -- Example logic for refreshing the panel based on selected input
+    if input.__type == "Button" or input.__type == "Trigger" then
+        -- Add "Up Action" label and dropdown
+        local lblUp = wx.wxStaticText(propertiesPanel, wx.wxID_ANY, "Up Action:")
+        local choiceUp = wx.wxChoice(propertiesPanel, wx.wxID_ANY, wx.wxDefaultPosition, wx.wxDefaultSize, choiceOptions)
+        
+        -- Add "Down Action" label and dropdown
+        local lblDown = wx.wxStaticText(propertiesPanel, wx.wxID_ANY, "Down Action:")
+        local choiceDown = wx.wxChoice(propertiesPanel, wx.wxID_ANY, wx.wxDefaultPosition, wx.wxDefaultSize, choiceOptions)
+		
+		propertiesSizer:Add(lblUp, 0, wx.wxALIGN_RIGHT + wx.wxALIGN_CENTER_VERTICAL + wx.wxALL, 5)
+        propertiesSizer:Add(choiceUp, 1, wx.wxEXPAND + wx.wxALL, 5)
+        
+        propertiesSizer:Add(lblDown, 0, wx.wxALIGN_RIGHT + wx.wxALIGN_CENTER_VERTICAL + wx.wxALL, 5)
+        propertiesSizer:Add(choiceDown, 1, wx.wxEXPAND + wx.wxALL, 5)
+	end
+	
+	if input.__type == "Trigger" or input.__type == "ThumbstickAxis" then
+        -- Add "Analog Action" label and dropdown
+        local lblAnalog = wx.wxStaticText(propertiesPanel, wx.wxID_ANY, "Analog Action:")
+        local choiceAnalog = wx.wxChoice(propertiesPanel, wx.wxID_ANY, wx.wxDefaultPosition, wx.wxDefaultSize, choiceOptions)
+		
+		propertiesSizer:Add(lblAnalog, 0, wx.wxALIGN_RIGHT + wx.wxALIGN_CENTER_VERTICAL + wx.wxALL, 5)
+        propertiesSizer:Add(choiceAnalog, 1, wx.wxEXPAND + wx.wxALL, 5)
+        
+	end
+        -- Add controls to the sizer
+    
+    -- Refresh the layout to apply changes
+    propertiesSizer:Layout()
+    propertiesPanel:Layout()
+	propertiesPanel:Refresh()
+	mcLuaPanelParent:Refresh()
+end
+
+mcLuaPanelParent:SetSizer(mainSizer)
+mainSizer:Add(propertiesPanel, 1, wx.wxEXPAND + wx.wxALL, 5)
+mainSizer:Layout()
 
 xc:xcCntlLog("Creating X360_timer", 4)
 X360_timer = wx.wxTimer(mcLuaPanelParent)
