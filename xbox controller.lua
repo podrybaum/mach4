@@ -19,6 +19,7 @@ function Controller.customType(object)
 end
 
 function Controller.selfError()
+	-- TODO: Test this, I haven't seen it triggered yet, I don't even know if it works
     local funcName = debug.getinfo(2, "n").name or "Unknown function"
     local line = debug.getinfo(2, "l").currentline or "unknown line"
     mc.mcCntlLog(inst, string.format("Method %s called with . instead of : at line %d.", funcName, line), "", -1)
@@ -50,7 +51,6 @@ end
 
 function Controller.new()
     local self = setmetatable({}, Controller)
-    self.__type = "Controller"
     setmetatable(self, Controller)
     self.UP = self:newButton("DPad_UP")
     self.DOWN = self:newButton("DPad_DOWN")
@@ -224,7 +224,9 @@ function Controller:update()
         self.shift_btn:getState()
     end
     for _, input in pairs(self.inputs) do
-        input:getState()
+		if input ~= self.shift_btn then
+			input:getState()
+		end
     end
     for _, axis in pairs(self.axes) do
         axis:update()
@@ -239,15 +241,18 @@ function Controller:assignShift(input)
     if self.typeCheck({ input }, { { "Button", "Trigger" } }) then return end
     self.shift_btn = input
     self:xcCntlLog("" .. input.id .. " assigned as controller shift button.", 3)
-    for i, input in ipairs(self.inputs) do
+	-- The section below has been deprecated by the new GUI config manager
+	-- It should be removed in a future version
+    --[[for i, input in ipairs(self.inputs) do
         if input == self.shift_btn then
             table.remove(self.inputs, i)
             return
         end
-    end
+    ]]--end
 end
 
 function Controller:mapSimpleJog(reversed)
+	-- TODO: Connect this to the GUI configurator, implement it as a default, or deprecate it.
     if not self then
         Controller.selfError()
         return
