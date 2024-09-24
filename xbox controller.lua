@@ -1,3 +1,7 @@
+if not mc then
+    require("mocks")
+end
+
 inst = mc.mcGetInstance()
 
 Controller = {}
@@ -20,7 +24,7 @@ function Controller.selfError()
 end
 
 function Controller.typeCheck(objects, types)
-    local funcName = debug.getinfo(2,"n").name or "Unknown function"
+    local funcName = debug.getinfo(2, "n").name or "Unknown function"
     for i, object in ipairs(objects) do
         local expectedTypes = types[i]
         local actualType = Controller.customType(object)
@@ -95,18 +99,19 @@ function Controller.new()
     end)
 
     self.xcCntlAxisLimitOverride = self:newSlot(function()
-        self:xcToggleMachSignalState(mc.ISIG_LIMITOVER) end)
+        self:xcToggleMachSignalState(mc.ISIG_LIMITOVER)
+    end)
 
     self.xcJogTypeToggle = self:newSlot(function()
-            self:xcToggleMachSignalState(mc.OSIG_JOG_INC)
-            self:xcToggleMachSignalState(mc.OSIG_JOG_CONT)
-        end)
-    
+        self:xcToggleMachSignalState(mc.OSIG_JOG_INC)
+        self:xcToggleMachSignalState(mc.OSIG_JOG_CONT)
+    end)
+
     self.xcAxisHomeAll = self:newSlot(function() self:xcErrorCheck(mc.mcAxisHomeAll(inst)) end)
     self.xcAxisHomeX = self:newSlot(function() self:xcErrorCheck(mc.mcAxisHome(inst, mc.X_AXIS)) end)
     self.xcAxisHomeY = self:newSlot(function() self:xcErrorCheck(mc.mcAxisHome(inst, mc.Y_AXIS)) end)
     self.xcAxisHomeZ = self:newSlot(function() self:xcErrorCheck(mc.mcAxisHome(inst, mc.Z_AXIS)) end)
-    
+
     self.xcCntlGotoZero = self:newSlot(function() self:xcErrorCheck(mc.mcCntlGotoZero(inst)) end)
     self.xcCntlReset = self:newSlot(function() self:xcErrorCheck(mc.mcCntlReset(inst)) end)
 
@@ -123,7 +128,10 @@ function Controller.new()
 end
 
 function Controller:xcGetRegValue(reg)
-    if not self then Controller.selfError() return end
+    if not self then
+        Controller.selfError()
+        return
+    end
     if self.typeCheck({ reg }, { "string" }) then return end
     local hreg, rc = mc.mcRegGetHandle(inst, reg)
     if rc == mc.MERROR_NOERROR then
@@ -141,7 +149,10 @@ function Controller:xcGetRegValue(reg)
 end
 
 function Controller:xcGetMachSignalState(signal)
-    if not self then Controller.selfError() return end
+    if not self then
+        Controller.selfError()
+        return
+    end
     if self.typeCheck({ signal }, { "number" }) then return end
     local hsig, rc = mc.mcSignalGetHandle(inst, signal)
     if rc == mc.MERROR_NOERROR then
@@ -157,14 +168,20 @@ function Controller:xcGetMachSignalState(signal)
 end
 
 function Controller:xcToggleMachSignalState(signal)
-    if not self then Controller.selfError() return end
+    if not self then
+        Controller.selfError()
+        return
+    end
     if self.typeCheck({ signal }, { "number" }) then return end
-	hsig = mc.mcSignalGetHandle(inst, signal)
-    self:xcErrorCheck(mc.mcSignalSetState(hsig, not state))
+    local hsig = mc.mcSignalGetHandle(inst, signal)
+    self:xcErrorCheck(mc.mcSignalSetState(hsig, not mc.mcSignalGetState(inst, hsig)))
 end
 
 function Controller:xcCntlLog(msg, level)
-    if not self then Controller.selfError() return end
+    if not self then
+        Controller.selfError()
+        return
+    end
     if Controller.typeCheck({ msg, level }, { "string", "number" }) then return end
     if self.logLevel == 0 then return end
     if level <= self.logLevel then
@@ -177,7 +194,10 @@ function Controller:xcCntlLog(msg, level)
 end
 
 function Controller:xcErrorCheck(rc)
-    if not self then Controller.selfError() return end
+    if not self then
+        Controller.selfError()
+        return
+    end
     if self.typeCheck({ rc }, { "number" }) then return end
     if rc ~= mc.MERROR_NOERROR then
         self:xcCntlLog(mc.mcCntlGetErrorString(inst, rc), 1)
@@ -185,14 +205,20 @@ function Controller:xcErrorCheck(rc)
 end
 
 function Controller:xcJogSetInc(val)
-    if not self then Controller.selfError() return end
+    if not self then
+        Controller.selfError()
+        return
+    end
     if self.typeCheck({ val }, { "number" }) then return end
     self.jogIncrement = val
     self:xcCntlLog("Set jogIncrement to " .. tostring(self.jogIncrement), 4)
 end
 
 function Controller:update()
-    if not self then Controller.selfError() return end
+    if not self then
+        Controller.selfError()
+        return
+    end
     if self.shift_btn ~= nil then
         self.shift_btn:getState()
     end
@@ -205,7 +231,10 @@ function Controller:update()
 end
 
 function Controller:assignShift(input)
-    if not self then Controller.selfError() return end
+    if not self then
+        Controller.selfError()
+        return
+    end
     if self.typeCheck({ input }, { { "Button", "Trigger" } }) then return end
     self.shift_btn = input
     self:xcCntlLog("" .. input.id .. " assigned as controller shift button.", 3)
@@ -218,9 +247,12 @@ function Controller:assignShift(input)
 end
 
 function Controller:mapSimpleJog(reversed)
-    if not self then Controller.selfError() return end
+    if not self then
+        Controller.selfError()
+        return
+    end
     if self.typeCheck({ reversed }, { { "boolean", "nil" } }) then return end
-    self:xcCntlLog(string.format("Value of reversed flag for axis orientation: %s",tostring(reversed)), 4)
+    self:xcCntlLog(string.format("Value of reversed flag for axis orientation: %s", tostring(reversed)), 4)
     -- DPad regular jog
     self.UP.down:connect(self:newSlot(function()
         mc.mcJogVelocityStart(inst, (reversed and mc.Y_AXIS) or mc.X_AXIS, mc.MC_JOG_POS)
@@ -272,8 +304,11 @@ function Controller:mapSimpleJog(reversed)
 end
 
 function Controller:newSignal(button, id)
-    if not self then Controller.selfError() return end
-    if Controller.typeCheck({ button, id }, {{"Button","Trigger"}, "string" }) then return end
+    if not self then
+        Controller.selfError()
+        return
+    end
+    if Controller.typeCheck({ button, id }, { { "Button", "Trigger" }, "string" }) then return end
     return self.Signal.new(self, button, id)
 end
 
@@ -292,21 +327,30 @@ function Controller.Signal.new(controller, button, id)
 end
 
 function Controller.Signal:connect(slot)
-    if not self then Controller.selfError() return end
+    if not self then
+        Controller.selfError()
+        return
+    end
     if self.controller:typeCheck({ slot }, { "Slot" }) then return end
     self.slot = slot
     self.controller:xcCntlLog(self.button.id .. self.id .. " connected to Slot " .. tostring(self.slot), 4)
 end
 
 function Controller.Signal:altConnect(slot)
-    if not self then Controller.selfError() return end
+    if not self then
+        Controller.selfError()
+        return
+    end
     if self.controller:typeCheck({ slot }, { "Slot" }) then return end
     self.altSlot = slot
     self.controller:xcCntlLog(self.button.id .. self.id .. " connected to Alt Slot " .. tostring(self.altSlot), 4)
 end
 
 function Controller.Signal:emit()
-    if not self then Controller.selfError() return end
+    if not self then
+        Controller.selfError()
+        return
+    end
     self.controller:xcCntlLog("Signal " .. self.button.id .. self.id .. " emitted.", 3)
     if (self.controller.shift_btn == nil or not self.controller.shift_btn.pressed) and (self.slot ~= nil) then
         self.slot.func()
@@ -316,9 +360,12 @@ function Controller.Signal:emit()
 end
 
 function Controller:newButton(id)
-    if not self then Controller.selfError() return end
-    if self.typeCheck({id},{"string"}) then return end
-    return self.Button.new(self,id)
+    if not self then
+        Controller.selfError()
+        return
+    end
+    if self.typeCheck({ id }, { "string" }) then return end
+    return self.Button.new(self, id)
 end
 
 Controller.Button = {}
@@ -337,7 +384,10 @@ function Controller.Button.new(controller, id)
 end
 
 function Controller.Button:getState()
-    if not self then self.controller.selfError() return end
+    if not self then
+        self.controller.selfError()
+        return
+    end
     local state = self.controller:xcGetRegValue(string.format("mcX360_LUA/%s", self.id))
     if type(state) ~= "number" then
         self.controller:xcCntlLog(string.format("Invalid state for %s", self.id), 1)
@@ -374,7 +424,10 @@ function Controller.Trigger.new(controller, id)
 end
 
 function Controller.Trigger:getState()
-    if not self then Controller.selfError() return end
+    if not self then
+        Controller.selfError()
+        return
+    end
     self.value = self.controller:xcGetRegValue(string.format("mcX360_LUA/%s", self.id))
     if type(self.value) ~= "number" then
         self.controller:xcCntlLog("Invalid state for " .. self.id, 1)
@@ -396,13 +449,16 @@ function Controller.Trigger:getState()
 end
 
 function Controller.Trigger:connect(func)
-    if not self then Controller.selfError() return end
+    if not self then
+        Controller.selfError()
+        return
+    end
     if self.controller.typeCheck({ func }, { "function" }) then return end
     self.func = func
 end
 
 function Controller:newThumbstickAxix(id)
-    return self.ThumbstickAxis.new(self,id)
+    return self.ThumbstickAxis.new(self, id)
 end
 
 Controller.ThumbstickAxis = {}
@@ -425,13 +481,19 @@ function Controller.ThumbstickAxis.new(controller, id)
 end
 
 function Controller.ThumbstickAxis:setDeadzone(deadzone)
-    if not self then Controller.selfError() return end
+    if not self then
+        Controller.selfError()
+        return
+    end
     if self.controller.typeCheck({ deadzone }, { "number" }) then return end
     self.deadzone = math.abs(deadzone)
 end
 
 function Controller.ThumbstickAxis:connect(axis, inverted)
-    if not self then Controller.selfError() return end
+    if not self then
+        Controller.selfError()
+        return
+    end
     if self.controller.typeCheck({ axis, inverted }, { "number", "boolean" }) then return end
     self.axis = axis
     self.inverted = inverted
@@ -443,7 +505,10 @@ function Controller.ThumbstickAxis:connect(axis, inverted)
 end
 
 function Controller.ThumbstickAxis:update()
-    if not self then Controller.selfError() return end
+    if not self then
+        Controller.selfError()
+        return
+    end
     if self.axis == nil then return end
     self.value = self.controller:xcGetRegValue(string.format("mcX360_LUA/%s", self.id))
     if type(self.value) ~= "number" then
@@ -513,85 +578,202 @@ xc.START.down:altConnect(xc.xcAxisHomeZ)
 ----------------------------------
 
 if mc.mcInEditor() == 1 then
-	wx = require("wx")
-	mcLuaPanelParent = wx.wxPanel()
+    wx = require("wx")
+    mcLuaPanelParent = wx.wxPanel()
 end
 
 -- Create the main sizer (horizontal layout with input list on the left and properties on the right)
 local mainSizer = wx.wxBoxSizer(wx.wxHORIZONTAL)
 
 -- Create the input list (left side)
-local inputList = wx.wxListCtrl(mcLuaPanelParent, wx.wxID_ANY, wx.wxDefaultPosition, wx.wxSize(200, -1), wx.wxLC_REPORT + wx.wxLC_SINGLE_SEL)
-inputList:InsertColumn(0, "Inputs")
-inputList:InsertColumn(1, "Description")
+local inputList = wx.wxListCtrl(mcLuaPanelParent, wx.wxID_ANY, wx.wxDefaultPosition, wx.wxSize(200, -1),
+    wx.wxLC_REPORT + wx.wxLC_SINGLE_SEL)
+inputList:InsertColumn(0, "Inputs", wx.wxLIST_FORMAT_LEFT, 150)
+
 
 -- Add items to the list (example inputs)
 for i, input in ipairs(xc.inputs) do
-	inputList:InsertItem(i, input.id)
+    inputList:InsertItem(i, input.id)
 end
 for i, axis in ipairs(xc.axes) do
-	inputList:InsertItem(i + #xc.inputs, axis.id)
+    inputList:InsertItem(i + #xc.inputs, axis.id)
 end
 
 mainSizer:Add(inputList, 0, wx.wxEXPAND + wx.wxALL, 5)
 
 -- Event handler for when an input is selected
 inputList:Connect(wx.wxEVT_COMMAND_LIST_ITEM_SELECTED, function(event)
-    local selectedInput = inputList:GetItemText(event:GetIndex())
+    local index = event:GetIndex() + 1
+    local selectedInput = 1
+    if index <= #xc.inputs then
+        selectedInput = xc.inputs[index]
+    elseif index <= #xc.inputs + 4 then
+        selectedInput = xc.axes[index - #xc.inputs]
+    end
     -- Refresh the properties panel based on selected input
     refreshPropertiesPanel(selectedInput)
 end)
 
 -- Create the properties panel (right side)
 local propertiesPanel = wx.wxPanel(mcLuaPanelParent, wx.wxID_ANY)
-local propertiesSizer = wx.wxFlexGridSizer(2, 5, 5)  -- 2 columns: label and control
+local propertiesSizer = wx.wxFlexGridSizer(0, 2, 0, 0) -- 2 columns: label and control
+local choiceOptions = { "", "Cycle Start", "Cycle Stop", "Feed Hold", "Enable On", "Enable Off", "Enable Toggle",
+    "Soft Limits On", "Soft Limits Off", "Soft Limits Toggle", "Position Remember", "Position Return", "Limit OV On",
+    "Limit OV Off", "Limit OV Toggle", "Jog Mode Toggle", "Jog Mode Step", "Jog Mode Continuous", "Jog X+", "Jog Y+",
+    "Jog Z+", "Jog A+", "Jog B+", "Jog C+", "Jog X-", "Jog Y-", "Jog Z-", "Jog A-", "Jog B-", "Jog C-", "Home All",
+    "Home X", "Home Y", "Home Z", "Home A", "Home B", "Home C" }
+local choiceSlots = {}
+for i, choice in ipairs(choiceOptions) do
+    choiceSlots[choice] = xc.Slot.new(function() scr.DoFunctionName(choice) end)
+end
+choiceSlots["E Stop Toggle"] = xc.xcCntlEStopToggle
+choiceSlots["Goto Zero"] = xc.xcCntlGotoZero
 
 propertiesPanel:SetSizer(propertiesSizer)
+local axisChoices = { "mc.X_AXIS", "mc.Y_AXIS", "mc.Z_AXIS" }
 mainSizer:Add(propertiesPanel, 1, wx.wxEXPAND + wx.wxALL, 5)
-choiceOptions = {"","Shift","FunctionName"}
+
+idMapping = {}
 
 -- Function to refresh the properties panel when a new input is selected
 function refreshPropertiesPanel(input)
     -- Clear the existing controls in the properties panel
     propertiesSizer:Clear(true)
 
+    local function onChoiceSelected(event)
+        local id, selected = event:GetId(), event:GetString()
+        local input, signal = table.unpack(idMapping[id])
+
+        if signal == "up" then
+            if signal == "" then
+                input.up.slot = nil
+                return
+            end
+            input.up:connect(choiceSlots[selected])
+        elseif signal == "down" then
+            if signal == "" then
+                input.down.slot = nil
+                return
+            end
+            input.down:connect(choiceSlots[selected])
+        elseif signal == "altUp" then
+            if signal == "" then
+                input.up.altSlot = nil
+                return
+            end
+            input.up:altConnect(choiceSlots[selected])
+        elseif signal == "altDown" then
+            if signal == "" then
+                input.down.altSlot = nil
+                return
+            end
+            input.down:altConnect(choiceSlots[selected])
+        elseif signal == "analog" then
+            input:connect(selected)
+        elseif signal == "shift" then
+            xc.assignShift(input)
+        end
+    end
+
     -- Example logic for refreshing the panel based on selected input
-    if input.__type == "Button" or input.__type == "Trigger" then
+    if input.__type == "Button" or input.__type == "Trigger" and xc.shift_btn ~= input then
         -- Add "Up Action" label and dropdown
         local lblUp = wx.wxStaticText(propertiesPanel, wx.wxID_ANY, "Up Action:")
-        local choiceUp = wx.wxChoice(propertiesPanel, wx.wxID_ANY, wx.wxDefaultPosition, wx.wxDefaultSize, choiceOptions)
-        
+        local choiceUpId = wx.wxNewId()
+        local choiceUp = wx.wxChoice(propertiesPanel, choiceUpId, wx.wxDefaultPosition, wx.wxDefaultSize, choiceOptions)
+        idMapping[choiceUpId] = { input = input, signal = "up" }
+
         -- Add "Down Action" label and dropdown
         local lblDown = wx.wxStaticText(propertiesPanel, wx.wxID_ANY, "Down Action:")
-        local choiceDown = wx.wxChoice(propertiesPanel, wx.wxID_ANY, wx.wxDefaultPosition, wx.wxDefaultSize, choiceOptions)
-		
-		propertiesSizer:Add(lblUp, 0, wx.wxALIGN_RIGHT + wx.wxALIGN_CENTER_VERTICAL + wx.wxALL, 5)
-        propertiesSizer:Add(choiceUp, 1, wx.wxEXPAND + wx.wxALL, 5)
-        
-        propertiesSizer:Add(lblDown, 0, wx.wxALIGN_RIGHT + wx.wxALIGN_CENTER_VERTICAL + wx.wxALL, 5)
-        propertiesSizer:Add(choiceDown, 1, wx.wxEXPAND + wx.wxALL, 5)
-	end
-	
-	if input.__type == "Trigger" or input.__type == "ThumbstickAxis" then
-        -- Add "Analog Action" label and dropdown
-        local lblAnalog = wx.wxStaticText(propertiesPanel, wx.wxID_ANY, "Analog Action:")
-        local choiceAnalog = wx.wxChoice(propertiesPanel, wx.wxID_ANY, wx.wxDefaultPosition, wx.wxDefaultSize, choiceOptions)
-		
-		propertiesSizer:Add(lblAnalog, 0, wx.wxALIGN_RIGHT + wx.wxALIGN_CENTER_VERTICAL + wx.wxALL, 5)
-        propertiesSizer:Add(choiceAnalog, 1, wx.wxEXPAND + wx.wxALL, 5)
-        
-	end
-        -- Add controls to the sizer
-    
+        local choiceDownId = wx.wxNewId()
+        local choiceDown = wx.wxChoice(propertiesPanel, choiceDownId, wx.wxDefaultPosition, wx.wxDefaultSize,
+            choiceOptions)
+        idMapping[choiceDownId] = { input = input, signal = "down" }
+
+        propertiesSizer:Add(lblUp, 0, wx.wxALIGN_CENTER_VERTICAL + wx.wxALL, 1)
+        propertiesSizer:Add(choiceUp, 0, wx.wxEXPAND + wx.wxALL, 1)
+
+        propertiesSizer:Add(lblDown, 0, wx.wxALIGN_CENTER_VERTICAL + wx.wxALL, 1)
+        propertiesSizer:Add(choiceDown, 1, wx.wxEXPAND + wx.wxALL, 1)
+
+        local lblAltUp = wx.wxStaticText(propertiesPanel, wx.wxID_ANY, "Alternate Up Action:")
+        local choiceAltUpId = wx.wxNewId()
+        local choiceAltUp = wx.wxChoice(propertiesPanel, choiceAltUpId, wx.wxDefaultPosition, wx.wxDefaultSize,
+            choiceOptions)
+        idMapping[choiceAltUpId] = { input = input, signal = "altUp" }
+
+        -- Add "Down Action" label and dropdown
+        local lblAltDown = wx.wxStaticText(propertiesPanel, wx.wxID_ANY, "Alternate Down Action:")
+        local choiceAltDownId = wx.wxNewId()
+        local choiceAltDown = wx.wxChoice(propertiesPanel, choiceAltDownId, wx.wxDefaultPosition, wx.wxDefaultSize,
+            choiceOptions)
+        idMapping[choiceAltDownId] = { input = input, signal = "altDown" }
+
+        propertiesSizer:Add(lblAltUp, 0, wx.wxALIGN_CENTER_VERTICAL + wx.wxALL, 1)
+        propertiesSizer:Add(choiceAltUp, 0, wx.wxEXPAND + wx.wxALL, 1)
+
+        propertiesSizer:Add(lblAltDown, 0, wx.wxALIGN_CENTER_VERTICAL + wx.wxALL, 1)
+        propertiesSizer:Add(choiceAltDown, 1, wx.wxEXPAND + wx.wxALL, 1)
+
+        propertiesPanel:Connect(choiceUpId, wx.wxEVT_COMMAND_CHOICE_SELECTED, onChoiceSelected)
+        propertiesPanel:Connect(choiceDownId, wx.wxEVT_COMMAND_CHOICE_SELECTED, onChoiceSelected)
+        propertiesPanel:Connect(choiceAltUpId, wx.wxEVT_COMMAND_CHOICE_SELECTED, onChoiceSelected)
+        propertiesPanel:Connect(choiceAltDownId, wx.wxEVT_COMMAND_CHOICE_SELECTED, onChoiceSelected)
+    end
+
+    if input.__type == "Button" then
+        local sig, lbl
+        if xc.shift_btn ~= input then
+            sig, lbl = "shift", "Assign as Shift"
+        else
+            sig, lbl = "unassign", "Unassign as Shift"
+        end
+        local shiftButtonId = wx.wxNewId()
+        local shiftButton = wx.wxButton(propertiesPanel, shiftButtonId, lbl, wx.wxDefaultPosition, wx.wxDefaultSize)
+        propertiesSizer:Add(shiftButton, 0, wx.wxALIGN_CENTER_VERTICAL)
+        propertiesSizer:Add(0, 0)
+        idMapping[shiftButtonId] = { input = input, signal = sig }
+        propertiesPanel:Connect(shiftButtonId, wx.wxEVT_BUTTON, onChoiceSelected)
+    end
+
+    if input.__type == "Trigger" or input.__type == "ThumbstickAxis" then
+        if xc.shift_btn ~= input then
+            -- Add "Analog Action" label and dropdown
+            local lblAnalog = wx.wxStaticText(propertiesPanel, wx.wxID_ANY, "Analog Action:")
+            local choiceAnalogId = wx.wxNewId()
+            local choiceAnalog = wx.wxChoice(propertiesPanel, choiceAnalogId, wx.wxDefaultPosition, wx.wxDefaultSize,
+                axisChoices)
+            idMapping[choiceAnalogId] = { input = input, signal = "analog" }
+            propertiesSizer:Add(lblAnalog, 0, wx.wxALIGN_CENTER_VERTICAL + wx.wxALL, 5)
+            propertiesSizer:Add(choiceAnalog, 1, wx.wxEXPAND + wx.wxALL, 5)
+            propertiesPanel:Connect(choiceAnalogId, wx.wxEVT_COMMAND_CHOICE_SELECTED, onChoiceSelected)
+        end
+    end
+
+    if input.__type == "Trigger" then
+        local sig, lbl
+        if xc.shift_btn ~= input then
+            sig, lbl = "shift", "Assign as Shift"
+        else
+            sig, lbl = "unassign", "Unassign as Shift"
+        end
+        local shiftButtonId = wx.wxNewId()
+        local shiftButton = wx.wxButton(propertiesPanel, shiftButtonId, lbl, wx.wxDefaultPosition, wx.wxDefaultSize)
+        propertiesSizer:Add(shiftButton, 0, wx.wxALIGN_CENTER_VERTICAL)
+        propertiesSizer:Add(0, 0)
+        idMapping[shiftButtonId] = { input = input, signal = sig }
+        propertiesPanel:Connect(shiftButtonId, wx.wxEVT_BUTTON, onChoiceSelected)
+    end
+    -- Add controls to the sizer
     -- Refresh the layout to apply changes
+
     propertiesSizer:Layout()
     propertiesPanel:Layout()
-	propertiesPanel:Refresh()
-	mcLuaPanelParent:Refresh()
+    propertiesPanel:Refresh()
 end
 
 mcLuaPanelParent:SetSizer(mainSizer)
-mainSizer:Add(propertiesPanel, 1, wx.wxEXPAND + wx.wxALL, 5)
+
 mainSizer:Layout()
 
 xc:xcCntlLog("Creating X360_timer", 4)
