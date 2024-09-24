@@ -3,6 +3,7 @@ if not mc then
 end
 
 inst = mc.mcGetInstance()
+idMapping = {}
 
 Controller = {}
 Controller.__index = Controller
@@ -402,6 +403,39 @@ function Controller.Button:getState()
     end
 end
 
+function Controller.Button:initUi(window)
+	if not self then
+		self.controller.selfError()
+		return
+	end
+	local lblUp = wx.wxStaticText(window, wx.wxID_ANY, "Up Action:")
+	local lblDown = wx.wxStaticText(window, wx.wxID_ANY, "Down Action:")
+	local lblUpAlt = wx.wxStaticText(window, wx.wxID_ANY, "Alternate Up Action:")
+	local lblDownAlt = wx.wxStaticText(window, wx.wxID_ANY, "Alternate Down Action:")
+	local choiceUpId, choiceDownId, choiceUpAltId, choiceDownAltId = wx.wxNewId(), wx.wxNewId(), wx.wxNewId(), wx.wxNewId()
+	idMapping[choiceUpId] = { input = self, signal = "up" }
+	idMapping[choiceDownId] = { input = self, signal = "down" }
+	idMapping[choiceUpAltId] = { input = self, signal = "altUp" }
+	idMapping[choiceDownAltId] = { input = self, signal = "altDown" }
+	local choiceUp = wx.wxChoice(window, choiceUpId, wx.wxDefaultPosition, wx.wxDefaultSize, choiceOptions)
+	local choiceDown = wx.wxChoice(window, choiceDownId, wx.wxDefaultPosition, wx.wxDefaultSize, choiceOptions)
+	local choiceUpAlt = wx.wxChoice(window, choiceUpAltId, wx.wxDefaultPosition, wx.wxDefaultSize, choiceOptions)
+	local choiceDownAlt = wx.wxChoice(window, choiceDownAltId, wx.wxDefaultPosition, wx.wxDefaultSize, choiceOptions)
+	if self.up.slot ~= nil then
+		choiceUp.SetSelection(choiceUp.FindString(self.up.slot.id) or choiceUp.FindString(""))
+	end
+	if self.up.altSlot ~= nil then
+		choiceUpAlt.SetSelection(choiceUpAlt.FindString(self.up.altSlot.id) or choiceUpAlt.FindString(""))
+	end
+	if self.down.slot ~= nil then
+		choiceDown.SetSelection(choiceDown.FindString(self.down.slot.id) or choiceDown.FindString(""))
+	end
+	if self.down.altSlot ~= nil then
+		choiceDownAlt.SetSelection(choiceDownAlt.FindString(self.down.altSlot.id) or choiceDownAlt.FindString(""))
+	end
+	return lblUp, choiceUp, lblDown, choiceDown, lblUpAlt, choiceUpAlt, lblDownAlt, choiceDownAlt
+end
+
 function Controller:newTrigger(id)
     return self.Trigger.new(self, id)
 end
@@ -446,6 +480,39 @@ function Controller.Trigger:getState()
         self.up.emit()
         self.pressed = false
     end
+end
+
+function Controller.Trigger:initUi(window)
+	if not self then
+		self.controller.selfError()
+		return
+	end
+	local lblUp = wx.wxStaticText(window, wx.wxID_ANY, "Up Action:")
+	local lblDown = wx.wxStaticText(window, wx.wxID_ANY, "Down Action:")
+	local lblUpAlt = wx.wxStaticText(window, wx.wxID_ANY, "Alternate Up Action:")
+	local lblDownAlt = wx.wxStaticText(window, wx.wxID_ANY, "Alternate Down Action:")
+	local choiceUpId, choiceDownId, choiceUpAltId, choiceDownAltId = wx.wxNewId(), wx.wxNewId(), wx.wxNewId(), wx.wxNewId()
+	idMapping[choiceUpId] = { input = self, signal = "up" }
+	idMapping[choiceDownId] = { input = self, signal = "down" }
+	idMapping[choiceUpAltId] = { input = self, signal = "altUp" }
+	idMapping[choiceDownAltId] = { input = self, signal = "altDown" }
+	local choiceUp = wx.wxChoice(window, choiceUpId, wx.wxDefaultPosition, wx.wxDefaultSize, choiceOptions)
+	local choiceDown = wx.wxChoice(window, choiceDownId, wx.wxDefaultPosition, wx.wxDefaultSize, choiceOptions)
+	local choiceUpAlt = wx.wxChoice(window, choiceUpAltId, wx.wxDefaultPosition, wx.wxDefaultSize, choiceOptions)
+	local choiceDownAlt = wx.wxChoice(window, choiceDownAltId, wx.wxDefaultPosition, wx.wxDefaultSize, choiceOptions)
+	if self.up.slot ~= nil then
+		choiceUp.SetSelection(choiceUp.FindString(self.up.slot.id) or choiceUp.FindString(""))
+	end
+	if self.up.altSlot ~= nil then
+		choiceUpAlt.SetSelection(choiceUpAlt.FindString(self.up.altSlot.id) or choiceUpAlt.FindString(""))
+	end
+	if self.down.slot ~= nil then
+		choiceDown.SetSelection(choiceDown.FindString(self.down.slot.id) or choiceDown.FindString(""))
+	end
+	if self.down.altSlot ~= nil then
+		choiceDownAlt.SetSelection(choiceDownAlt.FindString(self.down.altSlot.id) or choiceDownAlt.FindString(""))
+	end
+	return lblUp, choiceUp, lblDown, choiceDown, lblUpAlt, choiceUpAlt, lblDownAlt, choiceDownAlt
 end
 
 function Controller.Trigger:connect(func)
@@ -544,17 +611,18 @@ function Controller.ThumbstickAxis:update()
     end
 end
 
-function Controller:newSlot(func)
-    return self.Slot.new(self, func)
+function Controller:newSlot(id, func)
+    return self.Slot.new(self, id, func)
 end
 
 Controller.Slot = {}
 Controller.Slot.__index = Controller.Slot
 Controller.Slot.__type = "Slot"
 
-function Controller.Slot.new(controller, func)
+function Controller.Slot.new(controller, id, func)
     if Controller.typeCheck({ func }, { "function" }) then return end
     local self = setmetatable({}, Controller.Slot)
+	self.id = id
     self.controller = controller
     self.func = func
     return self
@@ -633,7 +701,6 @@ propertiesPanel:SetSizer(propertiesSizer)
 local axisChoices = { "mc.X_AXIS", "mc.Y_AXIS", "mc.Z_AXIS" }
 mainSizer:Add(propertiesPanel, 1, wx.wxEXPAND + wx.wxALL, 5)
 
-idMapping = {}
 
 -- Function to refresh the properties panel when a new input is selected
 function refreshPropertiesPanel(input)
@@ -675,67 +742,27 @@ function refreshPropertiesPanel(input)
         end
     end
 
-    -- Example logic for refreshing the panel based on selected input
+    -- Add Signal config inputs to the panel
     if input.__type == "Button" or input.__type == "Trigger" and xc.shift_btn ~= input then
-        -- Add "Up Action" label and dropdown
-        local lblUp = wx.wxStaticText(propertiesPanel, wx.wxID_ANY, "Up Action:")
-        local choiceUpId = wx.wxNewId()
-        local choiceUp = wx.wxChoice(propertiesPanel, choiceUpId, wx.wxDefaultPosition, wx.wxDefaultSize, choiceOptions)
-        idMapping[choiceUpId] = { input = input, signal = "up" }
+		if xc.shift_btn ~= input then 
+			lblUp, choiceUp, lblDown, choiceDown, lblAltUp, choiceAltUp, lblAtDown, choiceAltDown = input:initUi(propertiesPanel)
+			propertiesSizer:Add(lblUp, 0, wx.wxALIGN_CENTER_VERTICAL + wx.wxALL, 1)
+			propertiesSizer:Add(choiceUp, 0, wx.wxEXPAND + wx.wxALL, 1)
+			propertiesSizer:Add(lblDown, 0, wx.wxALIGN_CENTER_VERTICAL + wx.wxALL, 1)
+			propertiesSizer:Add(choiceDown, 1, wx.wxEXPAND + wx.wxALL, 1)
+			propertiesSizer:Add(lblAltUp, 0, wx.wxALIGN_CENTER_VERTICAL + wx.wxALL, 1)
+			propertiesSizer:Add(choiceAltUp, 0, wx.wxEXPAND + wx.wxALL, 1)
+			propertiesSizer:Add(lblAltDown, 0, wx.wxALIGN_CENTER_VERTICAL + wx.wxALL, 1)
+			propertiesSizer:Add(choiceAltDown, 1, wx.wxEXPAND + wx.wxALL, 1)
 
-        -- Add "Down Action" label and dropdown
-        local lblDown = wx.wxStaticText(propertiesPanel, wx.wxID_ANY, "Down Action:")
-        local choiceDownId = wx.wxNewId()
-        local choiceDown = wx.wxChoice(propertiesPanel, choiceDownId, wx.wxDefaultPosition, wx.wxDefaultSize,
-            choiceOptions)
-        idMapping[choiceDownId] = { input = input, signal = "down" }
-
-        propertiesSizer:Add(lblUp, 0, wx.wxALIGN_CENTER_VERTICAL + wx.wxALL, 1)
-        propertiesSizer:Add(choiceUp, 0, wx.wxEXPAND + wx.wxALL, 1)
-
-        propertiesSizer:Add(lblDown, 0, wx.wxALIGN_CENTER_VERTICAL + wx.wxALL, 1)
-        propertiesSizer:Add(choiceDown, 1, wx.wxEXPAND + wx.wxALL, 1)
-
-        local lblAltUp = wx.wxStaticText(propertiesPanel, wx.wxID_ANY, "Alternate Up Action:")
-        local choiceAltUpId = wx.wxNewId()
-        local choiceAltUp = wx.wxChoice(propertiesPanel, choiceAltUpId, wx.wxDefaultPosition, wx.wxDefaultSize,
-            choiceOptions)
-        idMapping[choiceAltUpId] = { input = input, signal = "altUp" }
-
-        -- Add "Down Action" label and dropdown
-        local lblAltDown = wx.wxStaticText(propertiesPanel, wx.wxID_ANY, "Alternate Down Action:")
-        local choiceAltDownId = wx.wxNewId()
-        local choiceAltDown = wx.wxChoice(propertiesPanel, choiceAltDownId, wx.wxDefaultPosition, wx.wxDefaultSize,
-            choiceOptions)
-        idMapping[choiceAltDownId] = { input = input, signal = "altDown" }
-
-        propertiesSizer:Add(lblAltUp, 0, wx.wxALIGN_CENTER_VERTICAL + wx.wxALL, 1)
-        propertiesSizer:Add(choiceAltUp, 0, wx.wxEXPAND + wx.wxALL, 1)
-
-        propertiesSizer:Add(lblAltDown, 0, wx.wxALIGN_CENTER_VERTICAL + wx.wxALL, 1)
-        propertiesSizer:Add(choiceAltDown, 1, wx.wxEXPAND + wx.wxALL, 1)
-
-        propertiesPanel:Connect(choiceUpId, wx.wxEVT_COMMAND_CHOICE_SELECTED, onChoiceSelected)
-        propertiesPanel:Connect(choiceDownId, wx.wxEVT_COMMAND_CHOICE_SELECTED, onChoiceSelected)
-        propertiesPanel:Connect(choiceAltUpId, wx.wxEVT_COMMAND_CHOICE_SELECTED, onChoiceSelected)
-        propertiesPanel:Connect(choiceAltDownId, wx.wxEVT_COMMAND_CHOICE_SELECTED, onChoiceSelected)
+			propertiesPanel:Connect(choiceUp.id, wx.wxEVT_COMMAND_CHOICE_SELECTED, onChoiceSelected)
+			propertiesPanel:Connect(choiceDown.id, wx.wxEVT_COMMAND_CHOICE_SELECTED, onChoiceSelected)
+			propertiesPanel:Connect(choiceAltUp.id, wx.wxEVT_COMMAND_CHOICE_SELECTED, onChoiceSelected)
+			propertiesPanel:Connect(choiceAltDown.id, wx.wxEVT_COMMAND_CHOICE_SELECTED, onChoiceSelected)
+		end
     end
 
-    if input.__type == "Button" then
-        local sig, lbl
-        if xc.shift_btn ~= input then
-            sig, lbl = "shift", "Assign as Shift"
-        else
-            sig, lbl = "unassign", "Unassign as Shift"
-        end
-        local shiftButtonId = wx.wxNewId()
-        local shiftButton = wx.wxButton(propertiesPanel, shiftButtonId, lbl, wx.wxDefaultPosition, wx.wxDefaultSize)
-        propertiesSizer:Add(shiftButton, 0, wx.wxALIGN_CENTER_VERTICAL)
-        propertiesSizer:Add(0, 0)
-        idMapping[shiftButtonId] = { input = input, signal = sig }
-        propertiesPanel:Connect(shiftButtonId, wx.wxEVT_BUTTON, onChoiceSelected)
-    end
-
+	-- add analog config inputs to the panel
     if input.__type == "Trigger" or input.__type == "ThumbstickAxis" then
         if xc.shift_btn ~= input then
             -- Add "Analog Action" label and dropdown
@@ -750,7 +777,8 @@ function refreshPropertiesPanel(input)
         end
     end
 
-    if input.__type == "Trigger" then
+	-- add shift button inputs to the panel
+    if input.__type == "Trigger" or input.__type == "Button" then
         local sig, lbl
         if xc.shift_btn ~= input then
             sig, lbl = "shift", "Assign as Shift"
