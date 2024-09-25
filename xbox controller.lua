@@ -92,14 +92,14 @@ function Controller.new()
 
     -- TODO: Populate this with all pre-defined Slots
     self.slots = {}
-
-    for func in pairs({ "", "Cycle Start", "Cycle Stop", "Feed Hold", "Enable On", "Enable Off", "Enable Toggle",
+	names = {"Cycle Start", "Cycle Stop", "Feed Hold", "Enable On", "Enable Off", "Enable Toggle",
     "Soft Limits On", "Soft Limits Off", "Soft Limits Toggle", "Position Remember", "Position Return", "Limit OV On",
     "Limit OV Off", "Limit OV Toggle", "Jog Mode Toggle", "Jog Mode Step", "Jog Mode Continuous", "Jog X+", "Jog Y+",
     "Jog Z+", "Jog A+", "Jog B+", "Jog C+", "Jog X-", "Jog Y-", "Jog Z-", "Jog A-", "Jog B-", "Jog C-", "Home All",
-    "Home X", "Home Y", "Home Z", "Home A", "Home B", "Home C" }) do
-       table.insert(self.slots, self:newSlot(func, (function() scr.DoFunctionName(func) end)))
-    end
+    "Home X", "Home Y", "Home Z", "Home A", "Home B", "Home C"}
+	for i,name in ipairs(names) do
+		table.insert(self.slots, self:newSlot(name, function() scr.DoFunctionName(name) end))
+	end
 
     table.insert(self.slots, self:newSlot("E Stop Toggle", function() self:xcToggleMachSignalState(mc.ISIG_EMERGENCY) end))
 
@@ -160,8 +160,8 @@ end
 -- Convenience method for retrieving a pre-defined slot by its id
 function Controller:xcGetSlotById(id)
     if not self then Controller.selfError() return end
-    if self.typeCheck({id}, {"string"}) then return end
-    for slot in pairs(self.slots) do
+    if Controller.typeCheck({id}, {"string"}) then return end
+    for i, slot in ipairs(self.slots) do
         if slot.id == id then
             return slot
         end
@@ -327,46 +327,42 @@ function Controller:mapSimpleJog(reversed)
     if self.typeCheck({ reversed }, { { "boolean", "nil" } }) then return end
     self:xcCntlLog(string.format("Value of reversed flag for axis orientation: %s", tostring(reversed)), 4)
     -- DPad regular jog
-    self.UP.down:connect(self:newSlot(function()
+    self.UP.down:connect(self:newSlot('xcJogUp', function()
         mc.mcJogVelocityStart(inst, (reversed and mc.Y_AXIS) or mc.X_AXIS, mc.MC_JOG_POS)
     end))
-    self.UP.up:connect(self:newSlot(function()
+    self.UP.up:connect(self:newSlot('xcJogStopY', function()
         mc.mcJogVelocityStop(inst, (reversed and mc.Y_AXIS) or mc.X_AXIS)
     end))
-    self.DOWN.down:connect(self:newSlot(function()
+    self.DOWN.down:connect(self:newSlot('xcJogDown', function()
         mc.mcJogVelocityStart(inst, (reversed and mc.Y_AXIS) or mc.X_AXIS, mc.MC_JOG_NEG)
     end))
-    self.DOWN.up:connect(self:newSlot(function()
-        mc.mcJogVelocityStop(inst, (reversed and mc.Y_AXIS) or mc.X_AXIS)
-    end))
-    self.RIGHT.down:connect(self:newSlot(function()
+    self.DOWN.up:connect(self:xcGetSlotById('xcJogStopY'))
+    self.RIGHT.down:connect(self:newSlot('xcJogRight', function()
         mc.mcJogVelocityStart(inst, (reversed and mc.X_AXIS) or mc.Y_AXIS, mc.MC_JOG_POS)
     end))
-    self.RIGHT.up:connect(self:newSlot(function()
+    self.RIGHT.up:connect(self:newSlot('xcJogStopX', function()
         mc.mcJogVelocityStop(inst, (reversed and mc.X_AXIS) or mc.Y_AXIS)
     end))
-    self.LEFT.down:connect(self:newSlot(function()
+    self.LEFT.down:connect(self:newSlot('xcJogLeft', function()
         mc.mcJogVelocityStart(inst, (reversed and mc.X_AXIS) or mc.Y_AXIS, mc.MC_JOG_NEG)
     end))
-    self.LEFT.up:connect(self:newSlot(function()
-        mc.mcJogVelocityStop(inst, (reversed and mc.X_AXIS) or mc.Y_AXIS)
-    end))
+    self.LEFT.up:connect(self:xcGetSlotById('xcJogStopX'))
     if reversed then
         self:xcCntlLog("Standard velocity jogging with X and Y axis orientation reversed mapped to D-pad", 3)
     else
         self:xcCntlLog("Standard velocity jogging mapped to D-pad", 3)
     end
 
-    self.UP.down:connect(self:newSlot(function()
+    self.UP.down:connect(self:newSlot('xcJogIncUp', function()
         mc.mcJogIncStart(inst, reversed and mc.Y_AXIS or mc.X_AXIS, self.jogIncrement)
     end), true)
-    self.DOWN.down:connect(self:newSlot(function()
+    self.DOWN.down:connect(self:newSlot('xcJogIncDown', function()
         mc.mcJogIncStart(inst, reversed and mc.Y_AXIS or mc.X_AXIS, -1 * self.jogIncrement)
     end), true)
-    self.RIGHT.down:connect(self:newSlot(function()
+    self.RIGHT.down:connect(self:newSlot('xcJogIncRight',function()
         mc.mcJogIncStart(inst, reversed and mc.X_AXIS or mc.Y_AXIS, self.jogIncrement)
     end), true)
-    self.LEFT.down:connect(self:newSlot(function()
+    self.LEFT.down:connect(self:newSlot('xcJogIncLeft', function()
         mc.mcJogIncStart(inst, reversed and mc.X_AXIS or mc.Y_AXIS, -1 * self.jogIncrement)
     end), true)
     if reversed then
@@ -402,6 +398,8 @@ end
 -- connect a Signal to a Slot.  pass true (or anything besides false or nil) to the alt parameter to connect alternate Slot
 -- alternate Slot fires when Signal is emitted while an assigned shift button is pressed
 function Controller.Signal:connect(slot, alt)
+	local slot = slot
+	local alt = alt or false
     if not self then
         Controller.selfError()
         return
@@ -411,13 +409,13 @@ function Controller.Signal:connect(slot, alt)
         self.controller:xcCntlLog("Ignoring call to connect a Slot to an assigned shift button!", 2)
         return
     end
-    local alt = alt or false
-    if self.slot ~= nil then
-        self.controller:xcCntlLog(string.format("Signal %s of input %s already has a connected slot.  Did you mean to override it?", self.id, self.button.id), 2)
-    end
-    self.slot = slot
-    self.controller:xcCntlLog(self.button.id .. self.id .. " connected to Slot " .. self.slot.id, 4)
-    if alt then
+	if not alt then
+		if self.slot ~= nil then
+			self.controller:xcCntlLog(string.format("Signal %s of input %s already has a connected slot.  Did you mean to override it?", self.id, self.button.id), 2)
+		end
+		self.slot = slot
+		self.controller:xcCntlLog(self.button.id .. self.id .. " connected to Slot " .. self.slot.id, 4)
+	else
         if self.altSlot ~= nil then
             self.controller:xcCntlLog(string.format("Signal %s of input %s already has a connected alternate slot.  Did you mean to override it?", self.id, self.button.id), 2)
         end
@@ -474,11 +472,13 @@ Controller.Button.__type = "Button"
 
 function Controller.Button.new(controller, id)
     local self = setmetatable({}, Controller.Button)
+	print(id)
     self.controller = controller
     self.id = id
     self.pressed = false
-    self.up = controller:newSignal(self, "up")
-    self.down = controller:newSignal(self, "down")
+	
+    self.up = self.controller:newSignal(self, "up")
+    self.down = self.controller:newSignal(self, "down")
     return self
 end
 
@@ -581,18 +581,15 @@ function Controller:newTrigger(id)
     return self.Trigger.new(self, id)
 end
 
-Controller.Trigger = Controller.Button.new()
+Controller.Trigger = {}
+Controller.Trigger.__index = Controller.Trigger
 Controller.Trigger.__type = "Trigger"
 
 function Controller.Trigger.new(controller, id)
     if controller.typeCheck({ controller, id }, { "Controller", "string" }) then return end
-    local self = setmetatable({}, Controller.Trigger)
-    self.controller = controller
-    self.id = id
+    local self = Controller.Button.new(controller, id)
+	setmetatable(self, Controller.Trigger)
     self.value = 0
-    self.pressed = false
-    self.down = controller:newSignal(self, "down")
-    self.up = controller:newSignal(self, "up")
     self.func = nil
     return self
 end
@@ -776,6 +773,7 @@ function Controller.Slot.new(controller, id, func)
 	self.id = id
     self.controller = controller
     self.func = func
+	table.insert(self.controller.slots, self)
     return self
 end
 
@@ -790,13 +788,17 @@ xc = Controller.new()
 xc.logLevel = 4
 xc:assignShift(xc.LTR)
 xc.RTH_Y:connect(mc.Z_AXIS)
+
+for i, slot in ipairs(xc.slots) do
+	print(slot.id)
+end
 xc:mapSimpleJog(true)
-xc.B.down:connect(xc.xcCntlEStopToggle)
+xc.B.down:connect(xc:xcGetSlotById('E Stop Toggle'))
 xc.Y.down:connect(xc.xcCntlTorchToggle)
-xc.RSB.down:connect(xc.xcCntlEnableToggle)
-xc.X.down:connect(xc.xcCntlCycleStart)
-xc.BACK.down:connect(xc.xcAxisHomeAll, true)
-xc.START.down:connect(xc.xcAxisHomeZ, true)
+xc.RSB.down:connect(xc:xcGetSlotById('Enable Toggle'))
+xc.X.down:connect(xc:xcGetSlotById('XC Run Cycle Toggle'))
+xc.BACK.down:connect(xc:xcGetSlotById('Home All'), true)
+xc.START.down:connect(xc:xcGetSlotById('Home Z'), true)
 
 -- End of custom configuration ---
 ----------------------------------
@@ -873,11 +875,7 @@ end)
 --[[ TODO: This list should probably belong to the Controller object, and instead of a list of strings, be a list of pre-defined Slot objects
      A dispatch method could be created, example getSlotById(id) which returns the Slot object with the given name.
     ]]--
-local choiceOptions = { "", "Cycle Start", "Cycle Stop", "Feed Hold", "Enable On", "Enable Off", "Enable Toggle",
-    "Soft Limits On", "Soft Limits Off", "Soft Limits Toggle", "Position Remember", "Position Return", "Limit OV On",
-    "Limit OV Off", "Limit OV Toggle", "Jog Mode Toggle", "Jog Mode Step", "Jog Mode Continuous", "Jog X+", "Jog Y+",
-    "Jog Z+", "Jog A+", "Jog B+", "Jog C+", "Jog X-", "Jog Y-", "Jog Z-", "Jog A-", "Jog B-", "Jog C-", "Home All",
-    "Home X", "Home Y", "Home Z", "Home A", "Home B", "Home C" }
+local choiceOptions = { }
 
 -- TODO: Move this logic to the Controller object probably
 local choiceSlots = {}
