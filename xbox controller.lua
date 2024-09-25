@@ -581,8 +581,7 @@ function Controller:newTrigger(id)
     return self.Trigger.new(self, id)
 end
 
-Controller.Trigger = {}
-Controller.Trigger.__index = Controller.Trigger
+Controller.Trigger = Controller.Button.new()
 Controller.Trigger.__type = "Trigger"
 
 function Controller.Trigger.new(controller, id)
@@ -623,7 +622,9 @@ function Controller.Trigger:getState()
     end
 end
 
-function Controller.Trigger:initUi(window)
+
+-- Deprecated by inheritance from Button
+--[[function Controller.Trigger:initUi(window)
 	if not self then
 		self.controller.selfError()
 		return
@@ -654,7 +655,7 @@ function Controller.Trigger:initUi(window)
 		choiceDownAlt.SetSelection(choiceDownAlt.FindString(self.down.altSlot.id) or choiceDownAlt.FindString(""))
 	end
 	return lblUp, choiceUp, lblDown, choiceDown, lblUpAlt, choiceUpAlt, lblDownAlt, choiceDownAlt
-end
+]]--end
 
 
 -- TODO: We expect the function passed to the connect method to have a specific signature, namely it should take a single numeric parameter.  Is this something we can validate?
@@ -667,7 +668,7 @@ function Controller.Trigger:connect(func)
     self.func = func
 end
 
-function Controller:newThumbstickAxix(id)
+function Controller:newThumbstickAxis(id)
     return self.ThumbstickAxis.new(self, id)
 end
 
