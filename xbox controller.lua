@@ -522,14 +522,14 @@ function Controller.Button:getState()
 end
 
 -- this method returns the various inputs needed to populate the "properties" panel in the gui configurator
--- TODO: There's got to be a way to do all of this in a loop or something.   This is not very DRY.
+--TODO: There's got to be a way to do all of this in a loop or something.   This is not very DRY.
 function Controller.Button:initUi(window)
 	if not self then
 		self.controller.selfError()
 		return
 	end
-
-    local sizer = wx.wxFlexGridSizer(0, 2, 0, 0)
+	
+    local propSizer = wx.wxFlexGridSizer(0, 2, 0, 0)
 
     local options = {[0] = ""}
     for i, slot in ipairs(self.controller.slots) do
@@ -537,56 +537,29 @@ function Controller.Button:initUi(window)
     end
 
     for i, signal in ipairs({"Up", "Down", "Alternate Up", "Alternate Down"}) do
-        sizer:Add(wx.wxStaticText(window, wx.wxID_ANY, string.format("%s Action:", signal), 0, wx.wxALIGN_CENTER_VERTICAL + wx.wxALL, 1))
+        propSizer:Add(wx.wxStaticText(window, wx.wxID_ANY, string.format("%s Action:", signal)), 0, wx.wxALIGN_CENTER_VERTICAL + wx.wxALL, 1)
         local actionId = wx.wxNewId()
         idMapping[actionId] = {input=self, signal = self.signals[i]}
         local choice = wx.wxChoice(window, actionId, wx.wxDefaultPosition, wx.wxDefaultSize, options)
-        choice:SetSelection(choice:FindString(self.signals[i].slot.id) or 0)
-        sizer:Add(choice, 0, wx.wxEPAND + wx.wxALL, 1)
+        propSizer:Add(choice, 1, wx.wxALIGN_CENTER_VERTICAL + wx.wxALL, 1)
     end
 
     if self.__type == "Trigger" then
-        sizer:Add(wx.wxStaticText(window, wx.wxID_ANY, "Analog Output Action:", 0, wx.wxALIGN_CENTER_VERTICAL + wx.wxALL, 1))
+        propSizer:Add(wx.wxStaticText(window, wx.wxID_ANY, "Analog Output Action:", 0, wx.wxALIGN_CENTER_VERTICAL + wx.wxALL, 1))
         local actionId = wx.wxNewId()
         idMapping[actionId] = {input=self, signal = self.analog}
+		
+		local choice = wx.wxChoice(window, actionId, wx.wxDefaultPosition, wx.wxDefaultSize, options)
+        propSizer:Add(choice, 1, wx.wxALIGN_CENTER_VERTICAL + wx.wxALL, 1)
     end
 
-    -- Deprecated in favor of above loop, to be removed pending testing
-	--local lblUp = wx.wxStaticText(window, wx.wxID_ANY, "Up Action:")
-	--local lblDown = wx.wxStaticText(window, wx.wxID_ANY, "Down Action:")
-	--local lblUpAlt = wx.wxStaticText(window, wx.wxID_ANY, "Alternate Up Action:")
-	--local lblDownAlt = wx.wxStaticText(window, wx.wxID_ANY, "Alternate Down Action:")
-	--local choiceUpId, choiceDownId, choiceUpAltId, choiceDownAltId = wx.wxNewId(), wx.wxNewId(), wx.wxNewId(), wx.wxNewId()
-	--idMapping[choiceUpId] = { input = self, signal = "up" }
-	--idMapping[choiceDownId] = { input = self, signal = "down" }
-	--idMapping[choiceUpAltId] = { input = self, signal = "altUp" }
-	--idMapping[choiceDownAltId] = { input = self, signal = "altDown" }
-	--local choiceUp = wx.wxChoice(window, choiceUpId, wx.wxDefaultPosition, wx.wxDefaultSize, choiceOptions)
-	--local choiceDown = wx.wxChoice(window, choiceDownId, wx.wxDefaultPosition, wx.wxDefaultSize, choiceOptions)
-	--local choiceUpAlt = wx.wxChoice(window, choiceUpAltId, wx.wxDefaultPosition, wx.wxDefaultSize, choiceOptions)
-	--local choiceDownAlt = wx.wxChoice(window, choiceDownAltId, wx.wxDefaultPosition, wx.wxDefaultSize, choiceOptions)
-	--[[if self.up.slot ~= nil then
-		output[3].SetSelection(output[3].FindString(self.up.slot.id) or output[3].FindString(""))
-	end
-	if self.up.altSlot ~= nil then
-		output[4].SetSelection(output[4].FindString(self.up.altSlot.id) or output[4].FindString(""))
-	end
-	if self.down.slot ~= nil then
-		output[7].SetSelection(output[7].FindString(self.down.slot.id) or output[7].FindString(""))
-	end
-	if self.down.altSlot ~= nil then
-		output[8].SetSelection(output[8].FindString(self.down.altSlot.id) or output[8].FindString(""))
-	end
-	]]--return lblUp, choiceUp, lblDown, choiceDown, lblUpAlt, choiceUpAlt, lblDownAlt, choiceDownAlt
+	return propSizer
 end
 
 
--- TODO: Trigger should probably be a subclass of Button.  Trigger is simply extending Button's functionality.
 function Controller:newTrigger(id)
     return self.Trigger.new(self, id)
 end
-
-
 
 Controller.Trigger = {}
 Controller.Trigger.__index = Controller.Trigger
@@ -596,7 +569,6 @@ function Controller.Trigger.new(controller, id)
     if controller.typeCheck({ controller, id }, { "Controller", "string" }) then return end
     local self = Controller.Button.new(controller, id)
 	setmetatable(self, Controller.Trigger)
-    --local self = setmetatable({}, Controller.Trigger)
     self.value = 0
     self.analog = self.controller:newSignal(self, "analog")
     return self
@@ -626,42 +598,6 @@ function Controller.Trigger:getState()
         self.pressed = false
     end
 end
-
-
--- Deprecated by inheritance from Button
---[[function Controller.Trigger:initUi(window)
-	if not self then
-		self.controller.selfError()
-		return
-	end
-	local lblUp = wx.wxStaticText(window, wx.wxID_ANY, "Up Action:")
-	local lblDown = wx.wxStaticText(window, wx.wxID_ANY, "Down Action:")
-	local lblUpAlt = wx.wxStaticText(window, wx.wxID_ANY, "Alternate Up Action:")
-	local lblDownAlt = wx.wxStaticText(window, wx.wxID_ANY, "Alternate Down Action:")
-	local choiceUpId, choiceDownId, choiceUpAltId, choiceDownAltId = wx.wxNewId(), wx.wxNewId(), wx.wxNewId(), wx.wxNewId()
-	idMapping[choiceUpId] = { input = self, signal = "up" }
-	idMapping[choiceDownId] = { input = self, signal = "down" }
-	idMapping[choiceUpAltId] = { input = self, signal = "altUp" }
-	idMapping[choiceDownAltId] = { input = self, signal = "altDown" }
-	local choiceUp = wx.wxChoice(window, choiceUpId, wx.wxDefaultPosition, wx.wxDefaultSize, choiceOptions)
-	local choiceDown = wx.wxChoice(window, choiceDownId, wx.wxDefaultPosition, wx.wxDefaultSize, choiceOptions)
-	local choiceUpAlt = wx.wxChoice(window, choiceUpAltId, wx.wxDefaultPosition, wx.wxDefaultSize, choiceOptions)
-	local choiceDownAlt = wx.wxChoice(window, choiceDownAltId, wx.wxDefaultPosition, wx.wxDefaultSize, choiceOptions)
-	if self.up.slot ~= nil then
-		choiceUp.SetSelection(choiceUp.FindString(self.up.slot.id) or choiceUp.FindString(""))
-	end
-	if self.up.altSlot ~= nil then
-		choiceUpAlt.SetSelection(choiceUpAlt.FindString(self.up.altSlot.id) or choiceUpAlt.FindString(""))
-	end
-	if self.down.slot ~= nil then
-		choiceDown.SetSelection(choiceDown.FindString(self.down.slot.id) or choiceDown.FindString(""))
-	end
-	if self.down.altSlot ~= nil then
-		choiceDownAlt.SetSelection(choiceDownAlt.FindString(self.down.altSlot.id) or choiceDownAlt.FindString(""))
-	end
-	return lblUp, choiceUp, lblDown, choiceDown, lblUpAlt, choiceUpAlt, lblDownAlt, choiceDownAlt
-]]--end
-
 
 -- TODO: We expect the function passed to the connect method to have a specific signature, namely it should take a single numeric parameter.  Is this something we can validate?
 function Controller.Trigger:connect(func)
@@ -844,50 +780,68 @@ xc.START.down:connect(xc:xcGetSlotById('Home Z'), true)
 ]]--
 local mainSizer = wx.wxBoxSizer(wx.wxHORIZONTAL)
 
+-- Create tree control
+local tree = wx.wxTreeCtrl.new(mcLuaPanelParent, wx.wxID_ANY, wx.wxDefaultPosition, wx.wxSize(100, -1), wx.wxTR_HAS_BUTTONS, wx.wxDefaultValidator, "tree")
 
--- Deprecated in favor of tree view.  To be removed pending testing
---[[ Create the input list (left side)
-local inputList = wx.wxListCtrl(mcLuaPanelParent, wx.wxID_ANY, wx.wxDefaultPosition, wx.wxSize(200, -1),
-    wx.wxLC_REPORT + wx.wxLC_SINGLE_SEL)
-inputList:InsertColumn(0, "Inputs", wx.wxLIST_FORMAT_LEFT, 150)
+local root_id = tree:AddRoot(xc.id)
+local treedata = {[root_id:GetValue()] = xc}
 
-
--- Add input instances to the list
-for i, input in ipairs(xc.inputs) do
-    inputList:InsertItem(i, input.id)
+-- Populate tree with inputs and axes
+for i = 1, #xc.inputs do
+    local child_id = tree:AppendItem(root_id, xc.inputs[i].id)
+    treedata[child_id:GetValue()] = xc.inputs[i]
 end
-for i, axis in ipairs(xc.axes) do
-    inputList:InsertItem(i + #xc.inputs, axis.id)
-end
-
-]]--mainSizer:Add(inputList, 0, wx.wxEXPAND + wx.wxALL, 5)
-local tree = wx.wxTreeCtrl.new(mcLuaPanelParent, wx.wxID_ANY, wx.wxDefaultPosition, wx.wxDefaultSize, wx.wxTR_HAS_BUTTONS, wx.wxDefaultValidator, "tree")
-
-local root_id = tree:AddRoot( xc.id )
-
-for i=1, #xc.inputs do
-
-    tree:AppendItem(root_id, xc.inputs[i].id)
-end
-for i=1, #xc.axes do
-
-    tree:AppendItem(root_id, xc.axes[i].id)
+for i = 1, #xc.axes do
+    local child_id = tree:AppendItem(root_id, xc.axes[i].id)
+    treedata[child_id:GetValue()] = xc.axes[i]
 end
 
 tree:ExpandAll()
 
+-- Add the tree control to the main sizer
 mainSizer:Add(tree, 0, wx.wxEXPAND + wx.wxALL, 5)
 
---Event handler for when an input is selected
+-- Create the properties panel
+propertiesPanel = wx.wxPanel(mcLuaPanelParent, wx.wxID_ANY, wx.wxDefaultPosition, wx.wxSize(100,100))
+local sizer = wx.wxFlexGridSizer(0, 2, 0, 0)
+propertiesPanel:SetSizer(sizer)
+sizer:Layout()
+propertiesPanel:Layout()
 
+
+
+tree:Connect(wx.wxEVT_COMMAND_TREE_SEL_CHANGED,
+    function(event)
+        -- Clear the current sizer's contents from the properties panel
+        propertiesPanel:GetSizer():Clear(true)  -- true ensures that the controls are destroyed
+
+        -- Get the item associated with the tree selection
+        local item = treedata[event:GetItem():GetValue()]
+
+        -- Call the initUi method of the selected item and set it as the new sizer
+        -- Set the new sizer and perform layout
+		
+        local sizer = item:initUi(propertiesPanel)
+        propertiesPanel:SetSizer(sizer)
+		sizer:Layout()
+        propertiesPanel:Layout()
+        
+    end
+)
+
+-- Add the properties panel to the main sizer
+mainSizer:Add(propertiesPanel, 1, wx.wxEXPAND + wx.wxALL, 5)
+
+-- Set up the main sizer on the parent panel
 mcLuaPanelParent:SetSizer(mainSizer)
-
 mainSizer:Layout()
 
-
+-- Show the parent panel and start the wx main loop
 wx.wxGetApp():SetTopWindow(mcLuaPanelParent)
 mcLuaPanelParent:Show(true)
 wx.wxGetApp():MainLoop()
+
+
 
 
 
