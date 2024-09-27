@@ -167,6 +167,18 @@ function Controller.new()
     return self
 end
 
+function isCorrectSelf(self)
+    local info = debug.getinfo(2, "n")  -- Get info about the calling function
+    if info and info.name then
+        local expected_class = getmetatable(self)  -- Get the metatable of the instance (class)
+        if expected_class then
+            local function_in_class = expected_class[info.name]  -- Get the function from the metatable by name
+            local actual_function = debug.getinfo(2, "f").func  -- Get the actual function pointer from the current stack frame
+            return function_in_class == actual_function  -- Check if the functions are the same
+        end
+    end
+    return false
+end
 
 function checkMethodSignature(self)
     -- Attempt to get the method signature (calling function) from the debug info
