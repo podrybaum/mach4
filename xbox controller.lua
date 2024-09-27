@@ -616,13 +616,7 @@ function Controller.Button:getState()
         end
     end
 end
-
 function Controller.Button:initUi(propertiesPanel)
-    if not self then
-        self.controller.selfError()
-        return
-    end
-
     -- Clear the existing sizer to ensure it is empty
     local propSizer = propertiesPanel:GetSizer()
     propSizer:Clear(true)
@@ -632,6 +626,8 @@ function Controller.Button:initUi(propertiesPanel)
         table.insert(options, slot.id)
     end
 
+    idMapping = {}
+
     -- Create labels and choices for each signal
     for i, signal in ipairs({"Up", "Down", "Alternate Up", "Alternate Down"}) do
         -- Add label to the propertiesPanel
@@ -640,9 +636,9 @@ function Controller.Button:initUi(propertiesPanel)
 
         -- Add choice control for the signal
         local actionId = wx.wxNewId()
-        idMapping[actionId] = {input = self, signal = self.signals[i]}
         local choice = wx.wxChoice(propertiesPanel, actionId, wx.wxDefaultPosition, wx.wxDefaultSize, options)
-        
+        idMapping[actionId] = {input = self, signal = self.signals[i]}
+
         -- Set the selection safely without triggering issues
         local slotId = self.signals[i].slot and self.signals[i].slot.id or ""
         local selectedIndex = choice:FindString(slotId)
@@ -652,30 +648,47 @@ function Controller.Button:initUi(propertiesPanel)
             choice:SetSelection(selectedIndex)
         end
 
+        -- Log the connection event for debugging
+        xc:xcCntlLog("Connecting choice control with actionId: " .. tostring(actionId), 4)
+
+        -- Correct event type for wxChoice
+        propertiesPanel:Connect(actionId, wx.wxEVT_CHOICE, function(event)
+            xc:xcCntlLog("handleChoice fired", 4)
+            local selectedChoiceId = event:GetId()
+            xc:xcCntlLog("Selected choice ID: " .. tostring(selectedChoiceId), 4)
+
+            local inputSignalMapping = idMapping[selectedChoiceId]
+            if inputSignalMapping then
+                local input, signal = inputSignalMapping.input, inputSignalMapping.signal
+                xc:xcCntlLog("Input: " .. tostring(input), 4)
+                xc:xcCntlLog("Signal: " .. tostring(signal), 4)
+
+                local selectedString = event:GetString()
+                xc:xcCntlLog("Selected string from choice: " .. selectedString, 4)
+
+                local slot = xc:xcGetSlotById(selectedString)
+                if slot then
+                    xc:xcCntlLog("Slot found with ID: " .. slot.id, 4)
+                    signal:connect(slot)
+                    xc:xcCntlLog("Signal connected to slot", 4)
+                else
+                    xc:xcCntlLog("No valid slot found for selected option", 1)
+                end
+            else
+                xc:xcCntlLog("No input signal mapping found for selected choice ID", 1)
+            end
+        end)
+
         propSizer:Add(choice, 1, wx.wxEXPAND + wx.wxALL, 5)
     end
 
-    -- Add additional UI elements for "Trigger" type if applicable
-    if self.__type == "Trigger" then
-        propSizer:Add(wx.wxStaticText(propertiesPanel, wx.wxID_ANY, "Analog Output Action:"), 0, wx.wxALIGN_LEFT + wx.wxALL, 5)
-        local actionId = wx.wxNewId()
-        idMapping[actionId] = {input = self, signal = self.analog}
-
-        local choice = wx.wxChoice(propertiesPanel, actionId, wx.wxDefaultPosition, wx.wxDefaultSize, options)
-        propSizer:Add(choice, 1, wx.wxEXPAND + wx.wxALL, 5)
-    end
-
-    propSizer:Add(0,0)
-    local apply = wx.wxButton(propertiesPanel, wx.wxID_ANY, "Apply", wx.wxDefaultPosition, wx.wxDefaultSize)
-    propSizer:Add(apply, 0, wx.wxALIGN_RIGHT + wx.wxALL, 5)
-
-    -- Trigger the layout update
+    -- Layout updates
     propSizer:Layout()
     propertiesPanel:Layout()
-
-    -- Return the propertiesPanel sizer
     return propSizer
 end
+
+
 
 
 
@@ -912,7 +925,7 @@ xc = Controller.new()
 ---
 ---
 --- xes inversions and reversals, etc.
-xc.logLevel = 0
+xc.logLevel = 4
 xc:assignShift(xc.LTR)
 xc.RTH_Y:connect(mc.Z_AXIS)
 xc:mapSimpleJog(true)
@@ -1004,6 +1017,8 @@ propertiesPanel:SetFont(font)
 propBox:SetFont(font)
 treeBox:SetFont(font)
 tree:SetFont(font)
+
+
 
 
 -- Add the properties panel to the properties sizer
