@@ -5,17 +5,12 @@ end
 wx = wx or require("wx")
 mcLuaPanelParent = mcLuaPanelParent or wx.wxFrame()
 
---[[TODO: Most methods have 1-3 statements at the very beginning that are error checking methods of various types.  
-    It may be possible to refactor all the error checking into a single function that dispatches the needed error 
+--[[TODO: Most methods have 1-3 statements at the very beginning that are error checking methods of various types.
+    It may be possible to refactor all the error checking into a single function that dispatches the needed error
     checking functions based on the method's signature.
-    ]]--
-
---[[TODO: Make sure calls to Signal:connect no longer implement the alt parameter and instead, alternatively connect 
-    an altUp or altDown Signal to a Slot]]
-
+    ]] --
 
 inst = mc.mcGetInstance()
-idMapping = {}
 
 Controller = {}
 Controller.__index = Controller
@@ -31,10 +26,10 @@ function Controller.customType(object)
 end
 
 function Controller.selfError()
-	-- TODO: Test this, I haven't seen it triggered yet, I don't even know if it works
+    -- TODO: Test this, I haven't seen it triggered yet, I don't even know if it works
     local funcName = debug.getinfo(2, "n").name or "Unknown function"
     local line = debug.getinfo(2, "l").currentline or "unknown line"
-    mc.mcCntlLog(inst, string.format("Method %s called with . instead of : at line %d.", funcName, line), "", -1)
+    error(string.format("Method %s called with . instead of : at line %d.", funcName, line))
 end
 
 function Controller.typeCheck(objects, types)
@@ -43,7 +38,7 @@ function Controller.typeCheck(objects, types)
         local expectedTypes = types[i]
         local actualType = Controller.customType(object)
         if type(expectedTypes) == "string" then
-            expectedTypes = { expectedTypes }
+            expectedTypes = {expectedTypes}
         end
         local typeMatch = false
         for _, expectedType in ipairs(expectedTypes) do
@@ -53,8 +48,8 @@ function Controller.typeCheck(objects, types)
             end
         end
         if not typeMatch then
-            mc.mcCntlLog(inst, (string.format("Parameter %d of function %s expected one of %s, got %s.",
-                i, funcName, table.concat(expectedTypes, ", "), actualType)), "", -1)
+            mc.mcCntlLog(inst, (string.format("Parameter %d of function %s expected one of %s, got %s.", i, funcName,
+                table.concat(expectedTypes, ", "), actualType)), "", -1)
             return true
         end
     end
@@ -84,29 +79,31 @@ function Controller.new()
     self.RTH_X = self:newThumbstickAxis("RTH_X_Val")
     self.RTH_Y = self:newThumbstickAxis("RTH_Y_Val")
     self.LTH_X = self:newThumbstickAxis("LTH_X_Val")
-    self.inputs = {
-        self.UP, self.DOWN, self.RIGHT, self.LEFT, self.A, self.B, self.X, self.Y, self.START,
-        self.BACK, self.LTH, self.RTH, self.LSB, self.RSB, self.LTR, self.RTR
-    }
-    self.axes = { self.LTH_X, self.LTH_Y, self.RTH_X, self.RTH_Y }
+    self.inputs = {self.UP, self.DOWN, self.RIGHT, self.LEFT, self.A, self.B, self.X, self.Y, self.START, self.BACK,
+                   self.LTH, self.RTH, self.LSB, self.RSB, self.LTR, self.RTR}
+    self.axes = {self.LTH_X, self.LTH_Y, self.RTH_X, self.RTH_Y}
     self.shift_btn = nil
     self.jogIncrement = 0.1
     self.jogRate = 100
     self.logLevel = 2
-    self.logLevels = { "ERROR", "WARNING", "INFO", "DEBUG" }
+    self.logLevels = {"ERROR", "WARNING", "INFO", "DEBUG"}
 
     -- TODO: Populate this with all pre-defined Slots
     self.slots = {}
-	names = {"Cycle Start", "Cycle Stop", "Feed Hold", "Enable On", "Enable Off", "Enable Toggle",
-    "Soft Limits On", "Soft Limits Off", "Soft Limits Toggle", "Position Remember", "Position Return", "Limit OV On",
-    "Limit OV Off", "Limit OV Toggle", "Jog Mode Toggle", "Jog Mode Step", "Jog Mode Continuous", "Jog X+", "Jog Y+",
-    "Jog Z+", "Jog A+", "Jog B+", "Jog C+", "Jog X-", "Jog Y-", "Jog Z-", "Jog A-", "Jog B-", "Jog C-", "Home All",
-    "Home X", "Home Y", "Home Z", "Home A", "Home B", "Home C"}
-	for i,name in ipairs(names) do
-		self:newSlot(name, function() scr.DoFunctionName(name) end)
-	end
+    names = {"Cycle Start", "Cycle Stop", "Feed Hold", "Enable On", "Enable Off", "Enable Toggle", "Soft Limits On",
+             "Soft Limits Off", "Soft Limits Toggle", "Position Remember", "Position Return", "Limit OV On",
+             "Limit OV Off", "Limit OV Toggle", "Jog Mode Toggle", "Jog Mode Step", "Jog Mode Continuous", "Jog X+",
+             "Jog Y+", "Jog Z+", "Jog A+", "Jog B+", "Jog C+", "Jog X-", "Jog Y-", "Jog Z-", "Jog A-", "Jog B-",
+             "Jog C-", "Home All", "Home X", "Home Y", "Home Z", "Home A", "Home B", "Home C"}
+    for i, name in ipairs(names) do
+        self:newSlot(name, function()
+            scr.DoFunctionName(name)
+        end)
+    end
 
-    self:newSlot("E Stop Toggle", function() self:xcToggleMachSignalState(mc.ISIG_EMERGENCY) end)
+    self:newSlot("E Stop Toggle", function()
+        self:xcToggleMachSignalState(mc.ISIG_EMERGENCY)
+    end)
 
     -- NOTE: Probably not generic enough to include as pre-defined Slot
     self.xcCntlTorchToggle = self:newSlot("Torch/THC Toggle", function()
@@ -122,36 +119,37 @@ function Controller.new()
                 inst, not self:xcGetMachSignalState(mc.OSIG_MACHINE_ENABLED)
             )
         )
-    ]]--end)
+    ]] -- end)
 
     -- Deprecated in favor of scr.DoFunctionName("Limit OV Toggle") to be removed pending testing
     --[[self.xcCntlAxisLimitOverride = self:newSlot("XC Limit Override Toggle", function()
         self:xcToggleMachSignalState(mc.ISIG_LIMITOVER)
-    ]]--end)
+    ]] -- end)
 
     -- Deprecated in favor of scr.DoFunctionName("JogModeToggle") to be removed pending testing
     --[[self.xcJogTypeToggle = self:newSlot("XC JogModeToggle", function()
         self:xcToggleMachSignalState(mc.OSIG_JOG_INC)
         self:xcToggleMachSignalState(mc.OSIG_JOG_CONT)
-    ]]--end)
+    ]] -- end)
 
     -- Deprecated in favor of scr.DoFunctionName("Home All") along with ("Home X","Home Y", etc)
     --[[self.xcAxisHomeAll = self:newSlot("XC Home ALL", function() self:xcErrorCheck(mc.mcAxisHomeAll(inst)) end)
     self.xcAxisHomeX = self:newSlot("XC Home X", function() self:xcErrorCheck(mc.mcAxisHome(inst, mc.X_AXIS)) end)
     self.xcAxisHomeY = self:newSlot("XC Home Y", function() self:xcErrorCheck(mc.mcAxisHome(inst, mc.Y_AXIS)) end)
-    ]]--self.xcAxisHomeZ = self:newSlot("XC Home Z", function() self:xcErrorCheck(mc.mcAxisHome(inst, mc.Z_AXIS)) end)
+    ]] -- self.xcAxisHomeZ = self:newSlot("XC Home Z", function() self:xcErrorCheck(mc.mcAxisHome(inst, mc.Z_AXIS)) end)
 
-
-    self:newSlot("Goto Zero", function() self:xcErrorCheck(mc.mcCntlGotoZero(inst)) end)
+    self:newSlot("Goto Zero", function()
+        self:xcErrorCheck(mc.mcCntlGotoZero(inst))
+    end)
 
     -- Deprecated in favor of scr.DoFunctionName("Reset") to be removed pending testing
     -- self.xcCntlReset = self:newSlot(function() self:xcErrorCheck(mc.mcCntlReset(inst)) end)
 
-    --TODO: Research all the available "state" emums and the states they describe.  We probably need to cover more
-    --states than this.
+    -- TODO: Research all the available "state" emums and the states they describe.  We probably need to cover more
+    -- states than this.
 
-    --States 100-199 are all various states that apply once a file has started running
-    --States 200-299 are the same states that apply while MDI is running
+    -- States 100-199 are all various states that apply once a file has started running
+    -- States 200-299 are the same states that apply while MDI is running
 
     self:newSlot("XC Run Cycle Toggle", function()
         local state, rc = mc.mcCntlGetState()
@@ -165,14 +163,88 @@ function Controller.new()
             return
         end
     end)
-        
+
     return self
+end
+
+
+function checkMethodSignature(self)
+    -- Attempt to get the method signature (calling function) from the debug info
+    local info = debug.getinfo(2, "n") -- Level 2 because it's two levels up from the method call
+    if not info or not info.name then
+        error("Could not retrieve method information.")
+    end
+
+    local methodName = info.name
+
+    -- Check if self has the __type attribute safely using pcall
+    local success, objType = pcall(function() return self.__type end)
+
+    if not success then
+        -- Could not retrieve __type, probably because self isn't set correctly
+        error(string.format("Method %s called with incorrect or missing self (likely called with . instead of :)", methodName))
+    end
+end
+
+
+function Controller:initUi(propertiesPanel)
+    checkMethodSignature(self)
+
+    -- Clear the existing sizer to ensure it is empty
+    local propSizer = propertiesPanel:GetSizer()
+    propSizer:Clear(true)
+
+    local label = wx.wxStaticText(propertiesPanel, wx.wxID_ANY, "Assign shift button:")
+    propSizer:Add(label, 0, wx.wxALIGN_CENTER_VERTICAL + wx.wxALL, 5)
+
+        -- Add choice control for the signal
+    local choiceId = wx.wxNewId()
+    local choices = {}
+    for _, input in ipairs(self.inputs) do
+        table.insert(choices, tostring(input))
+    end
+    local choice = wx.wxChoice(propertiesPanel, choiceId, wx.wxDefaultPosition, wx.wxDefaultSize, choices)
+    propSizer:Add(choice, 1, wx.wxEXPAND + wx.wxALL, 5)
+
+    if self.shift_btn ~= nil then
+        choice:SetSelection(choice:FindString(tostring(self.shift_btn)))
+    end
+
+    local jogIncLabel = wx.wxStaticText(propertiesPanel, wx.wxID_ANY, "Jog Increment:")
+    propSizer:Add(jogIncLabel, 0, wx.wxALIGN_CENTER_VERTICAL + wx.wxALL, 5)
+    local jogIncCtrl = wx.wxTextCtrl(propertiesPanel, wx.wxID_ANY, tostring(self.jogIncrement), wx.wxDefaultPosition, wx.wxDefaultSize, wx.wxTE_RIGHT)
+    propSizer:Add(jogIncCtrl, 1, wx.wxEXPAND + wx.wxALL, 5)
+
+    local logLevels = {"0 - Disabled", "1 - Error", "2 - Warning", "3 - Info", "4 - Debug"}
+
+    local logLabel = wx.wxStaticText(propertiesPanel, wx.wxID_ANY, "Logging level:")
+    propSizer:Add(logLabel, 0, wx.wxALIGN_CENTER_VERTICAL + wx.wxALL, 5)
+    local logChoice = wx.wxChoice(propertiesPanel, wx.wxID_ANY, wx.wxDefaultPosition, wx.wxDefaultSize, logLevels)
+    propSizer:Add(logChoice, 1, wx.wxEXPAND + wx.wxALL, 5)
+
+    logChoice:SetSelection(self.logLevel)
+
+
+    propSizer:Add(0,0)
+    local apply = wx.wxButton(propertiesPanel, wx.wxID_ANY, "Apply", wx.wxDefaultPosition, wx.wxDefaultSize)
+    propSizer:Add(apply, 0, wx.wxALIGN_RIGHT + wx.wxALL, 5)
+     -- Trigger the layout update
+     propSizer:Layout()
+     propertiesPanel:Layout()
+ 
+     -- Return the propertiesPanel sizer
+     return propSizer
 end
 
 -- Convenience method for retrieving a pre-defined slot by its id
 function Controller:xcGetSlotById(id)
-    if not self then Controller.selfError() return end
-    if Controller.typeCheck({id}, {"string"}) then return end
+    if not self then
+        Controller.selfError()
+        return
+    end
+    if Controller.typeCheck({id}, {"string"}) then
+        return
+    end
     for i, slot in ipairs(self.slots) do
         if slot.id == id then
             return slot
@@ -187,7 +259,9 @@ function Controller:xcGetRegValue(reg)
         Controller.selfError()
         return
     end
-    if self.typeCheck({ reg }, { "string" }) then return end
+    if self.typeCheck({reg}, {"string"}) then
+        return
+    end
     local hreg, rc = mc.mcRegGetHandle(inst, reg)
     if rc == mc.MERROR_NOERROR then
         local val, rc = mc.mcRegGetValueLong(hreg)
@@ -210,7 +284,9 @@ function Controller:xcGetMachSignalState(signal)
         Controller.selfError()
         return
     end
-    if self.typeCheck({ signal }, { "number" }) then return end
+    if self.typeCheck({signal}, {"number"}) then
+        return
+    end
     local hsig, rc = mc.mcSignalGetHandle(inst, signal)
     if rc == mc.MERROR_NOERROR then
         local val, rc = mc.mcSignalGetState(hsig)
@@ -230,7 +306,9 @@ function Controller:xcToggleMachSignalState(signal)
         Controller.selfError()
         return
     end
-    if self.typeCheck({ signal }, { "number" }) then return end
+    if self.typeCheck({signal}, {"number"}) then
+        return
+    end
     local hsig = mc.mcSignalGetHandle(inst, signal)
     self:xcErrorCheck(mc.mcSignalSetState(hsig, not mc.mcSignalGetState(inst, hsig)))
 end
@@ -241,8 +319,12 @@ function Controller:xcCntlLog(msg, level)
         Controller.selfError()
         return
     end
-    if Controller.typeCheck({ msg, level }, { "string", "number" }) then return end
-    if self.logLevel == 0 then return end
+    if Controller.typeCheck({msg, level}, {"string", "number"}) then
+        return
+    end
+    if self.logLevel == 0 then
+        return
+    end
     if level <= self.logLevel then
         if mc.mcInEditor() ~= 1 then
             mc.mcCntlLog(inst, "[[XBOX CONTROLLER " .. self.logLevels[self.logLevel] .. "]]: " .. msg, "", -1)
@@ -259,7 +341,9 @@ function Controller:xcErrorCheck(rc)
         Controller.selfError()
         return
     end
-    if self.typeCheck({ rc }, { "number" }) then return end
+    if self.typeCheck({rc}, {"number"}) then
+        return
+    end
     if rc ~= mc.MERROR_NOERROR then
         self:xcCntlLog(mc.mcCntlGetErrorString(inst, rc), 1)
     end
@@ -272,7 +356,9 @@ function Controller:xcJogSetInc(val)
         Controller.selfError()
         return
     end
-    if self.typeCheck({ val }, { "number" }) then return end
+    if self.typeCheck({val}, {"number"}) then
+        return
+    end
     self.jogIncrement = val
     self:xcCntlLog("Set jogIncrement to " .. tostring(self.jogIncrement), 4)
 end
@@ -283,7 +369,9 @@ function Controller:xcJogSetRate(val)
         Controller.selfError()
         return
     end
-    if self.typeCheck({ val }, { "number" }) then return end
+    if self.typeCheck({val}, {"number"}) then
+        return
+    end
     self.jogRate = val
     self:xcCntlLog("Set jogRate to " .. tostring(self.jogRate), 4)
 end
@@ -298,9 +386,9 @@ function Controller:update()
         self.shift_btn:getState()
     end
     for _, input in pairs(self.inputs) do
-		if input ~= self.shift_btn then
-			input:getState()
-		end
+        if input ~= self.shift_btn then
+            input:getState()
+        end
     end
     for _, axis in pairs(self.axes) do
         axis:update()
@@ -314,29 +402,35 @@ function Controller:assignShift(input)
         Controller.selfError()
         return
     end
-    if self.typeCheck({ input }, { { "Button", "Trigger" } }) then return end
+    if self.typeCheck({input}, {{"Button", "Trigger"}}) then
+        return
+    end
 
     if self.shift_btn ~= nil then
-        self:xcCntlLog(string.format("Call to assign a shift button with a shift button already assigned.  %s will be unassigned before assigning new shift button.", self.shift_btn.id), 2)
+        self:xcCntlLog(string.format(
+            "Call to assign a shift button with a shift button already assigned.  %s will be unassigned before assigning new shift button.",
+            self.shift_btn.id), 2)
     end
     self.shift_btn = input
     self:xcCntlLog("" .. input.id .. " assigned as controller shift button.", 3)
-	-- The section below has been deprecated by the new GUI config manager, to be removed pending testing
+    -- The section below has been deprecated by the new GUI config manager, to be removed pending testing
     --[[for i, input in ipairs(self.inputs) do
         if input == self.shift_btn then
             table.remove(self.inputs, i)
             return
         end
-    ]]--end
+    ]] -- end
 end
 
 function Controller:mapSimpleJog(reversed)
-	-- TODO: Connect this to the GUI configurator, implement it as a default, or deprecate it.
+    -- TODO: Connect this to the GUI configurator, implement it as a default, or deprecate it.
     if not self then
         Controller.selfError()
         return
     end
-    if self.typeCheck({ reversed }, { { "boolean", "nil" } }) then return end
+    if self.typeCheck({reversed}, {{"boolean", "nil"}}) then
+        return
+    end
     self:xcCntlLog(string.format("Value of reversed flag for axis orientation: %s", tostring(reversed)), 4)
     -- DPad regular jog
     self.UP.down:connect(self:newSlot('xcJogUp', function()
@@ -365,40 +459,41 @@ function Controller:mapSimpleJog(reversed)
         self:xcCntlLog("Standard velocity jogging mapped to D-pad", 3)
     end
 
-    self.UP.down:connect(self:newSlot('xcJogIncUp', function()
+    self.UP.altDown:connect(self:newSlot('xcJogIncUp', function()
         mc.mcJogIncStart(inst, reversed and mc.Y_AXIS or mc.X_AXIS, self.jogIncrement)
-    end), true)
-    self.DOWN.down:connect(self:newSlot('xcJogIncDown', function()
+    end))
+    self.DOWN.altDown:connect(self:newSlot('xcJogIncDown', function()
         mc.mcJogIncStart(inst, reversed and mc.Y_AXIS or mc.X_AXIS, -1 * self.jogIncrement)
-    end), true)
-    self.RIGHT.down:connect(self:newSlot('xcJogIncRight',function()
+    end))
+    self.RIGHT.altDown:connect(self:newSlot('xcJogIncRight', function()
         mc.mcJogIncStart(inst, reversed and mc.X_AXIS or mc.Y_AXIS, self.jogIncrement)
-    end), true)
-    self.LEFT.down:connect(self:newSlot('xcJogIncLeft', function()
+    end))
+    self.LEFT.altDown:connect(self:newSlot('xcJogIncLeft', function()
         mc.mcJogIncStart(inst, reversed and mc.X_AXIS or mc.Y_AXIS, -1 * self.jogIncrement)
-    end), true)
+    end))
     if reversed then
-        self:xcCntlLog("Incremental jogging with X and Y axis orientation reversed mapped to D-pad alternate function", 3)
+        self:xcCntlLog("Incremental jogging with X and Y axis orientation reversed mapped to D-pad alternate function",
+            3)
     else
         self:xcCntlLog("Incremental jogging mapped to D-pad alternate function", 3)
     end
 end
 
-
---[[ NOTE: altSlots have been refactored out in favor of using altUp and altDown signals, which greatly simplifies
-    the logic in Button:initUi and Signal:connect]]
 function Controller:newSignal(button, id)
     if not self then
         Controller.selfError()
         return
     end
-    if Controller.typeCheck({ button, id }, { { "Button", "Trigger" }, "string" }) then return end
+    if Controller.typeCheck({button, id}, {{"Button", "Trigger"}, "string"}) then
+        return
+    end
     return self.Signal.new(self, button, id)
 end
 
 Controller.Signal = {}
 Controller.Signal.__index = Controller.Signal
 Controller.Signal.__type = "Signal"
+Controller.Signal.__tostring = function(self) return string.format("Signal: %s", self.id) end
 
 function Controller.Signal.new(controller, button, id)
     local self = setmetatable({}, Controller.Signal)
@@ -409,44 +504,30 @@ function Controller.Signal.new(controller, button, id)
     return self
 end
 
+
 -- connect a Signal to a Slot.  pass true (or anything besides false or nil) to the alt parameter to connect alternate Slot
 -- alternate Slot fires when Signal is emitted while an assigned shift button is pressed
 function Controller.Signal:connect(slot)
-	local slot = slot
+    local slot = slot
     if not self then
         Controller.selfError()
         return
     end
-    if self.controller:typeCheck({ slot }, { "Slot" }) then return end
+    if self.controller:typeCheck({slot}, {"Slot"}) then
+        return
+    end
     if self.controller.shift_btn == self.button then
         self.controller:xcCntlLog("Ignoring call to connect a Slot to an assigned shift button!", 2)
         return
     end
     if self.slot ~= nil then
-        self.controller:xcCntlLog(string.format("Signal %s of input %s already has a connected slot.  Did you mean to override it?", self.id, self.button.id), 2)
+        self.controller:xcCntlLog(string.format(
+            "Signal %s of input %s already has a connected slot.  Did you mean to override it?", self.id, self.button.id),
+            2)
     end
     self.slot = slot
     self.controller:xcCntlLog(self.button.id .. self.id .. " connected to Slot " .. self.slot.id, 4)
 end
-
--- And deprecated again in favor of exchanging altSlots for alt Signals
--- Deprecated in favor of Controller.Signal:connect(slot, alt=true) to be removed pending testing
---[[function Controller.Signal:altConnect(slot)
-    if not self then
-        Controller.selfError()
-        return
-    end
-    if self.controller:typeCheck({ slot }, { "Slot" }) then return end
-    if self.controller.shift_btn == self.button then
-        self.controller:xcCntlLog("Ignoring call to connect a Slot to an assigned shift button!", 2)
-        return
-    end
-    if self.altSlot ~= nil then
-        self.controller:xcCntlLog(string.format("Signal %s of input %s already has a connected alternate slot.  Did you mean to override it?", self.id, self.button.id), 2)
-    end
-    self.altSlot = slot
-    self.controller:xcCntlLog(self.button.id .. self.id .. " connected to Alt Slot " .. self.altSlot.id, 4)
-]]--end
 
 -- NOTE: We could implement a check to make sure we don't allow an assigned shift button to emit any Signals, but that *should* be impossible.
 function Controller.Signal:emit()
@@ -468,13 +549,16 @@ function Controller:newButton(id)
         Controller.selfError()
         return
     end
-    if self.typeCheck({ id }, { "string" }) then return end
+    if self.typeCheck({id}, {"string"}) then
+        return
+    end
     return self.Button.new(self, id)
 end
 
 Controller.Button = {}
 Controller.Button.__index = Controller.Button
 Controller.Button.__type = "Button"
+Controller.Button.__tostring = function(self) return string.format("Button: %s", self.id) end
 
 function Controller.Button.new(controller, id)
     local self = setmetatable({}, Controller.Button)
@@ -521,40 +605,66 @@ function Controller.Button:getState()
     end
 end
 
--- this method returns the various inputs needed to populate the "properties" panel in the gui configurator
---TODO: There's got to be a way to do all of this in a loop or something.   This is not very DRY.
-function Controller.Button:initUi(window)
-	if not self then
-		self.controller.selfError()
-		return
-	end
-	
-    local propSizer = wx.wxFlexGridSizer(0, 2, 0, 0)
+function Controller.Button:initUi(propertiesPanel)
+    if not self then
+        self.controller.selfError()
+        return
+    end
 
-    local options = {[0] = ""}
+    -- Clear the existing sizer to ensure it is empty
+    local propSizer = propertiesPanel:GetSizer()
+    propSizer:Clear(true)
+
+    local options = {""}  -- Ensure the first option is always empty
     for i, slot in ipairs(self.controller.slots) do
         table.insert(options, slot.id)
     end
 
+    -- Create labels and choices for each signal
     for i, signal in ipairs({"Up", "Down", "Alternate Up", "Alternate Down"}) do
-        propSizer:Add(wx.wxStaticText(window, wx.wxID_ANY, string.format("%s Action:", signal)), 0, wx.wxALIGN_CENTER_VERTICAL + wx.wxALL, 1)
+        -- Add label to the propertiesPanel
+        local label = wx.wxStaticText(propertiesPanel, wx.wxID_ANY, string.format("%s Action:", signal))
+        propSizer:Add(label, 0, wx.wxALIGN_LEFT + wx.wxALL, 5)
+
+        -- Add choice control for the signal
         local actionId = wx.wxNewId()
-        idMapping[actionId] = {input=self, signal = self.signals[i]}
-        local choice = wx.wxChoice(window, actionId, wx.wxDefaultPosition, wx.wxDefaultSize, options)
-        propSizer:Add(choice, 1, wx.wxALIGN_CENTER_VERTICAL + wx.wxALL, 1)
+        idMapping[actionId] = {input = self, signal = self.signals[i]}
+        local choice = wx.wxChoice(propertiesPanel, actionId, wx.wxDefaultPosition, wx.wxDefaultSize, options)
+        
+        -- Set the selection safely without triggering issues
+        local slotId = self.signals[i].slot and self.signals[i].slot.id or ""
+        local selectedIndex = choice:FindString(slotId)
+        if selectedIndex == wx.wxNOT_FOUND then
+            choice:SetSelection(0)  -- Default to empty selection
+        else
+            choice:SetSelection(selectedIndex)
+        end
+
+        propSizer:Add(choice, 1, wx.wxEXPAND + wx.wxALL, 5)
     end
 
+    -- Add additional UI elements for "Trigger" type if applicable
     if self.__type == "Trigger" then
-        propSizer:Add(wx.wxStaticText(window, wx.wxID_ANY, "Analog Output Action:", 0, wx.wxALIGN_CENTER_VERTICAL + wx.wxALL, 1))
+        propSizer:Add(wx.wxStaticText(propertiesPanel, wx.wxID_ANY, "Analog Output Action:"), 0, wx.wxALIGN_LEFT + wx.wxALL, 5)
         local actionId = wx.wxNewId()
-        idMapping[actionId] = {input=self, signal = self.analog}
-		
-		local choice = wx.wxChoice(window, actionId, wx.wxDefaultPosition, wx.wxDefaultSize, options)
-        propSizer:Add(choice, 1, wx.wxALIGN_CENTER_VERTICAL + wx.wxALL, 1)
+        idMapping[actionId] = {input = self, signal = self.analog}
+
+        local choice = wx.wxChoice(propertiesPanel, actionId, wx.wxDefaultPosition, wx.wxDefaultSize, options)
+        propSizer:Add(choice, 1, wx.wxEXPAND + wx.wxALL, 5)
     end
 
-	return propSizer
+    propSizer:Add(0,0)
+    local apply = wx.wxButton(propertiesPanel, wx.wxID_ANY, "Apply", wx.wxDefaultPosition, wx.wxDefaultSize)
+    propSizer:Add(apply, 0, wx.wxALIGN_RIGHT + wx.wxALL, 5)
+
+    -- Trigger the layout update
+    propSizer:Layout()
+    propertiesPanel:Layout()
+
+    -- Return the propertiesPanel sizer
+    return propSizer
 end
+
 
 
 function Controller:newTrigger(id)
@@ -562,13 +672,17 @@ function Controller:newTrigger(id)
 end
 
 Controller.Trigger = {}
-Controller.Trigger.__index = Controller.Trigger
+Controller.Trigger.__index = Controller.Button
 Controller.Trigger.__type = "Trigger"
+Controller.Trigger.__tostring = function(self) return string.format("Trigger: %s", self.id) end
 
 function Controller.Trigger.new(controller, id)
-    if controller.typeCheck({ controller, id }, { "Controller", "string" }) then return end
+    if controller.typeCheck({controller, id}, {"Controller", "string"}) then
+        return
+    end
     local self = Controller.Button.new(controller, id)
-	setmetatable(self, Controller.Trigger)
+    setmetatable(self, Controller.Trigger)
+    self.__type = "Trigger"
     self.value = 0
     self.analog = self.controller:newSignal(self, "analog")
     return self
@@ -605,7 +719,9 @@ function Controller.Trigger:connect(func)
         Controller.selfError()
         return
     end
-    if self.controller.typeCheck({ func }, { "function" }) then return end
+    if self.controller.typeCheck({func}, {"function"}) then
+        return
+    end
     self.func = func
 end
 
@@ -616,9 +732,12 @@ end
 Controller.ThumbstickAxis = {}
 Controller.ThumbstickAxis.__index = Controller.ThumbstickAxis
 Controller.ThumbstickAxis.__type = "ThumbstickAxis"
+Controller.ThumbstickAxis.__tostring = function(self) return string.format("ThumbstickAxis: %s", self.id) end
 
 function Controller.ThumbstickAxis.new(controller, id)
-    if controller.typeCheck({ controller, id }, { "Controller", "string" }) then return end
+    if controller.typeCheck({controller, id}, {"Controller", "string"}) then
+        return
+    end
     local self = setmetatable({}, Controller.ThumbstickAxis)
     self.controller = controller
     self.id = id
@@ -637,7 +756,9 @@ function Controller.ThumbstickAxis:setDeadzone(deadzone)
         Controller.selfError()
         return
     end
-    if self.controller.typeCheck({ deadzone }, { "number" }) then return end
+    if self.controller.typeCheck({deadzone}, {"number"}) then
+        return
+    end
     self.deadzone = math.abs(deadzone)
 end
 
@@ -646,7 +767,9 @@ function Controller.ThumbstickAxis:connect(axis, inverted)
         Controller.selfError()
         return
     end
-    if self.controller.typeCheck({ axis, inverted }, { "number", "boolean" }) then return end
+    if self.controller.typeCheck({axis, inverted}, {"number", "boolean"}) then
+        return
+    end
     self.axis = axis
     self.inverted = inverted
     local rc
@@ -656,18 +779,20 @@ function Controller.ThumbstickAxis:connect(axis, inverted)
     self.controller:xcCntlLog("Initial jog rate for " .. tostring(self.axis) .. " = " .. self.rate, 4)
 end
 
---[[ TODO: Something seems to be not working entirely as intended with this method, as once in awhile the connected axis seems to 
+--[[ TODO: Something seems to be not working entirely as intended with this method, as once in awhile the connected axis seems to
     stay stuck at some arbitrary jog rate it was set to, and will continue to move in response to stick input, but will not update the jog rate
     with respect to the analog value.  Releasing the stick completely and starting to move again seems to reset this condition.  Not sure what's causing that.
-]]--- 
---- TODO: It's probably possible to do all of our jog rate updating for the thumbstick analog control without actually updating Mach4's jog rate value.  We should probably 
+]] ---
+--- TODO: It's probably possible to do all of our jog rate updating for the thumbstick analog control without actually updating Mach4's jog rate value.  We should probably
 --- create our own jog rate value, track it on an instance attribute and refer to that instead.
 function Controller.ThumbstickAxis:update()
     if not self then
         Controller.selfError()
         return
     end
-    if self.axis == nil then return end
+    if self.axis == nil then
+        return
+    end
     self.value = self.controller:xcGetRegValue(string.format("mcX360_LUA/%s", self.id))
     if type(self.value) ~= "number" then
         self.controller:xcCntlLog("Invalid value for ThumbstickAxis", 1)
@@ -702,6 +827,43 @@ function Controller.ThumbstickAxis:update()
     end
 end
 
+function Controller.ThumbstickAxis:initUi(propertiesPanel)
+    if not self then
+        self.controller.selfError()
+        return
+    end
+
+    -- Clear the existing sizer to ensure it is empty
+    local propSizer = propertiesPanel:GetSizer()
+    propSizer:Clear(true)
+
+    local label = wx.wxStaticText(propertiesPanel, wx.wxID_ANY, "Connect to axis:")
+    propSizer:Add(label, 0, wx.wxALIGN_CENTER_VERTICAL + wx.wxALL, 5)
+
+        -- Add choice control for the signal
+    local choiceId = wx.wxNewId()
+    local choices = {}
+    for _, axis in ipairs({"mc.X_AXIS", "mc.Y_AXIS", "mc.Z_AXIS", "mc.A_AXIS", "mc.B_AXIS", "mc.C_AXIS"}) do
+        table.insert(choices, axis)
+    end
+    local choice = wx.wxChoice(propertiesPanel, choiceId, wx.wxDefaultPosition, wx.wxDefaultSize, choices)
+    propSizer:Add(choice, 1, wx.wxEXPAND + wx.wxALL, 5)
+
+    if self.axis ~= nil then
+        choice:SetSelection(self.axis + 1)
+    end
+
+    propSizer:Add(0,0)
+    local apply = wx.wxButton(propertiesPanel, wx.wxID_ANY, "Apply", wx.wxDefaultPosition, wx.wxDefaultSize)
+    propSizer:Add(apply, 0, wx.wxALIGN_RIGHT + wx.wxALL, 5)
+
+    propSizer:Layout()
+    propertiesPanel:Layout()
+
+    -- Return the propertiesPanel sizer
+    return propSizer
+end
+
 function Controller:newSlot(id, func)
     -- added a new 'id' attribute for Slots that we need to get from the constructor
     return self.Slot.new(self, id, func)
@@ -710,30 +872,34 @@ end
 Controller.Slot = {}
 Controller.Slot.__index = Controller.Slot
 Controller.Slot.__type = "Slot"
+Controller.Slot.__tostring = function(self) return string.format("Slot: %s", self.id) end
 
 function Controller.Slot.new(controller, id, func)
-    if Controller.typeCheck({ id, func }, { "string", "function" }) then return end
+    if Controller.typeCheck({id, func}, {"string", "function"}) then
+        return
+    end
     local self = setmetatable({}, Controller.Slot)
-	self.id = id
+    self.id = id
     self.controller = controller
     self.func = func
-	table.insert(self.controller.slots, self)
+    table.insert(self.controller.slots, self)
     return self
 end
+
 
 xc = Controller.new()
 ---------------------------------
 --- Custom Configuration Here ---
 
 --- TODO: consider updating documentation to not mention any manual configuration of the controller object outside of the
---- "Advanced Usage" section.  When the GUI is fully working, most users will never need to do anything here.  
+--- "Advanced Usage" section.  When the GUI is fully working, most users will never need to do anything here.
 --- TODO: update the GUI configurator to include a section of properties that are configured at the Controller level, such as
 --- logging level, a
---- 
---- 
---- 
---- 
---- xes inversions and reversals, etc. 
+---
+---
+---
+---
+--- xes inversions and reversals, etc.
 xc.logLevel = 0
 xc:assignShift(xc.LTR)
 xc.RTH_Y:connect(mc.Z_AXIS)
@@ -742,49 +908,58 @@ xc.B.down:connect(xc:xcGetSlotById('E Stop Toggle'))
 xc.Y.down:connect(xc.xcCntlTorchToggle)
 xc.RSB.down:connect(xc:xcGetSlotById('Enable Toggle'))
 xc.X.down:connect(xc:xcGetSlotById('XC Run Cycle Toggle'))
-xc.BACK.down:connect(xc:xcGetSlotById('Home All'), true)
-xc.START.down:connect(xc:xcGetSlotById('Home Z'), true)
+xc.BACK.altDown:connect(xc:xcGetSlotById('Home All'))
+xc.START.altDown:connect(xc:xcGetSlotById('Home Z'))
+
 
 -- End of custom configuration ---
 ----------------------------------
 ---
 --[[ TODO: The current method of mocking the mcLuaPanelParent object doesn't actually work right, wxPanel is not a top-level gui object.
   We need to implement a mock that actually works and renders our GUI when we're not running connected to a live Mach4 instance.
-  ]]--
-
+  ]] --
 
 -- Create the main sizer (horizontal layout with input list on the left and properties on the right)
---[[ TODO: It seems as though there should be a second column alongside the input list that displays 
-    some sort of information about the current configuration state for each input.  Perhaps something 
+--[[ TODO: It seems as though there should be a second column alongside the input list that displays
+    some sort of information about the current configuration state for each input.  Perhaps something
     like "(#) connected Signals", "Assigned as shift button," where appropriate would suffice.
-    
-    Trigger objects need to be implemented as either analog controls OR buttons (not both at once), so we could 
-    also display something like: "Button mode with 2 connected Signals" or "Analog mode with connection function" 
+
+    Trigger objects need to be implemented as either analog controls OR buttons (not both at once), so we could
+    also display something like: "Button mode with 2 connected Signals" or "Analog mode with connection function"
     for trigger objects.
 
-    ThumbstickAxis objects only have one potential state, which is connection to the movement of an axis, so 
+    ThumbstickAxis objects only have one potential state, which is connection to the movement of an axis, so
     "Connected to machine X Axis", etc or "Not Connected" is probably sufficient.
 
     Thinking about it in terms of the refactoring done up to now, we may want to populate this field from an
-    attribute on the input object, as that would be the appropriate place for what amounts to state information 
+    attribute on the input object, as that would be the appropriate place for what amounts to state information
     for the object.
 
     Additional NOTE: Would a single panel with a tree view be intuitive for most users? Each input would have
     it's Signal and or Analog input members as children, and each child could display the state of it's current configuration
     when expanded.  This makes the entire config easy to reach without jamming it all into the screen when it's not
     needed.  The controller ojbect would then have its various configurable settings as children, along with the input
-    objects... which may be less intuitive.  
+    objects... which may be less intuitive.
 
     A hybrid implementation of the tree view and the properties panel would exactly parallel how the Mach4 screen editor
-    is set up, thus keeping our GUI "extension" consistent with the GUI's design.  
-]]--
+    is set up, thus keeping our GUI "extension" consistent with the GUI's design.
+]] --
 local mainSizer = wx.wxBoxSizer(wx.wxHORIZONTAL)
+mcLuaPanelParent:SetMinSize(wx.wxSize(450, 500))
+mcLuaPanelParent:SetMaxSize(wx.wxSize(450, 500))
+
+-- Create a static box for the tree manager (left panel)
+local treeBox = wx.wxStaticBox(mcLuaPanelParent, wx.wxID_ANY, "Controller Tree Manager")
+local treeSizer = wx.wxStaticBoxSizer(treeBox, wx.wxVERTICAL)
 
 -- Create tree control
-local tree = wx.wxTreeCtrl.new(mcLuaPanelParent, wx.wxID_ANY, wx.wxDefaultPosition, wx.wxSize(100, -1), wx.wxTR_HAS_BUTTONS, wx.wxDefaultValidator, "tree")
+local tree = wx.wxTreeCtrl.new(mcLuaPanelParent, wx.wxID_ANY, wx.wxDefaultPosition, wx.wxSize(100, -1),
+    wx.wxTR_HAS_BUTTONS, wx.wxDefaultValidator, "tree")
 
 local root_id = tree:AddRoot(xc.id)
-local treedata = {[root_id:GetValue()] = xc}
+local treedata = {
+    [root_id:GetValue()] = xc
+}
 
 -- Populate tree with inputs and axes
 for i = 1, #xc.inputs do
@@ -799,38 +974,49 @@ end
 tree:ExpandAll()
 
 -- Add the tree control to the main sizer
-mainSizer:Add(tree, 0, wx.wxEXPAND + wx.wxALL, 5)
+treeSizer:Add(tree, 1, wx.wxEXPAND + wx.wxALL, 5)
+
+-- Create a static box for the properties panel (right panel)
+local propBox = wx.wxStaticBox(mcLuaPanelParent, wx.wxID_ANY, "Properties")
+local propSizer = wx.wxStaticBoxSizer(propBox, wx.wxVERTICAL)
 
 -- Create the properties panel
-propertiesPanel = wx.wxPanel(mcLuaPanelParent, wx.wxID_ANY, wx.wxDefaultPosition, wx.wxSize(100,100))
-local sizer = wx.wxFlexGridSizer(0, 2, 0, 0)
+propertiesPanel = wx.wxPanel(mcLuaPanelParent, wx.wxID_ANY, wx.wxDefaultPosition, wx.wxDefaultSize)
+local sizer = wx.wxFlexGridSizer(0, 2, 0, 0)  -- 2 columns, auto-adjust rows
+sizer:AddGrowableCol(1, 1)
 propertiesPanel:SetSizer(sizer)
-sizer:Layout()
 propertiesPanel:Layout()
 
+local font = wx.wxFont(8, wx.wxFONTFAMILY_DEFAULT, wx.wxFONTSTYLE_NORMAL, wx.wxFONTWEIGHT_NORMAL)
+propertiesPanel:SetFont(font)
+propBox:SetFont(font)
+treeBox:SetFont(font)
+tree:SetFont(font)
 
 
-tree:Connect(wx.wxEVT_COMMAND_TREE_SEL_CHANGED,
-    function(event)
-        -- Clear the current sizer's contents from the properties panel
-        propertiesPanel:GetSizer():Clear(true)  -- true ensures that the controls are destroyed
+-- Add the properties panel to the properties sizer
+propSizer:Add(propertiesPanel, 1, wx.wxEXPAND + wx.wxALL, 5)
 
-        -- Get the item associated with the tree selection
-        local item = treedata[event:GetItem():GetValue()]
 
-        -- Call the initUi method of the selected item and set it as the new sizer
-        -- Set the new sizer and perform layout
-		
-        local sizer = item:initUi(propertiesPanel)
-        propertiesPanel:SetSizer(sizer)
-		sizer:Layout()
-        propertiesPanel:Layout()
-        
-    end
-)
+tree:Connect(wx.wxEVT_COMMAND_TREE_SEL_CHANGED, function(event)
+    -- Clear the current sizer's contents from the properties panel
+    propertiesPanel:GetSizer():Clear(true) -- true ensures that the controls are destroyed
 
--- Add the properties panel to the main sizer
-mainSizer:Add(propertiesPanel, 1, wx.wxEXPAND + wx.wxALL, 5)
+    -- Get the item associated with the tree selection
+    local item = treedata[event:GetItem():GetValue()]
+
+    -- Call the initUi method of the selected item and set it as the new sizer
+    -- Set the new sizer and perform layout
+
+
+    propertiesPanel:SetSizer(item:initUi(propertiesPanel))
+    propertiesPanel:Fit()
+    propertiesPanel:Layout()
+end)
+
+-- Add both sizers to the main sizer
+mainSizer:Add(treeSizer, 0, wx.wxEXPAND + wx.wxALL, 5)
+mainSizer:Add(propSizer, 1, wx.wxEXPAND + wx.wxALL, 5)
 
 -- Set up the main sizer on the parent panel
 mcLuaPanelParent:SetSizer(mainSizer)
@@ -841,16 +1027,14 @@ wx.wxGetApp():SetTopWindow(mcLuaPanelParent)
 mcLuaPanelParent:Show(true)
 wx.wxGetApp():MainLoop()
 
-
-
-
-
---[[ TODO: Is 100ms the right rate to be polling the inputs?  If 250ms(or some other longer amount of time) would be sufficient, 
-    the code would be more performant in terms of impact on the system itself, which is something we should at least be 
-    considering in a CNC application.  Setting the timer too long would result in the machine's response to controller inputs 
+--[[ TODO: Is 100ms the right rate to be polling the inputs?  If 250ms(or some other longer amount of time) would be sufficient,
+    the code would be more performant in terms of impact on the system itself, which is something we should at least be
+    considering in a CNC application.  Setting the timer too long would result in the machine's response to controller inputs
     feeling sluggish, which is also unacceptable. Should probably do some testing to find a good happy medium value.]]
 xc:xcCntlLog("Creating X360_timer", 4)
 X360_timer = wx.wxTimer(mcLuaPanelParent)
-mcLuaPanelParent:Connect(wx.wxEVT_TIMER, function() xc:update() end)
+mcLuaPanelParent:Connect(wx.wxEVT_TIMER, function()
+    xc:update()
+end)
 xc:xcCntlLog("Starting X360_timer", 4)
 X360_timer:Start(100)
