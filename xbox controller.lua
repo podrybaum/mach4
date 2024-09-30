@@ -201,7 +201,7 @@ function checkMethodSignature(self)
 end
 
 function Controller:initUi(propertiesPanel)
-    checkMethodSignature(self)
+    --checkMethodSignature(self)
 
     -- Clear the existing sizer to ensure it is empty
     local propSizer = propertiesPanel:GetSizer()
@@ -211,16 +211,15 @@ function Controller:initUi(propertiesPanel)
     propSizer:Add(label, 0, wx.wxALIGN_CENTER_VERTICAL + wx.wxALL, 5)
 
     -- Add choice control for the signal
-    local choiceId = wx.wxNewId()
     local choices = {}
     for _, input in ipairs(self.inputs) do
-        table.insert(choices, tostring(input))
+        table.insert(choices, input.id)
     end
-    local choice = wx.wxChoice(propertiesPanel, choiceId, wx.wxDefaultPosition, wx.wxDefaultSize, choices)
+    local choice = wx.wxChoice(propertiesPanel, wx.wxID_ANY, wx.wxDefaultPosition, wx.wxDefaultSize, choices)
     propSizer:Add(choice, 1, wx.wxEXPAND + wx.wxALL, 5)
 
     if self.shift_btn ~= nil then
-        choice:SetSelection(choice:FindString(tostring(self.shift_btn)))
+        choice:SetSelection(choice:FindString(self.shift_btn.id))
     end
 
     local jogIncLabel = wx.wxStaticText(propertiesPanel, wx.wxID_ANY, "Jog Increment:")
@@ -237,17 +236,50 @@ function Controller:initUi(propertiesPanel)
     propSizer:Add(logChoice, 1, wx.wxEXPAND + wx.wxALL, 5)
 
     logChoice:SetSelection(self.logLevel)
-
-
+	
     propSizer:Add(0, 0)
-    local apply = wx.wxButton(propertiesPanel, wx.wxID_ANY, "Apply", wx.wxDefaultPosition, wx.wxDefaultSize)
+    local applyId = wx.wxNewId()
+    local apply = wx.wxButton(propertiesPanel, applyId, "Apply", wx.wxDefaultPosition, wx.wxDefaultSize)
     propSizer:Add(apply, 0, wx.wxALIGN_RIGHT + wx.wxALL, 5)
+	
+	
+	propertiesPanel:Connect(applyId, wx.wxEVT_BUTTON, function()
+		local choiceSelection = choice:GetStringSelection()
+		if choiceSelection ~= self.shift_btn.id then
+			self.assignShift(self:xcGetButtonById(choiceSelection))
+		end
+		local jogInc = tonumber(jogIncCtrl:GetValue())
+		if jogInc ~= self.jogIncrement then
+			self.jogIncrement = jogInc
+		end
+		local logChoiceSelection = logChoice:GetSelection()
+		if self.logLevel ~= logChoiceSelection then
+			self.logLevel = logChoiceSelection
+		end
+	end)
+	
+	
+
     -- Trigger the layout update
     propSizer:Layout()
     propertiesPanel:Layout()
+	propertiesPanel:Fit()
+	propertiesPanel:Refresh()
 
     -- Return the propertiesPanel sizer
     return propSizer
+end
+
+function Controller:xcGetInputById(id)
+	if Controller.typeCheck({ id }, { "string" }) then
+        return
+    end
+	for i, input in ipairs(self.inputs) do
+		if input.id == id then
+			return input
+		end
+	end
+	self:xcCntlLog(string.format("No Button with id %s found", id), 1)
 end
 
 -- Convenience method for retrieving a pre-defined slot by its id
@@ -260,7 +292,7 @@ function Controller:xcGetSlotById(id)
             return slot
         end
     end
-    self:xcCntlLog(string.format("No slot with id %s found", id), 1)
+    self:xcCntlLog(string.format("No Slot with id %s found", id), 1)
 end
 
 -- Convenience method for retrieving register values in a single call with error handling.
@@ -637,8 +669,6 @@ function Controller.Button:initUi(propertiesPanel)
         end
 
         propSizer:Add(choice, 1, wx.wxEXPAND + wx.wxALL, 5)
-       -- self.controller:xcCntlLog(string.format("created %s object for %s signal",tostring(choice),signal),1)
-        --self.controller:xcCntlLog("Initial selection for " .. tostring(signal) .. ": " .. tostring(choice:GetSelection()), 1)
 
     end
 
@@ -662,14 +692,12 @@ function Controller.Button:initUi(propertiesPanel)
     propertiesPanel:Connect(applyId, wx.wxEVT_BUTTON, function()
             for i, signal in ipairs(self.signals) do
                 local choice = idMapping[signal]
-                self.controller:xcCntlLog(tostring(signal.slot), 1)
                 local selection = choice:GetStringSelection()
-                self.controller:xcCntlLog(tostring(selection == tostring(selection)),1)
-                if signal.slot == nil or signal.slot.id ~= tostring(selection) then
-                    self.controller:xcCntlLog(tostring(self.controller:xcGetSlotById(tostring(selection))))
-                    signal:connect(scr.DoFunctionName(selection))
-                    self.controller:xcCntlLog(tostring(signal.slot),1)
-                end
+                if (signal.slot == nil and selection ~= "") or (signal.slot and signal.slot.id ~= selection) then
+                    signal:connect(self.controller:xcGetSlotById(selection))
+                elseif signal.slot and selection == "" then
+					signal.slot = nil
+				end
             end
         end)
 
@@ -841,34 +869,35 @@ function Controller.ThumbstickAxis:update()
 end
 
 function Controller.ThumbstickAxis:initUi(propertiesPanel)
-    if not self then
-        self.controller.selfError()
-        return
-    end
-
-    -- Clear the existing sizer to ensure it is empty
     local propSizer = propertiesPanel:GetSizer()
-    propSizer:Clear(true)
 
     local label = wx.wxStaticText(propertiesPanel, wx.wxID_ANY, "Connect to axis:")
     propSizer:Add(label, 0, wx.wxALIGN_CENTER_VERTICAL + wx.wxALL, 5)
 
     -- Add choice control for the signal
-    local choiceId = wx.wxNewId()
     local choices = {}
     for _, axis in ipairs({ "mc.X_AXIS", "mc.Y_AXIS", "mc.Z_AXIS", "mc.A_AXIS", "mc.B_AXIS", "mc.C_AXIS" }) do
         table.insert(choices, axis)
     end
-    local choice = wx.wxChoice(propertiesPanel, choiceId, wx.wxDefaultPosition, wx.wxDefaultSize, choices)
+    local choice = wx.wxChoice(propertiesPanel, wx.wxID_ANY, wx.wxDefaultPosition, wx.wxDefaultSize, choices)
     propSizer:Add(choice, 1, wx.wxEXPAND + wx.wxALL, 5)
 
     if self.axis ~= nil then
-        choice:SetSelection(self.axis + 1)
+        choice:SetSelection(self.axis)
     end
 
     propSizer:Add(0, 0)
-    local apply = wx.wxButton(propertiesPanel, wx.wxID_ANY, "Apply", wx.wxDefaultPosition, wx.wxDefaultSize)
+    local applyId = wx.wxNewId()
+    local apply = wx.wxButton(propertiesPanel, applyId, "Apply", wx.wxDefaultPosition, wx.wxDefaultSize)
     propSizer:Add(apply, 0, wx.wxALIGN_RIGHT + wx.wxALL, 5)
+	
+	propertiesPanel:Connect(applyId, wx.wxEVT_BUTTON, function()
+		local axes = {mc.X_AXIS, mc.Y_AXIS, mc.Z_AXIS, mc.A_AXIS, mc.B_AXIS, mc.C_AXIS}
+		selection = choice:GetSelection()
+		if (self.axis == nil and selection ~= "") or (self.axis and self.axis ~= axes[selection]) then
+			self.axis = axes[selection]
+		end
+	end)
 
     propSizer:Layout()
     propertiesPanel:Layout()
