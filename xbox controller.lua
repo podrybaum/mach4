@@ -507,7 +507,7 @@ function Controller.Button:getState()
         self.controller.selfError()
         return
     end
-    local state = self.controller:xcGetRegValue(string.format("mcX360_LUA/%s", self.id))
+    local state = self.controller:xcGetRegValueNumber(string.format("mcX360_LUA/%s", self.id))
     if type(state) ~= "number" then
         self.controller:xcCntlLog(string.format("Invalid state for %s", self.id), 1)
         return
@@ -536,27 +536,25 @@ end
 function Controller.Button:initUi(propertiesPanel)
     local propSizer = propertiesPanel:GetSizer()
 
+    -- Slot labels and dropdowns
     local options = {""}
     for _, slot in ipairs(self.controller.slots) do
         options[#options + 1] = slot.id
     end
-
     idMapping = {}
-
     for i, signal in ipairs({"Up", "Down", "Alternate Up", "Alternate Down"}) do
         local label = wx.wxStaticText(propertiesPanel, wx.wxID_ANY, string.format("%s Action:", signal))
         propSizer:Add(label, 0, wx.wxALIGN_LEFT + wx.wxALL, 5)
-
         local choice = wx.wxChoice(propertiesPanel, wx.wxID_ANY, wx.wxDefaultPosition, wx.wxDefaultSize, options)
         idMapping[self.signals[i]] = choice
-
         if self.signals[i].slot ~= nil then
             choice:SetSelection(choice:FindString(self.signals[i].slot.id))
         end
-
         propSizer:Add(choice, 1, wx.wxEXPAND + wx.wxALL, 5)
     end
 
+    -- Analog signal for Triggers
+    -- TODO: create analog Slot type
     if self.__type == "Trigger" then
         local axes = {"mc.X_AXIS", "mc.Y_AXIS", "mc.Z_AXIS", "mc.A_AXIS", "mc.B_AXIS", "mc.C_AXIS"}
         local label = wx.wxStaticText(propertiesPanel, wx.wxID_ANY, "Analog action:")
@@ -569,11 +567,13 @@ function Controller.Button:initUi(propertiesPanel)
         propSizer:Add(choice, 1, wx.wxEXPAND + wx.wxALL, 5)
     end
 
+    -- Apply button
     propSizer:Add(0, 0)
     local applyId = wx.wxNewId()
     local apply = wx.wxButton(propertiesPanel, applyId, "Apply", wx.wxDefaultPosition, wx.wxDefaultSize)
     propSizer:Add(apply, 0, wx.wxALIGN_RIGHT + wx.wxALL, 5)
 
+    -- Event handler
     propertiesPanel:Connect(applyId, wx.wxEVT_BUTTON, function()
         for i, signal in ipairs(self.signals) do
             local choice = idMapping[signal]
@@ -586,6 +586,7 @@ function Controller.Button:initUi(propertiesPanel)
         end
     end)
 
+    -- Refresh and return the layout
     propertiesPanel:Layout()
     propertiesPanel:Fit()
     propertiesPanel:Refresh()
@@ -621,7 +622,7 @@ function Controller.Trigger:getState()
         Controller.selfError()
         return
     end
-    self.value = self.controller:xcGetRegValue(string.format("mcX360_LUA/%s", self.id))
+    self.value = self.controller:xcGetRegValueNumber(string.format("mcX360_LUA/%s", self.id))
     if type(self.value) ~= "number" then
         self.controller:xcCntlLog("Invalid state for " .. self.id, 1)
         return
@@ -641,7 +642,6 @@ function Controller.Trigger:getState()
     end
 end
 
--- TODO: We expect the function passed to the connect method to have a specific signature, namely it should take a single numeric parameter.  Is this something we can validate?
 function Controller.Trigger:connect(func)
     if not self then
         Controller.selfError()
