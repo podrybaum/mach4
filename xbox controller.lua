@@ -515,7 +515,7 @@ function Controller.Button:getState()
     if (state == 1) and (not self.pressed) then
         self.pressed = true
         if self.controller.shift_btn ~= self then
-            if not self.controller.shift_btn or not selaf.controller.shift_btn.pressed then
+            if not self.controller.shift_btn or not self.controller.shift_btn.pressed then
                 self.down:emit()
             else
                 self.altDown:emit()
