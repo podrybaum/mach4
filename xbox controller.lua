@@ -5,16 +5,35 @@ end
 wx = wx or require("wx")
 mcLuaPanelParent = mcLuaPanelParent or wx.wxFrame()
 
---[[TODO: Most methods have 1-3 statements at the very beginning that are error checking methods of various types.
-    It may be possible to refactor all the error checking into a single function that dispatches the needed error
-    checking functions based on the method's signature.
-    ]] --
-
 inst = mc.mcGetInstance()
 
 Controller = {}
 Controller.__index = Controller
 Controller.__type = "Controller"
+
+profileRegisters = {
+    ["profile"] = 20000,
+    ["profileName"] = 20001,
+    ["shiftButton"] = 20002,
+    ["jogIncrement"] = 20003,
+    ["logLevel"] = 20004,
+}
+
+function isCorrectSelf(self)
+    local info = debug.getinfo(2, "nl") -- Get info about the calling function
+    if info and info.name then
+        local expected_class = getmetatable(self) -- Get the metatable of the instance (class)
+        if expected_class then
+            local function_in_class = expected_class[info.name] -- Get the function from the metatable by name
+            local actual_function = debug.getinfo(2, "f").func -- Get the actual function pointer from the current stack frame
+            return function_in_class == actual_function -- Check if the functions are the same
+        end
+        -- here we can die with a good error message
+        error(string.format("Method %s was probably called with . instead of : at line %d.", info.name, info.currentline))
+    end
+    -- to die here means isCorrectSelf has been called outside of a method, which is an error in itself
+    error(string.format("function isCorrectSelf should only be called from within a method! line: %d",info.currentline))
+end
 
 function Controller.customType(object)
     if type(object) == "table" then
@@ -25,20 +44,16 @@ function Controller.customType(object)
     end
 end
 
-function Controller.selfError()
-    -- TODO: Test this, I haven't seen it triggered yet, I don't even know if it works
-    local funcName = debug.getinfo(2, "n").name or "Unknown function"
-    local line = debug.getinfo(2, "l").currentline or "unknown line"
-    error(string.format("Method %s called with . instead of : at line %d.", funcName, line))
-end
-
 function Controller.typeCheck(objects, types)
+    -- failed typeChecks are critical errors, so typeCheck now raises an error instead of just logging one.
+    -- since we stop execution on failure, there is no need to return anything now.
+    -- type checking has been removed from methods not meant to be part of the public API, as they should be unnecessary. 
     local funcName = debug.getinfo(2, "n").name or "Unknown function"
     for i, object in ipairs(objects) do
         local expectedTypes = types[i]
         local actualType = Controller.customType(object)
         if type(expectedTypes) == "string" then
-            expectedTypes = { expectedTypes }
+            expectedTypes = {expectedTypes}
         end
         local typeMatch = false
         for _, expectedType in ipairs(expectedTypes) do
@@ -48,16 +63,16 @@ function Controller.typeCheck(objects, types)
             end
         end
         if not typeMatch then
-            mc.mcCntlLog(inst, (string.format("Parameter %d of function %s expected one of %s, got %s.", i, funcName,
-                table.concat(expectedTypes, ", "), actualType)), "", -1)
-            return true
+            error(string.format("Parameter %d of function %s expected one of %s, got %s at line: %d.", i, funcName,
+                table.concat(expectedTypes, ", "), actualType, debug.getinfo(2, "l").currentline))
         end
     end
-    return false
 end
 
 function Controller.new()
     local self = setmetatable({}, Controller)
+    self.profile = 0
+    self.profileName = "default"
     self.id = "Controller"
     self.UP = self:newButton("DPad_UP")
     self.DOWN = self:newButton("DPad_DOWN")
@@ -79,22 +94,20 @@ function Controller.new()
     self.RTH_X = self:newThumbstickAxis("RTH_X_Val")
     self.RTH_Y = self:newThumbstickAxis("RTH_Y_Val")
     self.LTH_X = self:newThumbstickAxis("LTH_X_Val")
-    self.inputs = { self.UP, self.DOWN, self.RIGHT, self.LEFT, self.A, self.B, self.X, self.Y, self.START, self.BACK,
-        self.LTH, self.RTH, self.LSB, self.RSB, self.LTR, self.RTR }
-    self.axes = { self.LTH_X, self.LTH_Y, self.RTH_X, self.RTH_Y }
-    self.shift_btn = nil
+    self.inputs = {self.UP, self.DOWN, self.RIGHT, self.LEFT, self.A, self.B, self.X, self.Y, self.START, self.BACK,
+                   self.LTH, self.RTH, self.LSB, self.RSB, self.LTR, self.RTR}
+    self.axes = {self.LTH_X, self.LTH_Y, self.RTH_X, self.RTH_Y}
+    self.shiftButton = nil
     self.jogIncrement = 0.1
-    self.jogRate = 100
     self.logLevel = 2
-    self.logLevels = { "ERROR", "WARNING", "INFO", "DEBUG" }
+    self.logLevels = {"ERROR", "WARNING", "INFO", "DEBUG"}
 
-    -- TODO: Populate this with all pre-defined Slots
     self.slots = {}
-    names = { "Cycle Start", "Cycle Stop", "Feed Hold", "Enable On", "Enable Off", "Enable Toggle", "Soft Limits On",
-        "Soft Limits Off", "Soft Limits Toggle", "Position Remember", "Position Return", "Limit OV On",
-        "Limit OV Off", "Limit OV Toggle", "Jog Mode Toggle", "Jog Mode Step", "Jog Mode Continuous", "Jog X+",
-        "Jog Y+", "Jog Z+", "Jog A+", "Jog B+", "Jog C+", "Jog X-", "Jog Y-", "Jog Z-", "Jog A-", "Jog B-",
-        "Jog C-", "Home All", "Home X", "Home Y", "Home Z", "Home A", "Home B", "Home C" }
+    names = {"Cycle Start", "Cycle Stop", "Feed Hold", "Enable On", "Enable Off", "Enable Toggle", "Soft Limits On",
+             "Soft Limits Off", "Soft Limits Toggle", "Position Remember", "Position Return", "Limit OV On",
+             "Limit OV Off", "Limit OV Toggle", "Jog Mode Toggle", "Jog Mode Step", "Jog Mode Continuous", "Jog X+",
+             "Jog Y+", "Jog Z+", "Jog A+", "Jog B+", "Jog C+", "Jog X-", "Jog Y-", "Jog Z-", "Jog A-", "Jog B-",
+             "Jog C-", "Home All", "Home X", "Home Y", "Home Z", "Home A", "Home B", "Home C"}
     for i, name in ipairs(names) do
         self:newSlot(name, function()
             scr.DoFunctionName(name)
@@ -167,126 +180,85 @@ function Controller.new()
     return self
 end
 
-function isCorrectSelf(self)
-    local info = debug.getinfo(2, "n")                          -- Get info about the calling function
-    if info and info.name then
-        local expected_class = getmetatable(self)               -- Get the metatable of the instance (class)
-        if expected_class then
-            local function_in_class = expected_class[info.name] -- Get the function from the metatable by name
-            local actual_function = debug.getinfo(2, "f")
-            .func                                               -- Get the actual function pointer from the current stack frame
-            return function_in_class == actual_function         -- Check if the functions are the same
-        end
-    end
-    return false
-end
-
-function checkMethodSignature(self)
-    -- Attempt to get the method signature (calling function) from the debug info
-    local info = debug.getinfo(2, "n") -- Level 2 because it's two levels up from the method call
-    if not info or not info.name then
-        error("Could not retrieve method information.")
-    end
-
-    local methodName = info.name
-
-    -- Check if self has the __type attribute safely using pcall
-    local success, objType = pcall(function() return self.__type end)
-
-    if not success then
-        -- Could not retrieve __type, probably because self isn't set correctly
-        error(string.format("Method %s called with incorrect or missing self (likely called with . instead of :)",
-            methodName))
-    end
-end
-
 function Controller:initUi(propertiesPanel)
-    --checkMethodSignature(self)
+    isCorrectSelf(self) -- should raise an error if method has been called with dot notation
 
-    -- Clear the existing sizer to ensure it is empty
+    -- propSizer gets cleared in the event handler that calls initUi, so no need to do it again
     local propSizer = propertiesPanel:GetSizer()
-    propSizer:Clear(true)
 
+    -- label and control for shift button option
     local label = wx.wxStaticText(propertiesPanel, wx.wxID_ANY, "Assign shift button:")
     propSizer:Add(label, 0, wx.wxALIGN_CENTER_VERTICAL + wx.wxALL, 5)
-
-    -- Add choice control for the signal
     local choices = {}
     for _, input in ipairs(self.inputs) do
         table.insert(choices, input.id)
     end
     local choice = wx.wxChoice(propertiesPanel, wx.wxID_ANY, wx.wxDefaultPosition, wx.wxDefaultSize, choices)
     propSizer:Add(choice, 1, wx.wxEXPAND + wx.wxALL, 5)
-
-    if self.shift_btn ~= nil then
-        choice:SetSelection(choice:FindString(self.shift_btn.id))
+    if self.shiftButton ~= nil then
+        choice:SetSelection(choice:FindString(self.shiftButton.id))
     end
 
+    -- label and control for jog increment option
     local jogIncLabel = wx.wxStaticText(propertiesPanel, wx.wxID_ANY, "Jog Increment:")
     propSizer:Add(jogIncLabel, 0, wx.wxALIGN_CENTER_VERTICAL + wx.wxALL, 5)
     local jogIncCtrl = wx.wxTextCtrl(propertiesPanel, wx.wxID_ANY, tostring(self.jogIncrement), wx.wxDefaultPosition,
         wx.wxDefaultSize, wx.wxTE_RIGHT)
     propSizer:Add(jogIncCtrl, 1, wx.wxEXPAND + wx.wxALL, 5)
 
-    local logLevels = { "0 - Disabled", "1 - Error", "2 - Warning", "3 - Info", "4 - Debug" }
-
+    -- label and control for logging level option
+    local logLevels = {"0 - Disabled", "1 - Error", "2 - Warning", "3 - Info", "4 - Debug"}
     local logLabel = wx.wxStaticText(propertiesPanel, wx.wxID_ANY, "Logging level:")
     propSizer:Add(logLabel, 0, wx.wxALIGN_CENTER_VERTICAL + wx.wxALL, 5)
     local logChoice = wx.wxChoice(propertiesPanel, wx.wxID_ANY, wx.wxDefaultPosition, wx.wxDefaultSize, logLevels)
     propSizer:Add(logChoice, 1, wx.wxEXPAND + wx.wxALL, 5)
-
     logChoice:SetSelection(self.logLevel)
-	
+
+    -- apply button
     propSizer:Add(0, 0)
     local applyId = wx.wxNewId()
     local apply = wx.wxButton(propertiesPanel, applyId, "Apply", wx.wxDefaultPosition, wx.wxDefaultSize)
     propSizer:Add(apply, 0, wx.wxALIGN_RIGHT + wx.wxALL, 5)
-	
-	
-	propertiesPanel:Connect(applyId, wx.wxEVT_BUTTON, function()
-		local choiceSelection = choice:GetStringSelection()
-		if choiceSelection ~= self.shift_btn.id then
-			self.assignShift(self:xcGetButtonById(choiceSelection))
-		end
-		local jogInc = tonumber(jogIncCtrl:GetValue())
-		if jogInc ~= self.jogIncrement then
-			self.jogIncrement = jogInc
-		end
-		local logChoiceSelection = logChoice:GetSelection()
-		if self.logLevel ~= logChoiceSelection then
-			self.logLevel = logChoiceSelection
-		end
-	end)
-	
-	
 
-    -- Trigger the layout update
+    -- event handler for apply button
+    propertiesPanel:Connect(applyId, wx.wxEVT_BUTTON, function()
+        local choiceSelection = choice:GetStringSelection()
+        if choiceSelection ~= self.shiftButton.id then
+            self.assignShift(self:xcGetButtonById(choiceSelection))
+        end
+        local jogInc = tonumber(jogIncCtrl:GetValue())
+        if jogInc ~= self.jogIncrement then
+            self.jogIncrement = jogInc
+        end
+        local logChoiceSelection = logChoice:GetSelection()
+        if self.logLevel ~= logChoiceSelection then
+            self.logLevel = logChoiceSelection
+        end
+    end)
+
+    -- Trigger the layout update and return the new sizer
     propSizer:Layout()
     propertiesPanel:Layout()
-	propertiesPanel:Fit()
-	propertiesPanel:Refresh()
-
-    -- Return the propertiesPanel sizer
+    propertiesPanel:Fit()
+    propertiesPanel:Refresh()
     return propSizer
 end
 
 function Controller:xcGetInputById(id)
-	if Controller.typeCheck({ id }, { "string" }) then
-        return
+    isCorrectSelf(self) -- should raise an error if method has been called with dot notation
+    Controller.typeCheck({id}, {"string"}) -- should raise an error if any param is of the wrong type
+    for _, input in ipairs(self.inputs) do
+        if input.id == id then
+            return input
+        end
     end
-	for i, input in ipairs(self.inputs) do
-		if input.id == id then
-			return input
-		end
-	end
-	self:xcCntlLog(string.format("No Button with id %s found", id), 1)
+    self:xcCntlLog(string.format("No Button with id %s found", id), 1)
 end
 
 -- Convenience method for retrieving a pre-defined slot by its id
 function Controller:xcGetSlotById(id)
-    if Controller.typeCheck({ id }, { "string" }) then
-        return
-    end
+    isCorrectSelf(self) -- should raise an error if method has been called with dot notation
+    Controller.typeCheck({id}, {"string"}) -- should raise an error if any param is of the wrong type
     for i, slot in ipairs(self.slots) do
         if slot.id == id then
             return slot
@@ -295,78 +267,56 @@ function Controller:xcGetSlotById(id)
     self:xcCntlLog(string.format("No Slot with id %s found", id), 1)
 end
 
--- Convenience method for retrieving register values in a single call with error handling.
-function Controller:xcGetRegValue(reg)
-    if not self then
-        Controller.selfError()
-        return
-    end
-    if self.typeCheck({ reg }, { "string" }) then
-        return
-    end
+-- Convenience method for retrieving numeric register values in a single call with error handling.
+function Controller:xcGetRegValueNumber(reg)
+    isCorrectSelf(self) -- should raise an error if method has been called with dot notation
+    Controller.typeCheck({reg}, {"string"}) -- should raise an error if any param is of the wrong type
     local hreg, rc = mc.mcRegGetHandle(inst, reg)
     if rc == mc.MERROR_NOERROR then
         local val, rc = mc.mcRegGetValueLong(hreg)
         if rc == mc.MERROR_NOERROR then
             return val
         else
-            self:xcCntlLog("Error in mcRegGetValueLong", 1)
-            self:xcCntlLog(mc.mcCntlGetErrorString(inst, rc), 1)
+            self:xcCntlLog(string.format("Error in mcRegGetValueLong: %s",mc.mcCntlGetErrorString(inst, rc)), 1)
         end
     else
-        self:xcCntlLog("Error in mcRegGetHandle", 1)
-        self:xcCntlLog(mc.mcCntlGetErrorString(inst, rc), 1)
+        self:xcCntlLog(string.format("Error in mcRegGetHandle: %s",mc.mcCntlGetErrorString(inst, rc)), 1)
     end
 end
 
 -- Convenience method for checking Mach4 signal states with a single call and error handling.
 -- Note, this returns a boolean (true or false) instead of the numeric (1 or 0) values returned by the Mach4 function.
 function Controller:xcGetMachSignalState(signal)
-    if not self then
-        Controller.selfError()
-        return
-    end
-    if self.typeCheck({ signal }, { "number" }) then
-        return
-    end
+    isCorrectSelf(self) -- should raise an error if method has been called with dot notation
+    Controller.typeCheck({signal}, {"number"}) -- should raise an error if any param is of the wrong type
     local hsig, rc = mc.mcSignalGetHandle(inst, signal)
     if rc == mc.MERROR_NOERROR then
         local val, rc = mc.mcSignalGetState(hsig)
         if rc == mc.MERROR_NOERROR then
             return val > 0
         else
-            self:xcCntlLog(mc.mcCntlGetErrorString(inst, rc), 1)
+            self:xcCntlLog(string.format("Error in mcSignalGetState: %s",mc.mcCntlGetErrorString(inst, rc)), 1)
         end
     else
-        self:xcCntlLog(mc.mcCntlGetErrorString(inst, rc), 1)
+        self:xcCntlLog(string.format("Error in mcSignalGetHandle: %s",mc.mcCntlGetErrorString(inst, rc)), 1)
     end
 end
 
 -- Convenience method to toggle the state of a Mach4 signal with a single call and error handling.
 function Controller:xcToggleMachSignalState(signal)
-    if not self then
-        Controller.selfError()
-        return
+    isCorrectSelf(self) -- should raise an error if method has been called with dot notation
+    Controller.typeCheck({signal}, {"number"}) -- should raise an error if any param is of the wrong type
+    local hsig, rc = mc.mcSignalGetHandle(inst, signal)
+    if rc == mc.MERROR_NOERROR then
+        self:xcErrorCheck(mc.mcSignalSetState(hsig, not mc.mcSignalGetState(inst, hsig)))
     end
-    if self.typeCheck({ signal }, { "number" }) then
-        return
-    end
-    local hsig = mc.mcSignalGetHandle(inst, signal)
-    self:xcErrorCheck(mc.mcSignalSetState(hsig, not mc.mcSignalGetState(inst, hsig)))
 end
 
 -- Logger method
 function Controller:xcCntlLog(msg, level)
-    if not self then
-        Controller.selfError()
-        return
-    end
-    if Controller.typeCheck({ msg, level }, { "string", "number" }) then
-        return
-    end
-    if self.logLevel == 0 then
-        return
-    end
+    isCorrectSelf(self) -- should raise an error if method has been called with dot notation
+    Controller.typeCheck({msg, level}, {"string", "number"})  -- should raise an error if any param is of the wrong type
+    if self.logLevel == 0 then return end -- indicates logging is disabled
     if level <= self.logLevel then
         if mc.mcInEditor() ~= 1 then
             mc.mcCntlLog(inst, "[[XBOX CONTROLLER " .. self.logLevels[level] .. "]]: " .. msg, "", -1)
@@ -379,56 +329,29 @@ end
 -- check Mach4 return codes for errors with error handling
 -- TODO: Should this function maybe return a boolean? or return the error string insead of logging it directly?
 function Controller:xcErrorCheck(rc)
-    if not self then
-        Controller.selfError()
-        return
-    end
-    if self.typeCheck({ rc }, { "number" }) then
-        return
-    end
+    isCorrectSelf(self) -- should raise an error if method has been called with dot notation
+    Controller.typeCheck({rc}, {"number"}) -- should raise an error if any param is of the wrong type
     if rc ~= mc.MERROR_NOERROR then
         self:xcCntlLog(mc.mcCntlGetErrorString(inst, rc), 1)
     end
 end
 
 -- Setter method for controller jog increment
--- TODO: Add to controller config
 function Controller:xcJogSetInc(val)
-    if not self then
-        Controller.selfError()
-        return
-    end
-    if self.typeCheck({ val }, { "number" }) then
-        return
-    end
+    isCorrectSelf(self) -- should raise an error if method has been called with dot notation
+    Controller.typeCheck({val}, {"number"}) -- should raise an error if any param is of the wrong type
     self.jogIncrement = val
     self:xcCntlLog("Set jogIncrement to " .. tostring(self.jogIncrement), 4)
 end
 
--- Setter method for controller jog rate
-function Controller:xcJogSetRate(val)
-    if not self then
-        Controller.selfError()
-        return
-    end
-    if self.typeCheck({ val }, { "number" }) then
-        return
-    end
-    self.jogRate = val
-    self:xcCntlLog("Set jogRate to " .. tostring(self.jogRate), 4)
-end
-
 -- The loop method for input polling
 function Controller:update()
-    if not self then
-        Controller.selfError()
-        return
-    end
-    if self.shift_btn ~= nil then
-        self.shift_btn:getState()
+    isCorrectSelf(self) -- should raise an error if method has been called with dot notation
+    if self.shiftButton ~= nil then
+        self.shiftButton:getState()
     end
     for _, input in pairs(self.inputs) do
-        if input ~= self.shift_btn then
+        if input ~= self.shiftButton then
             input:getState()
         end
     end
@@ -439,40 +362,22 @@ end
 
 function Controller:assignShift(input)
     -- added warning message when overriding an assigned shift button
-    -- shift button is no longer removed from the Controller.inputs list.  This was needed by the new GUI config.
-    if not self then
-        Controller.selfError()
-        return
-    end
-    if self.typeCheck({ input }, { { "Button", "Trigger" } }) then
-        return
-    end
+    isCorrectSelf(self) -- should raise an error if method has been called with dot notation
+    Controller.typeCheck({input}, {{"Button", "Trigger"}}) -- should raise an error if any param is of the wrong type
 
-    if self.shift_btn ~= nil then
+    if self.shiftButton ~= nil then
         self:xcCntlLog(string.format(
-            "Call to assign a shift button with a shift button already assigned.  %s will be unassigned before assigning new shift button.",
-            self.shift_btn.id), 2)
+            "Call to assign a shift button with a shift button already assigned.\n%s will be unassigned before assigning new shift button.",
+            self.shiftButton.id), 2)
     end
-    self.shift_btn = input
+    self.shiftButton = input
     self:xcCntlLog("" .. input.id .. " assigned as controller shift button.", 3)
-    -- The section below has been deprecated by the new GUI config manager, to be removed pending testing
-    --[[for i, input in ipairs(self.inputs) do
-        if input == self.shift_btn then
-            table.remove(self.inputs, i)
-            return
-        end
-    ]] -- end
 end
 
 function Controller:mapSimpleJog(reversed)
     -- TODO: Connect this to the GUI configurator, implement it as a default, or deprecate it.
-    if not self then
-        Controller.selfError()
-        return
-    end
-    if self.typeCheck({ reversed }, { { "boolean", "nil" } }) then
-        return
-    end
+    isCorrectSelf(self) -- should raise an error if method has been called with dot notation
+    Controller.typeCheck({reversed}, {{"boolean", "nil"}}) -- should raise an error if any param is of the wrong type
     self:xcCntlLog(string.format("Value of reversed flag for axis orientation: %s", tostring(reversed)), 4)
     -- DPad regular jog
     self.UP.down:connect(self:newSlot('xcJogUp', function()
@@ -522,20 +427,17 @@ function Controller:mapSimpleJog(reversed)
 end
 
 function Controller:newSignal(button, id)
-    if not self then
-        Controller.selfError()
-        return
-    end
-    if Controller.typeCheck({ button, id }, { { "Button", "Trigger" }, "string" }) then
-        return
-    end
+    isCorrectSelf(self) -- should raise an error if method has been called with dot notation
+    Controller.typeCheck({button, id}, {{"Button", "Trigger"}, "string"}) -- should raise an error if any param is of the wrong type
     return self.Signal.new(self, button, id)
 end
 
 Controller.Signal = {}
 Controller.Signal.__index = Controller.Signal
 Controller.Signal.__type = "Signal"
-Controller.Signal.__tostring = function(self) return string.format("Signal: %s", self.id) end
+Controller.Signal.__tostring = function(self)
+    return string.format("Signal: %s", self.id)
+end
 
 function Controller.Signal.new(controller, button, id)
     local self = setmetatable({}, Controller.Signal)
@@ -546,37 +448,24 @@ function Controller.Signal.new(controller, button, id)
     return self
 end
 
--- connect a Signal to a Slot.  pass true (or anything besides false or nil) to the alt parameter to connect alternate Slot
--- alternate Slot fires when Signal is emitted while an assigned shift button is pressed
 function Controller.Signal:connect(slot)
-    local slot = slot
-    if not self then
-        Controller.selfError()
-        return
-    end
-    if self.controller:typeCheck({ slot }, { "Slot" }) then
-        return
-    end
+    isCorrectSelf(self) -- should raise an error if method has been called with dot notation
+    Controller.typeCheck({slot}, {"Slot"}) -- should raise an error if any param is of the wrong type
     if self.controller.shift_btn == self.button then
         self.controller:xcCntlLog("Ignoring call to connect a Slot to an assigned shift button!", 2)
         return
     end
     if self.slot ~= nil then
         self.controller:xcCntlLog(string.format(
-                "Signal %s of input %s already has a connected slot.  Did you mean to override it?", self.id,
-                self.button.id),
+            "%s Signal of input %s already has a connected Slot.  Did you mean to override it?", self.id, self.button.id),
             2)
     end
     self.slot = slot
     self.controller:xcCntlLog(self.button.id .. self.id .. " connected to Slot " .. self.slot.id, 4)
 end
 
--- NOTE: We could implement a check to make sure we don't allow an assigned shift button to emit any Signals, but that *should* be impossible.
 function Controller.Signal:emit()
-    if not self then
-        Controller.selfError()
-        return
-    end
+    isCorrectSelf(self) -- should raise an error if method has been called with dot notation
     if self.id ~= "analog" then
         -- not logging analog Signal emissions because they will happen every update while active
         self.slot.func(self.button.value)
@@ -587,20 +476,17 @@ function Controller.Signal:emit()
 end
 
 function Controller:newButton(id)
-    if not self then
-        Controller.selfError()
-        return
-    end
-    if self.typeCheck({ id }, { "string" }) then
-        return
-    end
+    isCorrectSelf(self) -- should raise an error if method has been called with dot notation
+    Controller.typeCheck({id}, {"string"}) -- should raise an error if any param is of the wrong type
     return self.Button.new(self, id)
 end
 
 Controller.Button = {}
 Controller.Button.__index = Controller.Button
 Controller.Button.__type = "Button"
-Controller.Button.__tostring = function(self) return string.format("Button: %s", self.id) end
+Controller.Button.__tostring = function(self)
+    return string.format("Button: %s", self.id)
+end
 
 function Controller.Button.new(controller, id)
     local self = setmetatable({}, Controller.Button)
@@ -611,7 +497,7 @@ function Controller.Button.new(controller, id)
     self.down = self.controller:newSignal(self, "down")
     self.altUp = self.controller:newSignal(self, "altUp")
     self.altDown = self.controller:newSignal(self, "altDown")
-    self.signals = { self.up, self.down, self.altUp, self.altDown }
+    self.signals = {self.up, self.down, self.altUp, self.altDown}
     return self
 end
 
@@ -629,7 +515,7 @@ function Controller.Button:getState()
     if (state == 1) and (not self.pressed) then
         self.pressed = true
         if self.controller.shift_btn ~= self then
-            if not self.controller.shift_btn or not self.controller.shift_btn.pressed then
+            if not self.controller.shift_btn or not selaf.controller.shift_btn.pressed then
                 self.down:emit()
             else
                 self.altDown:emit()
@@ -650,14 +536,14 @@ end
 function Controller.Button:initUi(propertiesPanel)
     local propSizer = propertiesPanel:GetSizer()
 
-    local options = { "" }
+    local options = {""}
     for _, slot in ipairs(self.controller.slots) do
         options[#options + 1] = slot.id
     end
 
     idMapping = {}
 
-    for i, signal in ipairs({ "Up", "Down", "Alternate Up", "Alternate Down" }) do
+    for i, signal in ipairs({"Up", "Down", "Alternate Up", "Alternate Down"}) do
         local label = wx.wxStaticText(propertiesPanel, wx.wxID_ANY, string.format("%s Action:", signal))
         propSizer:Add(label, 0, wx.wxALIGN_LEFT + wx.wxALL, 5)
 
@@ -669,11 +555,10 @@ function Controller.Button:initUi(propertiesPanel)
         end
 
         propSizer:Add(choice, 1, wx.wxEXPAND + wx.wxALL, 5)
-
     end
 
     if self.__type == "Trigger" then
-        local axes = { "mc.X_AXIS", "mc.Y_AXIS", "mc.Z_AXIS", "mc.A_AXIS", "mc.B_AXIS", "mc.C_AXIS" }
+        local axes = {"mc.X_AXIS", "mc.Y_AXIS", "mc.Z_AXIS", "mc.A_AXIS", "mc.B_AXIS", "mc.C_AXIS"}
         local label = wx.wxStaticText(propertiesPanel, wx.wxID_ANY, "Analog action:")
         propSizer:Add(label, 0, wx.wxALIGN_LEFT + wx.wxALL, 5)
         local choice = wx.wxChoice(propertiesPanel, wx.wxID_ANY, wx.wxDefaultPosition, wx.wxDefaultSize, axes)
@@ -690,16 +575,16 @@ function Controller.Button:initUi(propertiesPanel)
     propSizer:Add(apply, 0, wx.wxALIGN_RIGHT + wx.wxALL, 5)
 
     propertiesPanel:Connect(applyId, wx.wxEVT_BUTTON, function()
-            for i, signal in ipairs(self.signals) do
-                local choice = idMapping[signal]
-                local selection = choice:GetStringSelection()
-                if (signal.slot == nil and selection ~= "") or (signal.slot and signal.slot.id ~= selection) then
-                    signal:connect(self.controller:xcGetSlotById(selection))
-                elseif signal.slot and selection == "" then
-					signal.slot = nil
-				end
+        for i, signal in ipairs(self.signals) do
+            local choice = idMapping[signal]
+            local selection = choice:GetStringSelection()
+            if (signal.slot == nil and selection ~= "") or (signal.slot and signal.slot.id ~= selection) then
+                signal:connect(self.controller:xcGetSlotById(selection))
+            elseif signal.slot and selection == "" then
+                signal.slot = nil
             end
-        end)
+        end
+    end)
 
     propertiesPanel:Layout()
     propertiesPanel:Fit()
@@ -714,10 +599,12 @@ end
 Controller.Trigger = {}
 Controller.Trigger.__index = Controller.Button
 Controller.Trigger.__type = "Trigger"
-Controller.Trigger.__tostring = function(self) return string.format("Trigger: %s", self.id) end
+Controller.Trigger.__tostring = function(self)
+    return string.format("Trigger: %s", self.id)
+end
 
 function Controller.Trigger.new(controller, id)
-    if controller.typeCheck({ controller, id }, { "Controller", "string" }) then
+    if controller.typeCheck({controller, id}, {"Controller", "string"}) then
         return
     end
     local self = Controller.Button.new(controller, id)
@@ -760,7 +647,7 @@ function Controller.Trigger:connect(func)
         Controller.selfError()
         return
     end
-    if self.controller.typeCheck({ func }, { "function" }) then
+    if self.controller.typeCheck({func}, {"function"}) then
         return
     end
     self.func = func
@@ -773,10 +660,12 @@ end
 Controller.ThumbstickAxis = {}
 Controller.ThumbstickAxis.__index = Controller.ThumbstickAxis
 Controller.ThumbstickAxis.__type = "ThumbstickAxis"
-Controller.ThumbstickAxis.__tostring = function(self) return string.format("ThumbstickAxis: %s", self.id) end
+Controller.ThumbstickAxis.__tostring = function(self)
+    return string.format("ThumbstickAxis: %s", self.id)
+end
 
 function Controller.ThumbstickAxis.new(controller, id)
-    if controller.typeCheck({ controller, id }, { "Controller", "string" }) then
+    if controller.typeCheck({controller, id}, {"Controller", "string"}) then
         return
     end
     local self = setmetatable({}, Controller.ThumbstickAxis)
@@ -797,7 +686,7 @@ function Controller.ThumbstickAxis:setDeadzone(deadzone)
         Controller.selfError()
         return
     end
-    if self.controller.typeCheck({ deadzone }, { "number" }) then
+    if self.controller.typeCheck({deadzone}, {"number"}) then
         return
     end
     self.deadzone = math.abs(deadzone)
@@ -808,7 +697,7 @@ function Controller.ThumbstickAxis:connect(axis, inverted)
         Controller.selfError()
         return
     end
-    if self.controller.typeCheck({ axis, inverted }, { "number", "boolean" }) then
+    if self.controller.typeCheck({axis, inverted}, {"number", "boolean"}) then
         return
     end
     self.axis = axis
@@ -876,7 +765,7 @@ function Controller.ThumbstickAxis:initUi(propertiesPanel)
 
     -- Add choice control for the signal
     local choices = {}
-    for _, axis in ipairs({ "mc.X_AXIS", "mc.Y_AXIS", "mc.Z_AXIS", "mc.A_AXIS", "mc.B_AXIS", "mc.C_AXIS" }) do
+    for _, axis in ipairs({"mc.X_AXIS", "mc.Y_AXIS", "mc.Z_AXIS", "mc.A_AXIS", "mc.B_AXIS", "mc.C_AXIS"}) do
         table.insert(choices, axis)
     end
     local choice = wx.wxChoice(propertiesPanel, wx.wxID_ANY, wx.wxDefaultPosition, wx.wxDefaultSize, choices)
@@ -890,14 +779,14 @@ function Controller.ThumbstickAxis:initUi(propertiesPanel)
     local applyId = wx.wxNewId()
     local apply = wx.wxButton(propertiesPanel, applyId, "Apply", wx.wxDefaultPosition, wx.wxDefaultSize)
     propSizer:Add(apply, 0, wx.wxALIGN_RIGHT + wx.wxALL, 5)
-	
-	propertiesPanel:Connect(applyId, wx.wxEVT_BUTTON, function()
-		local axes = {mc.X_AXIS, mc.Y_AXIS, mc.Z_AXIS, mc.A_AXIS, mc.B_AXIS, mc.C_AXIS}
-		selection = choice:GetSelection()
-		if (self.axis == nil and selection ~= "") or (self.axis and self.axis ~= axes[selection]) then
-			self.axis = axes[selection]
-		end
-	end)
+
+    propertiesPanel:Connect(applyId, wx.wxEVT_BUTTON, function()
+        local axes = {mc.X_AXIS, mc.Y_AXIS, mc.Z_AXIS, mc.A_AXIS, mc.B_AXIS, mc.C_AXIS}
+        selection = choice:GetSelection()
+        if (self.axis == nil and selection ~= "") or (self.axis and self.axis ~= axes[selection]) then
+            self.axis = axes[selection]
+        end
+    end)
 
     propSizer:Layout()
     propertiesPanel:Layout()
@@ -914,10 +803,12 @@ end
 Controller.Slot = {}
 Controller.Slot.__index = Controller.Slot
 Controller.Slot.__type = "Slot"
-Controller.Slot.__tostring = function(self) return string.format("Slot: %s", self.id) end
+Controller.Slot.__tostring = function(self)
+    return string.format("Slot: %s", self.id)
+end
 
 function Controller.Slot.new(controller, id, func)
-    if Controller.typeCheck({ id, func }, { "string", "function" }) then
+    if Controller.typeCheck({id, func}, {"string", "function"}) then
         return
     end
     local self = setmetatable({}, Controller.Slot)
@@ -951,7 +842,6 @@ xc.RSB.down:connect(xc:xcGetSlotById('Enable Toggle'))
 xc.X.down:connect(xc:xcGetSlotById('XC Run Cycle Toggle'))
 xc.BACK.altDown:connect(xc:xcGetSlotById('Home All'))
 xc.START.altDown:connect(xc:xcGetSlotById('Home Z'))
-
 
 -- End of custom configuration ---
 ----------------------------------
@@ -1034,12 +924,8 @@ propBox:SetFont(font)
 treeBox:SetFont(font)
 tree:SetFont(font)
 
-
-
-
 -- Add the properties panel to the properties sizer
 propSizer:Add(propertiesPanel, 1, wx.wxEXPAND + wx.wxALL, 5)
-
 
 tree:Connect(wx.wxEVT_COMMAND_TREE_SEL_CHANGED, function(event)
     -- Clear the current sizer's contents from the properties panel
@@ -1050,7 +936,6 @@ tree:Connect(wx.wxEVT_COMMAND_TREE_SEL_CHANGED, function(event)
 
     -- Call the initUi method of the selected item and set it as the new sizer
     -- Set the new sizer and perform layout
-
 
     propertiesPanel:SetSizer(item:initUi(propertiesPanel))
     propertiesPanel:Fit()
