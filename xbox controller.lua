@@ -7,9 +7,7 @@ mcLuaPanelParent = mcLuaPanelParent or wx.wxFrame()
 
 inst = mc.mcGetInstance()
 
-Controller = {}
-Controller.__index = Controller
-Controller.__type = "Controller"
+
 
 profileRegisters = {
     ["profile"] = 20000,
@@ -19,6 +17,10 @@ profileRegisters = {
     ["logLevel"] = 20004,
 }
 
+
+---Checks to make sure that an instance of a class has been passed as the first parameter to a method call.
+---Raises an error if not.
+---@param self any
 function isCorrectSelf(self)
     local info = debug.getinfo(2, "nl") -- Get info about the calling function
     if info and info.name then
@@ -35,40 +37,62 @@ function isCorrectSelf(self)
     error(string.format("function isCorrectSelf should only be called from within a method! line: %d",info.currentline))
 end
 
-function Controller.customType(object)
-    if type(object) == "table" then
-        local mt = getmetatable(object)
-        return object.__type or (mt and mt.__type) or "table"
-    else
-        return type(object)
-    end
-end
+---@class Controller
+---@field customType function
+---@field typeCheck function
+---@field new function
+---@field profile number
+---@field profileName string
+---@field id string
+---@field UP Button
+---@field DOWN Button
+---@field RIGHT Button
+---@field LEFT Button
+---@field A Button
+---@field X Button
+---@field B Button
+---@field Y Button
+---@field START Button
+---@field BACK Button
+---@field LTH Button
+---@field RTH Button
+---@field LSB Button
+---@field RSB Button
+---@field LTR Trigger
+---@field RTR Trigger
+---@field LTH_Y ThumbstickAxis
+---@field RTH_Y ThumbstickAxis
+---@field LTH_X ThumbstickAxis
+---@field RTH_X ThumbstickAxis
+---@field inputs table
+---@field axes table
+---@field shiftButton Button|nil
+---@field jogIncrement number
+---@field logLevel number
+---@field logLevels table
+---@field slots table
+---@field xcCntlTorchToggle Slot
+---@field xcGetInputById function
+---@field xcGetSlotById function
+---@field xcGetRegValueNumber function
+---@field xcGetMachSignalState function
+---@field xcToggleMachSignalState function
+---@field xcCntlLog function
+---@field xcErrorCheck function
+---@field xcJogSetInc function
+---@field update function
+---@field assignShift function
+---@field mapSimpleJog function
+---@field newSignal function
+---@field newButton function
+---@field newTrigger function
+---@field newThumbstickAxis function
+---@field newSlot function
+Controller = {}
+Controller.__index = Controller
+Controller.__type = "Controller"
 
-function Controller.typeCheck(objects, types)
-    -- failed typeChecks are critical errors, so typeCheck now raises an error instead of just logging one.
-    -- since we stop execution on failure, there is no need to return anything now.
-    -- type checking has been removed from methods not meant to be part of the public API, as they should be unnecessary. 
-    local funcName = debug.getinfo(2, "n").name or "Unknown function"
-    for i, object in ipairs(objects) do
-        local expectedTypes = types[i]
-        local actualType = Controller.customType(object)
-        if type(expectedTypes) == "string" then
-            expectedTypes = {expectedTypes}
-        end
-        local typeMatch = false
-        for _, expectedType in ipairs(expectedTypes) do
-            if actualType == expectedType then
-                typeMatch = true
-                break
-            end
-        end
-        if not typeMatch then
-            error(string.format("Parameter %d of function %s expected one of %s, got %s at line: %d.", i, funcName,
-                table.concat(expectedTypes, ", "), actualType, debug.getinfo(2, "l").currentline))
-        end
-    end
-end
-
+--- Create a Controller instance.
 function Controller.new()
     local self = setmetatable({}, Controller)
     self.profile = 0
@@ -180,6 +204,47 @@ function Controller.new()
     return self
 end
 
+---Custom type checking
+---@param object any The object to typecheck
+---@return string The object's type, accounting for custom types defined in .__type
+function Controller.customType(object)
+    if type(object) == "table" then
+        local mt = getmetatable(object)
+        return object.__type or (mt and mt.__type) or "table"
+    else
+        return type(object)
+    end
+end
+
+--- Strict type checking to be imposed on all public methods.  Raises an error on failed type check.
+---@param objects table a list of objects to typecheck
+---@param types table Contains a list of lists or strings containing types to check against for each object.
+function Controller.typeCheck(objects, types)
+    local funcName = debug.getinfo(2, "n").name or "Unknown function"
+    for i, object in ipairs(objects) do
+        local expectedTypes = types[i]
+        local actualType = Controller.customType(object)
+        if type(expectedTypes) == "string" then
+            expectedTypes = {expectedTypes}
+        end
+        local typeMatch = false
+        for _, expectedType in ipairs(expectedTypes) do
+            if actualType == expectedType then
+                typeMatch = true
+                break
+            end
+        end
+        if not typeMatch then
+            error(string.format("Parameter %d of function %s expected one of %s, got %s at line: %d.", i, funcName,
+                table.concat(expectedTypes, ", "), actualType, debug.getinfo(2, "l").currentline))
+        end
+    end
+end
+
+
+-- TODO: Add axes inversions and reversals
+--- Create the properties panel UI layout for the Controller object
+---@param propertiesPanel wxPanel a wxPanel object for the properties panel
 function Controller:initUi(propertiesPanel)
     isCorrectSelf(self) -- should raise an error if method has been called with dot notation
 
@@ -224,10 +289,10 @@ function Controller:initUi(propertiesPanel)
     propertiesPanel:Connect(applyId, wx.wxEVT_BUTTON, function()
         local choiceSelection = choice:GetStringSelection()
         if choiceSelection ~= self.shiftButton.id then
-            self.assignShift(self:xcGetButtonById(choiceSelection))
+            self.assignShift(self:xcGetInputById(choiceSelection))
         end
         local jogInc = tonumber(jogIncCtrl:GetValue())
-        if jogInc ~= self.jogIncrement then
+        if jogInc ~= self.jogIncrement and jogInc ~= nil then
             self.jogIncrement = jogInc
         end
         local logChoiceSelection = logChoice:GetSelection()
@@ -244,6 +309,15 @@ function Controller:initUi(propertiesPanel)
     return propSizer
 end
 
+---@alias Button table
+---@alias Trigger Button
+---@alias Signal table
+---@alias Slot table
+---@alias ThumbstickAxis table
+
+--- Retrieve an input by it's id
+---@param id string the id of the input to Retrieve
+---@return Button|Trigger|nil # the input with the given id or nil if not found
 function Controller:xcGetInputById(id)
     isCorrectSelf(self) -- should raise an error if method has been called with dot notation
     Controller.typeCheck({id}, {"string"}) -- should raise an error if any param is of the wrong type
@@ -255,7 +329,9 @@ function Controller:xcGetInputById(id)
     self:xcCntlLog(string.format("No Button with id %s found", id), 1)
 end
 
--- Convenience method for retrieving a pre-defined slot by its id
+--- Retrieve a Slot by it's id
+---@param id string the id for the Slot to retrieve
+---@return Slot|nil the Slot with the given id or nil if not found
 function Controller:xcGetSlotById(id)
     isCorrectSelf(self) -- should raise an error if method has been called with dot notation
     Controller.typeCheck({id}, {"string"}) -- should raise an error if any param is of the wrong type
@@ -267,7 +343,9 @@ function Controller:xcGetSlotById(id)
     self:xcCntlLog(string.format("No Slot with id %s found", id), 1)
 end
 
--- Convenience method for retrieving numeric register values in a single call with error handling.
+--- Retrieve numeric value from Mach4 register
+---@param reg string the register to read format
+---@return number|nil the number retrieved from the register or nil if not found
 function Controller:xcGetRegValueNumber(reg)
     isCorrectSelf(self) -- should raise an error if method has been called with dot notation
     Controller.typeCheck({reg}, {"string"}) -- should raise an error if any param is of the wrong type
@@ -284,8 +362,9 @@ function Controller:xcGetRegValueNumber(reg)
     end
 end
 
--- Convenience method for checking Mach4 signal states with a single call and error handling.
--- Note, this returns a boolean (true or false) instead of the numeric (1 or 0) values returned by the Mach4 function.
+--- Check Mach4 signal state in a single call
+---@param signal number the Mach4 signal to check
+---@return boolean|nil true if signal is 1 false in the case of 0 or nil if not found
 function Controller:xcGetMachSignalState(signal)
     isCorrectSelf(self) -- should raise an error if method has been called with dot notation
     Controller.typeCheck({signal}, {"number"}) -- should raise an error if any param is of the wrong type
@@ -303,6 +382,8 @@ function Controller:xcGetMachSignalState(signal)
 end
 
 -- Convenience method to toggle the state of a Mach4 signal with a single call and error handling.
+--- Toggle the state of a Mach4 signal
+---@param signal number the Mach4 signal to toggle
 function Controller:xcToggleMachSignalState(signal)
     isCorrectSelf(self) -- should raise an error if method has been called with dot notation
     Controller.typeCheck({signal}, {"number"}) -- should raise an error if any param is of the wrong type
@@ -312,7 +393,9 @@ function Controller:xcToggleMachSignalState(signal)
     end
 end
 
--- Logger method
+--- Logging method for the Controller library
+---@param msg string the message to log
+---@param level number the logging level to display the message at
 function Controller:xcCntlLog(msg, level)
     isCorrectSelf(self) -- should raise an error if method has been called with dot notation
     Controller.typeCheck({msg, level}, {"string", "number"})  -- should raise an error if any param is of the wrong type
@@ -326,8 +409,8 @@ function Controller:xcCntlLog(msg, level)
     end
 end
 
--- check Mach4 return codes for errors with error handling
--- TODO: Should this function maybe return a boolean? or return the error string insead of logging it directly?
+--- Check Mach4 error return codes
+---@param rc number the return code to check
 function Controller:xcErrorCheck(rc)
     isCorrectSelf(self) -- should raise an error if method has been called with dot notation
     Controller.typeCheck({rc}, {"number"}) -- should raise an error if any param is of the wrong type
@@ -336,7 +419,8 @@ function Controller:xcErrorCheck(rc)
     end
 end
 
--- Setter method for controller jog increment
+--- Setter method for controller jog increment
+---@param val number the jog increment value
 function Controller:xcJogSetInc(val)
     isCorrectSelf(self) -- should raise an error if method has been called with dot notation
     Controller.typeCheck({val}, {"number"}) -- should raise an error if any param is of the wrong type
@@ -465,7 +549,6 @@ function Controller.Signal:connect(slot)
 end
 
 function Controller.Signal:emit()
-    isCorrectSelf(self) -- should raise an error if method has been called with dot notation
     if self.id ~= "analog" then
         -- not logging analog Signal emissions because they will happen every update while active
         self.slot.func(self.button.value)
@@ -476,8 +559,6 @@ function Controller.Signal:emit()
 end
 
 function Controller:newButton(id)
-    isCorrectSelf(self) -- should raise an error if method has been called with dot notation
-    Controller.typeCheck({id}, {"string"}) -- should raise an error if any param is of the wrong type
     return self.Button.new(self, id)
 end
 
@@ -502,11 +583,6 @@ function Controller.Button.new(controller, id)
 end
 
 function Controller.Button:getState()
-    -- added check to ensure that an assigned shift button will not emit Signals.
-    if not self then
-        self.controller.selfError()
-        return
-    end
     local state = self.controller:xcGetRegValueNumber(string.format("mcX360_LUA/%s", self.id))
     if type(state) ~= "number" then
         self.controller:xcCntlLog(string.format("Invalid state for %s", self.id), 1)
@@ -605,9 +681,6 @@ Controller.Trigger.__tostring = function(self)
 end
 
 function Controller.Trigger.new(controller, id)
-    if controller.typeCheck({controller, id}, {"Controller", "string"}) then
-        return
-    end
     local self = Controller.Button.new(controller, id)
     setmetatable(self, Controller.Trigger)
     self.__type = "Trigger"
@@ -618,10 +691,6 @@ function Controller.Trigger.new(controller, id)
 end
 
 function Controller.Trigger:getState()
-    if not self then
-        Controller.selfError()
-        return
-    end
     self.value = self.controller:xcGetRegValueNumber(string.format("mcX360_LUA/%s", self.id))
     if type(self.value) ~= "number" then
         self.controller:xcCntlLog("Invalid state for " .. self.id, 1)
@@ -643,13 +712,8 @@ function Controller.Trigger:getState()
 end
 
 function Controller.Trigger:connect(func)
-    if not self then
-        Controller.selfError()
-        return
-    end
-    if self.controller.typeCheck({func}, {"function"}) then
-        return
-    end
+    isCorrectSelf(self) -- should raise an error if method has been called with dot notation
+    Controller.typeCheck({func}, {"function"}) -- should raise an error if any param is of the wrong type
     self.func = func
 end
 
@@ -665,9 +729,6 @@ Controller.ThumbstickAxis.__tostring = function(self)
 end
 
 function Controller.ThumbstickAxis.new(controller, id)
-    if controller.typeCheck({controller, id}, {"Controller", "string"}) then
-        return
-    end
     local self = setmetatable({}, Controller.ThumbstickAxis)
     self.controller = controller
     self.id = id
@@ -682,24 +743,14 @@ function Controller.ThumbstickAxis.new(controller, id)
 end
 
 function Controller.ThumbstickAxis:setDeadzone(deadzone)
-    if not self then
-        Controller.selfError()
-        return
-    end
-    if self.controller.typeCheck({deadzone}, {"number"}) then
-        return
-    end
+    isCorrectSelf(self) -- should raise an error if method has been called with dot notation
+    Controller.typeCheck({deadzone}, {"number"}) -- should raise an error if any param is of the wrong type
     self.deadzone = math.abs(deadzone)
 end
 
 function Controller.ThumbstickAxis:connect(axis, inverted)
-    if not self then
-        Controller.selfError()
-        return
-    end
-    if self.controller.typeCheck({axis, inverted}, {"number", "boolean"}) then
-        return
-    end
+    isCorrectSelf(self) -- should raise an error if method has been called with dot notation
+    Controller.typeCheck({axis, inverted}, {"number", "boolean"}) -- should raise an error if any param is of the wrong type
     self.axis = axis
     self.inverted = inverted
     local rc
@@ -713,17 +764,11 @@ end
     stay stuck at some arbitrary jog rate it was set to, and will continue to move in response to stick input, but will not update the jog rate
     with respect to the analog value.  Releasing the stick completely and starting to move again seems to reset this condition.  Not sure what's causing that.
 ]] ---
---- TODO: It's probably possible to do all of our jog rate updating for the thumbstick analog control without actually updating Mach4's jog rate value.  We should probably
---- create our own jog rate value, track it on an instance attribute and refer to that instead.
 function Controller.ThumbstickAxis:update()
-    if not self then
-        Controller.selfError()
-        return
-    end
     if self.axis == nil then
         return
     end
-    self.value = self.controller:xcGetRegValue(string.format("mcX360_LUA/%s", self.id))
+    self.value = self.controller:xcGetRegValueNumber(string.format("mcX360_LUA/%s", self.id))
     if type(self.value) ~= "number" then
         self.controller:xcCntlLog("Invalid value for ThumbstickAxis", 1)
         return
@@ -757,29 +802,30 @@ function Controller.ThumbstickAxis:update()
     end
 end
 
+-- TODO: Add axis inversion
 function Controller.ThumbstickAxis:initUi(propertiesPanel)
     local propSizer = propertiesPanel:GetSizer()
 
+    -- label and control
     local label = wx.wxStaticText(propertiesPanel, wx.wxID_ANY, "Connect to axis:")
     propSizer:Add(label, 0, wx.wxALIGN_CENTER_VERTICAL + wx.wxALL, 5)
-
-    -- Add choice control for the signal
     local choices = {}
     for _, axis in ipairs({"mc.X_AXIS", "mc.Y_AXIS", "mc.Z_AXIS", "mc.A_AXIS", "mc.B_AXIS", "mc.C_AXIS"}) do
         table.insert(choices, axis)
     end
     local choice = wx.wxChoice(propertiesPanel, wx.wxID_ANY, wx.wxDefaultPosition, wx.wxDefaultSize, choices)
     propSizer:Add(choice, 1, wx.wxEXPAND + wx.wxALL, 5)
-
     if self.axis ~= nil then
         choice:SetSelection(self.axis)
     end
 
+    -- apply button
     propSizer:Add(0, 0)
     local applyId = wx.wxNewId()
     local apply = wx.wxButton(propertiesPanel, applyId, "Apply", wx.wxDefaultPosition, wx.wxDefaultSize)
     propSizer:Add(apply, 0, wx.wxALIGN_RIGHT + wx.wxALL, 5)
 
+    -- event handler
     propertiesPanel:Connect(applyId, wx.wxEVT_BUTTON, function()
         local axes = {mc.X_AXIS, mc.Y_AXIS, mc.Z_AXIS, mc.A_AXIS, mc.B_AXIS, mc.C_AXIS}
         selection = choice:GetSelection()
@@ -788,15 +834,17 @@ function Controller.ThumbstickAxis:initUi(propertiesPanel)
         end
     end)
 
+    -- Refresh and return the new layout
     propSizer:Layout()
     propertiesPanel:Layout()
-
-    -- Return the propertiesPanel sizer
+    propertiesPanel:Fit()
+    propertiesPanel:Refresh()
     return propSizer
 end
 
 function Controller:newSlot(id, func)
-    -- added a new 'id' attribute for Slots that we need to get from the constructor
+    isCorrectSelf(self) -- should raise an error if method has been called with dot notation
+    Controller.typeCheck({id, func}, {"string", "function"}) -- should raise an error if any param is of the wrong type
     return self.Slot.new(self, id, func)
 end
 
@@ -808,9 +856,6 @@ Controller.Slot.__tostring = function(self)
 end
 
 function Controller.Slot.new(controller, id, func)
-    if Controller.typeCheck({id, func}, {"string", "function"}) then
-        return
-    end
     local self = setmetatable({}, Controller.Slot)
     self.id = id
     self.controller = controller
@@ -826,12 +871,7 @@ xc = Controller.new()
 --- TODO: consider updating documentation to not mention any manual configuration of the controller object outside of the
 --- "Advanced Usage" section.  When the GUI is fully working, most users will never need to do anything here.
 --- TODO: update the GUI configurator to include a section of properties that are configured at the Controller level, such as
---- logging level, a
----
----
----
----
---- xes inversions and reversals, etc.
+--- logging level, axes inversions and reversals, etc.
 xc.logLevel = 4
 xc:assignShift(xc.LTR)
 xc.RTH_Y:connect(mc.Z_AXIS)
@@ -850,31 +890,6 @@ xc.START.altDown:connect(xc:xcGetSlotById('Home Z'))
   We need to implement a mock that actually works and renders our GUI when we're not running connected to a live Mach4 instance.
   ]] --
 
--- Create the main sizer (horizontal layout with input list on the left and properties on the right)
---[[ TODO: It seems as though there should be a second column alongside the input list that displays
-    some sort of information about the current configuration state for each input.  Perhaps something
-    like "(#) connected Signals", "Assigned as shift button," where appropriate would suffice.
-
-    Trigger objects need to be implemented as either analog controls OR buttons (not both at once), so we could
-    also display something like: "Button mode with 2 connected Signals" or "Analog mode with connection function"
-    for trigger objects.
-
-    ThumbstickAxis objects only have one potential state, which is connection to the movement of an axis, so
-    "Connected to machine X Axis", etc or "Not Connected" is probably sufficient.
-
-    Thinking about it in terms of the refactoring done up to now, we may want to populate this field from an
-    attribute on the input object, as that would be the appropriate place for what amounts to state information
-    for the object.
-
-    Additional NOTE: Would a single panel with a tree view be intuitive for most users? Each input would have
-    it's Signal and or Analog input members as children, and each child could display the state of it's current configuration
-    when expanded.  This makes the entire config easy to reach without jamming it all into the screen when it's not
-    needed.  The controller ojbect would then have its various configurable settings as children, along with the input
-    objects... which may be less intuitive.
-
-    A hybrid implementation of the tree view and the properties panel would exactly parallel how the Mach4 screen editor
-    is set up, thus keeping our GUI "extension" consistent with the GUI's design.
-]] --
 local mainSizer = wx.wxBoxSizer(wx.wxHORIZONTAL)
 mcLuaPanelParent:SetMinSize(wx.wxSize(450, 500))
 mcLuaPanelParent:SetMaxSize(wx.wxSize(450, 500))
@@ -931,12 +946,7 @@ tree:Connect(wx.wxEVT_COMMAND_TREE_SEL_CHANGED, function(event)
     -- Clear the current sizer's contents from the properties panel
     propertiesPanel:GetSizer():Clear(true) -- true ensures that the controls are destroyed
 
-    -- Get the item associated with the tree selection
     local item = treedata[event:GetItem():GetValue()]
-
-    -- Call the initUi method of the selected item and set it as the new sizer
-    -- Set the new sizer and perform layout
-
     propertiesPanel:SetSizer(item:initUi(propertiesPanel))
     propertiesPanel:Fit()
     propertiesPanel:Layout()
