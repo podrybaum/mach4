@@ -2,12 +2,10 @@ if not mc then
     require("mocks")
 end
 
+scr = scr or require("scr")
 wx = wx or require("wx")
 mcLuaPanelParent = mcLuaPanelParent or wx.wxFrame()
-
 inst = mc.mcGetInstance()
-
-
 
 profileRegisters = {
     ["profile"] = 20000,
@@ -15,11 +13,16 @@ profileRegisters = {
     ["shiftButton"] = 20002,
     ["jogIncrement"] = 20003,
     ["logLevel"] = 20004,
+	["axesReversed"] = 20005,
 }
 
+function slotSort(slot1, slot2)
+	return slot1.id < slot2.id
+end
 
 ---Checks to make sure that an instance of a class has been passed as the first parameter to a method call.
----Raises an error if not.
+---This catches the error when a method that should use a colon is called with a period, so we can deliver
+---a better error message.
 ---@param self any
 function isCorrectSelf(self)
     local info = debug.getinfo(2, "nl") -- Get info about the calling function
@@ -71,10 +74,11 @@ end
 ---@field logLevel number
 ---@field logLevels table
 ---@field slots table
+---@field xYReversed boolean
+---@field frequency number
 ---@field xcCntlTorchToggle Slot
 ---@field xcGetInputById function
 ---@field xcGetSlotById function
----@field xcGetRegValueNumber function
 ---@field xcGetMachSignalState function
 ---@field xcToggleMachSignalState function
 ---@field xcCntlLog function
@@ -83,11 +87,21 @@ end
 ---@field update function
 ---@field assignShift function
 ---@field mapSimpleJog function
+---@field newDescriptor function
 ---@field newSignal function
 ---@field newButton function
 ---@field newTrigger function
 ---@field newThumbstickAxis function
 ---@field newSlot function
+---@field initUi function
+---@field xcRegGetValue function
+---@field xcRegSetValue function
+---@field Descriptor class
+---@field Button class
+---@field Trigger class
+---@field ThumstickAxis class
+---@field Signal class
+---@field Slot class
 Controller = {}
 Controller.__index = Controller
 Controller.__type = "Controller"
@@ -125,9 +139,10 @@ function Controller.new()
     self.jogIncrement = 0.1
     self.logLevel = 2
     self.logLevels = {"ERROR", "WARNING", "INFO", "DEBUG"}
-
+	self.xYReversed = false
+	self.frequency = 10
     self.slots = {}
-    names = {"Cycle Start", "Cycle Stop", "Feed Hold", "Enable On", "Enable Off", "Enable Toggle", "Soft Limits On",
+    local names = {"Cycle Start", "Cycle Stop", "Feed Hold", "Enable On", "Soft Limits On",
              "Soft Limits Off", "Soft Limits Toggle", "Position Remember", "Position Return", "Limit OV On",
              "Limit OV Off", "Limit OV Toggle", "Jog Mode Toggle", "Jog Mode Step", "Jog Mode Continuous", "Jog X+",
              "Jog Y+", "Jog Z+", "Jog A+", "Jog B+", "Jog C+", "Jog X-", "Jog Y-", "Jog Z-", "Jog A-", "Jog B-",
@@ -137,6 +152,29 @@ function Controller.new()
             scr.DoFunctionName(name)
         end)
     end
+	
+	self:newSlot("Enable Off", function()
+		local state = mc.mcCntlGetState(inst)
+
+		if (state ~= mc.MC_STATE_IDLE) then
+		  scr.StartTimer(2, 250, 1);
+		end
+
+		scr.DoFunctionName("Enable Off")
+	end)
+
+	self:newSlot("Enable Toggle", function()
+		local enabled = self:xcGetMachSignalState(mc.OSIG_MACHINE_ENABLED)		
+		if enabled then
+			local state = mc.mcCntlGetState(inst)
+			if (state ~= mc.MC_STATE_IDLE) then
+			  scr.StartTimer(2, 250, 1);
+			end
+			scr.DoFunctionName("Enable Off")
+		else
+			scr.DoFunctionName("Enable On")
+		end
+	end)
 
     self:newSlot("E Stop Toggle", function()
         self:xcToggleMachSignalState(mc.ISIG_EMERGENCY)
@@ -148,15 +186,6 @@ function Controller.new()
         self:xcToggleMachSignalState(mc.OSIG_OUTPUT4)
     end)
     table.remove(self.slots)
-
-    -- Deprecated in favor of scr.DoFunctionName("Enable Toggle") to be removed pending testing
-    --[[self.xcCntlEnableToggle = self:newSlot("XC Enable Toggle", function()
-        self:xcErrorCheck(
-            mc.mcCntlEnable(
-                inst, not self:xcGetMachSignalState(mc.OSIG_MACHINE_ENABLED)
-            )
-        )
-    ]] -- end)
 
     -- Deprecated in favor of scr.DoFunctionName("Limit OV Toggle") to be removed pending testing
     --[[self.xcCntlAxisLimitOverride = self:newSlot("XC Limit Override Toggle", function()
@@ -278,11 +307,22 @@ function Controller:initUi(propertiesPanel)
     local logChoice = wx.wxChoice(propertiesPanel, wx.wxID_ANY, wx.wxDefaultPosition, wx.wxDefaultSize, logLevels)
     propSizer:Add(logChoice, 1, wx.wxEXPAND + wx.wxALL, 5)
     logChoice:SetSelection(self.logLevel)
+	
+	-- label and control for axes reversal
+	local swapLabel = wx.wxStaticText(propertiesPanel, wx.wxID_ANY, "Swap X and Y axes:")
+	propSizer:Add(swapLabel, 0, wx.wxALIGN_CENTER_VERTICAL + wx.wxALL, 5)
+	local swapCheck = wx.wxCheckBox(propertiesPanel, wx.wxID_ANY, "")
+	propSizer:Add(swapCheck, 1, wx.wxALIGN_CENTER_HORIZONTAL + wx.wxALL, 5)
+	
+	-- label and control for frequency
+	local frequencyLabel = wx.wxStaticText(propertiesPanel, wx.wxID_ANY, "Update Frequency:")
+	propSizer:Add(frequencyLabel, 0, wx.wxALIGN_CENTER_VERTICAL + wx.wxALL, 5)
+	local frequencyCtrl = wx.wxTextCtrl(propertiesPanel, wx.wxID_ANY, tostring(self.frequency), wx.wxDefaultPosition, wx.wxDefaultSize, wx.wxTE_RIGHT)
 
     -- apply button
     propSizer:Add(0, 0)
     local applyId = wx.wxNewId()
-    local apply = wx.wxButton(propertiesPanel, applyId, "Apply", wx.wxDefaultPosition, wx.wxDefaultSize)
+    local apply = wx.wxButton(propertiesPanel, applyId, "Apply")
     propSizer:Add(apply, 0, wx.wxALIGN_RIGHT + wx.wxALL, 5)
 
     -- event handler for apply button
@@ -299,6 +339,11 @@ function Controller:initUi(propertiesPanel)
         if self.logLevel ~= logChoiceSelection then
             self.logLevel = logChoiceSelection
         end
+		local swapSelection = swapCheck:GetValue()
+		if swapSelection ~= self.xYReversed then
+			self.xYReversed = swapSelection
+			self:mapSimpleJog()
+		end
     end)
 
     -- Trigger the layout update and return the new sizer
@@ -346,20 +391,39 @@ end
 --- Retrieve numeric value from Mach4 register
 ---@param reg string the register to read format
 ---@return number|nil the number retrieved from the register or nil if not found
-function Controller:xcGetRegValueNumber(reg)
+function Controller:xcGetRegValue(reg)
     isCorrectSelf(self) -- should raise an error if method has been called with dot notation
     Controller.typeCheck({reg}, {"string"}) -- should raise an error if any param is of the wrong type
     local hreg, rc = mc.mcRegGetHandle(inst, reg)
     if rc == mc.MERROR_NOERROR then
-        local val, rc = mc.mcRegGetValueLong(hreg)
+        local val, rc = mc.mcRegGetValue(hreg)
         if rc == mc.MERROR_NOERROR then
             return val
         else
-            self:xcCntlLog(string.format("Error in mcRegGetValueLong: %s",mc.mcCntlGetErrorString(inst, rc)), 1)
+            self:xcCntlLog(string.format("Error in mcRegGetValue: %s",mc.mcCntlGetErrorString(inst, rc)), 1)
         end
     else
         self:xcCntlLog(string.format("Error in mcRegGetHandle: %s",mc.mcCntlGetErrorString(inst, rc)), 1)
     end
+end
+
+--- Set a numeric value to a Mach4 register
+---@param reg the register to be assigned
+---@param value number the value to set
+function Controller:xcSetRegValue(reg, value)
+	isCorrectSelf(self) -- should raise an error if method has been called with dot notation
+	Controller.typeCheck({reg,value},{"string","number"})
+	local hreg, rc = mc.mcRegGetHandle(inst, reg)
+	if rc == mc.MERROR_NOERROR then
+		rc = mc.mcRegSetValue(hreg, value)
+		if rc == mc.MERROR_NOERROR then
+			return true
+		else
+			self:xcCntlLog(string.format("Error in mcRegSetValue: %s",mc.mcCntlGetErrorString(inst, rc)), 1)
+		end
+	else
+		self:xcCntlLog(string.format("Error in mcRegGetHandle: %s",mc.mcCntlGetErrorString(inst, rc)), 1)
+	end
 end
 
 --- Check Mach4 signal state in a single call
@@ -458,51 +522,48 @@ function Controller:assignShift(input)
     self:xcCntlLog("" .. input.id .. " assigned as controller shift button.", 3)
 end
 
-function Controller:mapSimpleJog(reversed)
-    -- TODO: Connect this to the GUI configurator, implement it as a default, or deprecate it.
-    isCorrectSelf(self) -- should raise an error if method has been called with dot notation
-    Controller.typeCheck({reversed}, {{"boolean", "nil"}}) -- should raise an error if any param is of the wrong type
-    self:xcCntlLog(string.format("Value of reversed flag for axis orientation: %s", tostring(reversed)), 4)
+function Controller:mapSimpleJog()
+    self:xcCntlLog(string.format("Value of reversed flag for axis orientation: %s", tostring(self.xYReversed)), 4)
     -- DPad regular jog
     self.UP.down:connect(self:newSlot('xcJogUp', function()
-        mc.mcJogVelocityStart(inst, (reversed and mc.Y_AXIS) or mc.X_AXIS, mc.MC_JOG_POS)
+        mc.mcJogVelocityStart(inst, (self.xYReversed and mc.Y_AXIS) or mc.X_AXIS, mc.MC_JOG_POS)
     end))
     self.UP.up:connect(self:newSlot('xcJogStopY', function()
-        mc.mcJogVelocityStop(inst, (reversed and mc.Y_AXIS) or mc.X_AXIS)
+        mc.mcJogVelocityStop(inst, (self.xYReversed and mc.Y_AXIS) or mc.X_AXIS)
     end))
     self.DOWN.down:connect(self:newSlot('xcJogDown', function()
-        mc.mcJogVelocityStart(inst, (reversed and mc.Y_AXIS) or mc.X_AXIS, mc.MC_JOG_NEG)
+        mc.mcJogVelocityStart(inst, (self.xYReversed and mc.Y_AXIS) or mc.X_AXIS, mc.MC_JOG_NEG)
     end))
     self.DOWN.up:connect(self:xcGetSlotById('xcJogStopY'))
     self.RIGHT.down:connect(self:newSlot('xcJogRight', function()
-        mc.mcJogVelocityStart(inst, (reversed and mc.X_AXIS) or mc.Y_AXIS, mc.MC_JOG_POS)
+        mc.mcJogVelocityStart(inst, (self.xYReversed and mc.X_AXIS) or mc.Y_AXIS, mc.MC_JOG_POS)
     end))
     self.RIGHT.up:connect(self:newSlot('xcJogStopX', function()
-        mc.mcJogVelocityStop(inst, (reversed and mc.X_AXIS) or mc.Y_AXIS)
+        mc.mcJogVelocityStop(inst, (self.xYReversed and mc.X_AXIS) or mc.Y_AXIS)
     end))
     self.LEFT.down:connect(self:newSlot('xcJogLeft', function()
-        mc.mcJogVelocityStart(inst, (reversed and mc.X_AXIS) or mc.Y_AXIS, mc.MC_JOG_NEG)
+        mc.mcJogVelocityStart(inst, (self.xYReversed and mc.X_AXIS) or mc.Y_AXIS, mc.MC_JOG_NEG)
     end))
     self.LEFT.up:connect(self:xcGetSlotById('xcJogStopX'))
-    if reversed then
+    if self.xYReversed then
         self:xcCntlLog("Standard velocity jogging with X and Y axis orientation reversed mapped to D-pad", 3)
     else
         self:xcCntlLog("Standard velocity jogging mapped to D-pad", 3)
     end
 
     self.UP.altDown:connect(self:newSlot('xcJogIncUp', function()
-        mc.mcJogIncStart(inst, reversed and mc.Y_AXIS or mc.X_AXIS, self.jogIncrement)
+        mc.mcJogIncStart(inst, self.xYReversed and mc.Y_AXIS or mc.X_AXIS, self.jogIncrement)
     end))
     self.DOWN.altDown:connect(self:newSlot('xcJogIncDown', function()
-        mc.mcJogIncStart(inst, reversed and mc.Y_AXIS or mc.X_AXIS, -1 * self.jogIncrement)
+        mc.mcJogIncStart(inst, self.xYReversed and mc.Y_AXIS or mc.X_AXIS, -1 * self.jogIncrement)
     end))
     self.RIGHT.altDown:connect(self:newSlot('xcJogIncRight', function()
-        mc.mcJogIncStart(inst, reversed and mc.X_AXIS or mc.Y_AXIS, self.jogIncrement)
+        mc.mcJogIncStart(inst, self.xYReversed and mc.X_AXIS or mc.Y_AXIS, self.jogIncrement)
     end))
     self.LEFT.altDown:connect(self:newSlot('xcJogIncLeft', function()
-        mc.mcJogIncStart(inst, reversed and mc.X_AXIS or mc.Y_AXIS, -1 * self.jogIncrement)
+        mc.mcJogIncStart(inst, self.xYReversed and mc.X_AXIS or mc.Y_AXIS, -1 * self.jogIncrement)
     end))
-    if reversed then
+    if self.xYReversed then
         self:xcCntlLog("Incremental jogging with X and Y axis orientation reversed mapped to D-pad alternate function",
             3)
     else
@@ -510,9 +571,63 @@ function Controller:mapSimpleJog(reversed)
     end
 end
 
+function Controller:newDescriptor(register)
+	return self.descriptor.new(self, register)
+end
+
+Controller.Descriptor = {}
+Controller.Descriptor.__index = Controller.Descriptor
+Controller.Descriptor.__type = "Descriptor"
+
+function Controller.Descriptor.new(controller, register)
+	local self = setmetatable({}, Controller.Descriptor)
+	self.register = register
+	self.controller = controller
+	self.attribute = nil
+	self.object = nil
+	return self
+end
+
+function Controller.Descriptor:get()
+	isCorrectSelf(self) -- should raise an error if method has been called with dot notation
+	return self.controller:xcGetRegValue(self.register)
+end
+
+function Controller.Descriptor:set(value)
+	isCorrectSelf(self) -- should raise an error if method has been called with dot notation.
+	Controller.typeCheck({value},{"number"}) -- should raise an error if any param is of the wrong type
+	self.controller:xcSetRegValue(self.register)
+end
+
+---@param object Signal|Controller the object to attach the Descriptor to
+---@param attribute string a string containing the name of the attribute to attach the Descriptor to
+--- It is important to make sure that no value is ever actually assigned to the attribute shadowed by
+--- a Descriptor, as once the index actually exists in the table, it is no longer looked up in the __index
+--- metamethod, thus breaking the implementation of the Descriptor.  The way attribute access works with 
+--- Descriptors is as follows: a given object with attributes managed by descriptors has all of its Descriptor
+--- objects added as members of its descriptors table.  The __index metamethod points to the descriptors
+--- table, and the interpreter will loop over all the Descriptor objects in the table looking to match
+--- the 'attribute' value its trying to look up with the value assigned to a Descriptor's `attribute` attribute...
+--- upon finding the match, the interpreter is directed to call the Descriptor object's get() method, which
+--- returns the appropriate value.  The same procedure applies to setting Descriptor managed attribute values
+--- only using the __newindex metamethod instead.
+function Controller.Descriptor:assign(object, attribute)
+	isCorrectSelf(self) -- should raise an error if method has been called with dot notation.
+	Controller.typeCheck({object, attribute},{{"Controller"|"Signal"}, {"string"}}) -- should raise an error if any param is of the wrong type
+	if object[descriptors] == nil then
+		-- since we're the first Descriptor object being added, we need to write the __index and __newindex metamethods
+		mt = getmetatable(object)
+		mt.__index = doStuff() --- TODO
+		mt.__newindex = doStuff() --- TODO
+		object[descriptors] = {self}
+	else
+		table.insert(object[descriptors], self)
+	end
+	self.object = object
+	self.attribute = attribute
+end
+
 function Controller:newSignal(button, id)
-    isCorrectSelf(self) -- should raise an error if method has been called with dot notation
-    Controller.typeCheck({button, id}, {{"Button", "Trigger"}, "string"}) -- should raise an error if any param is of the wrong type
     return self.Signal.new(self, button, id)
 end
 
@@ -583,7 +698,7 @@ function Controller.Button.new(controller, id)
 end
 
 function Controller.Button:getState()
-    local state = self.controller:xcGetRegValueNumber(string.format("mcX360_LUA/%s", self.id))
+    local state = self.controller:xcGetRegValue(string.format("mcX360_LUA/%s", self.id))
     if type(state) ~= "number" then
         self.controller:xcCntlLog(string.format("Invalid state for %s", self.id), 1)
         return
@@ -691,7 +806,7 @@ function Controller.Trigger.new(controller, id)
 end
 
 function Controller.Trigger:getState()
-    self.value = self.controller:xcGetRegValueNumber(string.format("mcX360_LUA/%s", self.id))
+    self.value = self.controller:xcGetRegValue(string.format("mcX360_LUA/%s", self.id))
     if type(self.value) ~= "number" then
         self.controller:xcCntlLog("Invalid state for " .. self.id, 1)
         return
@@ -768,7 +883,7 @@ function Controller.ThumbstickAxis:update()
     if self.axis == nil then
         return
     end
-    self.value = self.controller:xcGetRegValueNumber(string.format("mcX360_LUA/%s", self.id))
+    self.value = self.controller:xcGetRegValue(string.format("mcX360_LUA/%s", self.id))
     if type(self.value) ~= "number" then
         self.controller:xcCntlLog("Invalid value for ThumbstickAxis", 1)
         return
@@ -861,6 +976,9 @@ function Controller.Slot.new(controller, id, func)
     self.controller = controller
     self.func = func
     table.insert(self.controller.slots, self)
+	if #self.controller.slots > 1 then
+		table.sort(self.controller.slots, slotSort)
+	end
     return self
 end
 
@@ -875,7 +993,8 @@ xc = Controller.new()
 xc.logLevel = 4
 xc:assignShift(xc.LTR)
 xc.RTH_Y:connect(mc.Z_AXIS)
-xc:mapSimpleJog(true)
+xc.xYReversed = true
+xc:mapSimpleJog()
 xc.B.down:connect(xc:xcGetSlotById('E Stop Toggle'))
 xc.Y.down:connect(xc.xcCntlTorchToggle)
 xc.RSB.down:connect(xc:xcGetSlotById('Enable Toggle'))
@@ -961,9 +1080,9 @@ mcLuaPanelParent:SetSizer(mainSizer)
 mainSizer:Layout()
 
 -- Show the parent panel and start the wx main loop
-wx.wxGetApp():SetTopWindow(mcLuaPanelParent)
-mcLuaPanelParent:Show(true)
-wx.wxGetApp():MainLoop()
+--wx.wxGetApp():SetTopWindow(mcLuaPanelParent)
+--mcLuaPanelParent:Show(true)
+--wx.wxGetApp():MainLoop()
 
 --[[ TODO: Is 100ms the right rate to be polling the inputs?  If 250ms(or some other longer amount of time) would be sufficient,
     the code would be more performant in terms of impact on the system itself, which is something we should at least be
@@ -972,7 +1091,7 @@ wx.wxGetApp():MainLoop()
 xc:xcCntlLog("Creating X360_timer", 4)
 X360_timer = wx.wxTimer(mcLuaPanelParent)
 mcLuaPanelParent:Connect(wx.wxEVT_TIMER, function()
-    xc:update()
+   xc:update()
 end)
 xc:xcCntlLog("Starting X360_timer", 4)
-X360_timer:Start(100)
+X360_timer:Start(1000/xc.frequency)
