@@ -312,12 +312,13 @@ function Controller:initUi(propertiesPanel)
 	local swapLabel = wx.wxStaticText(propertiesPanel, wx.wxID_ANY, "Swap X and Y axes:")
 	propSizer:Add(swapLabel, 0, wx.wxALIGN_CENTER_VERTICAL + wx.wxALL, 5)
 	local swapCheck = wx.wxCheckBox(propertiesPanel, wx.wxID_ANY, "")
-	propSizer:Add(swapCheck, 1, wx.wxALIGN_CENTER_HORIZONTAL + wx.wxALL, 5)
+	propSizer:Add(swapCheck, 1, wx.wxALIGN_RIGHT + wx.wxALL, 5)
 	
 	-- label and control for frequency
 	local frequencyLabel = wx.wxStaticText(propertiesPanel, wx.wxID_ANY, "Update Frequency:")
 	propSizer:Add(frequencyLabel, 0, wx.wxALIGN_CENTER_VERTICAL + wx.wxALL, 5)
 	local frequencyCtrl = wx.wxTextCtrl(propertiesPanel, wx.wxID_ANY, tostring(self.frequency), wx.wxDefaultPosition, wx.wxDefaultSize, wx.wxTE_RIGHT)
+	propSizer:Add(frequencyCtrl, 1, wx.wxEXPAND + wx.wxALL, 5)
 
     -- apply button
     propSizer:Add(0, 0)
@@ -343,6 +344,10 @@ function Controller:initUi(propertiesPanel)
 		if swapSelection ~= self.xYReversed then
 			self.xYReversed = swapSelection
 			self:mapSimpleJog()
+		end
+		local frequencyValue = tonumber(frequencyCtrl:GetValue())
+		if frequencyValue ~= self.frequency then
+			self.frequency = frequencyValue
 		end
     end)
 
