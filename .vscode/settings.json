@@ -1,0 +1,9 @@
+{
+    "Lua.diagnostics.globals": [
+        "wx",
+        "scr",
+        "mcLuaPanelParent",
+        "mocks",
+        "inst"
+    ]
+}

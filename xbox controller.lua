@@ -6,7 +6,7 @@ scr = scr or require("scr")
 wx = wx or require("wx")
 
 if mocks and mc == mocks.mc or mc.mcInEditor() == 1 then
-   luaPanelId = wx.wxNewId()
+   local luaPanelId = wx.wxNewId()
    mcLuaPanelParent = wx.wxFrame(wx.NULL, luaPanelId, "Mock Panel")   
 end
 
