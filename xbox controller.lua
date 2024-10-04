@@ -5,9 +5,12 @@ end
 scr = scr or require("scr")
 wx = wx or require("wx")
 
-if mc == mocks.mc and mc.mcInEditor() == 1 then
-   mcLuaPanelParent = wx.wxFrame(wx.NULL, wx.ID_ANY, "Mock Panel")
+if mocks and mc == mocks.mc or mc.mcInEditor() == 1 then
+   luaPanelId = wx.wxNewId()
+   mcLuaPanelParent = wx.wxFrame(wx.NULL, luaPanelId, "Mock Panel")   
 end
+
+
 
 -- Global Mach4 instance
 inst = mc.mcGetInstance()
@@ -20,12 +23,18 @@ function setIfNotEqual(x, y)
 end
 
 -- TODO: implement more user-friendly names for inputs to use in the GUI
--- TODO: assign descriptors in Signal and ThumbstickAxis 
 -- TODO: finish annotations 
 -- TODO: test slot functions provided by scr.DoFunctionName.  (Enable On, Enable Off and Enable Toggle already tested)
 --       "Home All" and "Home Z" do not seem to be working.
--- TODO: Either the Descriptor's get() method or something in the mocks file is broken.
+-- TODO: implement profile saving
+-- TODO: unit tests
+-- TODO: refactor out to separate modules for dev branch
+-- TODO: installer script
 
+--[[ TODO: Something seems to be not working entirely as intended with this method, as once in awhile the connected axis seems to
+    stay stuck at some arbitrary jog rate it was set to, and will continue to move in response to stick input, but will not update the jog rate
+    with respect to the analog value.  Releasing the stick completely and starting to move again seems to reset this condition.  Not sure what's causing that.
+]] ---
 
 ---Checks to make sure that an instance of a class has been passed as the first parameter to a method call.
 ---This catches the error when a method that should use a colon is called with a period, so we can deliver
@@ -240,7 +249,7 @@ function Controller.new(profileName)
     end)
 
     self:newDescriptor(self,"profileName","string","default")
-    self:newDescriptor(self,"shiftButton", "string",nil)
+    self:newDescriptor(self,"shiftButton", "input", nil)
 
     self:newDescriptor(self,"jogIncrement", "number", 0.1)
 
@@ -309,9 +318,10 @@ end
 --- Retrieve a string value from the profile.ini file
 ---@param section string @the section of the profile.ini file to read from
 ---@param key string @the key from the section to retrieve
----@param defval string @a default value to assign to the key if it is not found
+---@param defval string|nil @a default value to assign to the key if it is not found
 ---@return string|boolean @the retrieved value or `false` if an error was encountered
 function Controller:xcProfileGetString(section, key, defval)
+	defval = tostring(defval)
     local val, rc = mc.mcProfileGetString(inst, section, key, defval)
     if rc == mc.MERROR_NOERROR then
         return val
@@ -328,7 +338,7 @@ function Controller:xcProfileWriteDouble(section, key, val)
     self:xcErrorCheck(mc.mcProfileFlush(inst))
     local state, rc = mc.mcCntlGetState(inst)
     if rc == mc.MERROR_NOERROR and state == mc.MC_STATE_IDLE then
-        self:xcErrorCheck(mc.mcProfileReload())
+        self:xcErrorCheck(mc.mcProfileReload(inst))
     end
 end
 
@@ -341,7 +351,7 @@ function Controller:xcProfileWriteString(section, key, val)
     self:xcErrorCheck(mc.mcProfileFlush(inst))
     local state, rc = mc.mcCntlGetState(inst)
     if rc == mc.MERROR_NOERROR and state == mc.MC_STATE_IDLE then
-        self:xcErrorCheck(mc.mcProfileReload())
+        self:xcErrorCheck(mc.mcProfileReload(inst))
     end
 end
 
@@ -575,7 +585,7 @@ function Controller:assignShift(input)
     if self.shiftButton ~= nil then
         self:xcCntlLog(string.format(
             "Call to assign a shift button with a shift button already assigned.\n%s will be unassigned before assigning new shift button.",
-            self.shiftButton.id), 2)
+            tostring(self.shiftButton)), 2)
     end
     self.shiftButton = input
     self:xcCntlLog("" .. input.id .. " assigned as controller shift button.", 3)
@@ -679,7 +689,16 @@ function Controller.Descriptor:get()
             return val
         elseif self.datatype == "boolean" then
             return val == "true"
-        end
+        elseif self.datatype == "object" then
+			for _, input in self.controller.inputs do
+				if input.id == val then
+					return input
+				end
+			end
+			if self.attribute == "slot" then
+				return self.controller:xcGetSlotById(val)
+			end
+		end
     end
 end
 
@@ -690,14 +709,9 @@ function Controller.Descriptor:set(value)
         self.controller:xcProfileWriteDouble(self.object.id, self.attribute, value)
         return
 	else
-        Controller.typeCheck({value},{{"string","boolean"}})
-        if self.datatype == "string" then
-            self.controller:xcProfileWriteString(self.object.id, self.attribute, value)
-            return
-        elseif self.datatype == "boolean" then
-            self.controller:xcProfileWriteString(self.object.id, self.attribute, tostring(value))
-            return
-        end
+		value = tostring(value)
+		self.controller:xcProfileWriteString(self.object.id, self.attribute, value)
+		return
     end
 end
 
@@ -709,6 +723,7 @@ function Controller.Descriptor:assign()
 		local mt = getmetatable(self.object)
         local oindex = mt.__index
         local onewindex = mt.__newindex
+		print(self.object, self.attribute)
 		mt.__index = function(object, key)
             for _, descriptor in ipairs(object.descriptors) do
                 if descriptor["attribute"] == key then
@@ -761,7 +776,8 @@ function Controller.Signal.new(controller, button, id)
     self.id = id
     self.button = button
     self.controller = controller
-    self.slot = nil
+	self.controller:newDescriptor(self, "slot", "object", nil)
+    --self.slot = nil
     return self
 end
 
@@ -965,12 +981,12 @@ function Controller.ThumbstickAxis.new(controller, id)
     local self = setmetatable({}, Controller.ThumbstickAxis)
     self.controller = controller
     self.id = id
-    --descriptor
-    self.axis = nil
-    --descriptor
-    self.inverted = false
-    --descriptor
-    self.deadzone = 10
+	self.controller:newDescriptor(self, "axis", "number", nil)
+   -- self.axis = nil
+	self.controller:newDescriptor(self, "inverted", "boolean", false)
+   -- self.inverted = false
+	self.controller:newDescriptor(self, "deadzone", "number", 10)
+    --self.deadzone = 10
     self.rate = nil
     self.value = 0
     self.moving = false
@@ -990,10 +1006,6 @@ function Controller.ThumbstickAxis:connect(axis, inverted)
     self.controller:xcCntlLog("Initial jog rate for " .. tostring(self.axis) .. " = " .. self.rate, 4)
 end
 
---[[ TODO: Something seems to be not working entirely as intended with this method, as once in awhile the connected axis seems to
-    stay stuck at some arbitrary jog rate it was set to, and will continue to move in response to stick input, but will not update the jog rate
-    with respect to the analog value.  Releasing the stick completely and starting to move again seems to reset this condition.  Not sure what's causing that.
-]] ---
 function Controller.ThumbstickAxis:update()
     if self.axis == nil then
         return
@@ -1222,7 +1234,7 @@ mainSizer:Layout()
 -- file provides the wx table and mcLuaPanelParent.  When working in Mach4's included Zerobrane editor, the wx environment
 -- comes from Mach4 and the mcLuaPanelParent object is provided by the mc table.  When the script is actually running in
 -- Mach4, this block does nothing. 
-if mcLuaPanelParent == mocks.mcLuaPanelParent or mc.mcInEditor() == 1 then
+if mocks and mcLuaPanelParent == mocks.mcLuaPanelParent or mc.mcInEditor() == 1 then
     local app = wx.wxApp(false)
     wx.wxGetApp():SetTopWindow(mcLuaPanelParent)
     mcLuaPanelParent:Show(true)
