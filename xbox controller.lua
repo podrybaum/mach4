@@ -1,18 +1,18 @@
 -- set mocks for external tables, we need to handle Mach4's Zerobrane editor and external editors differently.
+package.path = string.format("%s;%s?.lua", package.path,"C:\\Users\\Michael\\mach4\\")
+require("descriptor")
+
 if not mc then
-   mocks = require("mocks")
+    mocks = require("mocks")
 end
 scr = scr or require("scr")
 wx = wx or require("wx")
 
 if mocks and mc == mocks.mc or mc.mcInEditor() == 1 then
-   local luaPanelId = wx.wxNewId()
-   mcLuaPanelParent = wx.wxFrame(wx.NULL, luaPanelId, "Mock Panel")   
+    local luaPanelId = wx.wxNewId()
+    mcLuaPanelParent = wx.wxFrame(wx.NULL, luaPanelId, "Mock Panel")
 end
 
-
-
--- Global Mach4 instance
 inst = mc.mcGetInstance()
 
 ---Alias for a helpful one-liner.  If x ~= y, assign y to x.
@@ -30,11 +30,10 @@ end
 -- TODO: unit tests
 -- TODO: refactor out to separate modules for dev branch
 -- TODO: installer script
+-- TODO: Something seems to be not working entirely as intended with this method, as once in awhile the connected axis seems to
+    -- stay stuck at some arbitrary jog rate it was set to, and will continue to move in response to stick input, but will not update the jog rate
+   --  with respect to the analog value.  Releasing the stick completely and starting to move again seems to reset this condition.  Not sure what's causing that.
 
---[[ TODO: Something seems to be not working entirely as intended with this method, as once in awhile the connected axis seems to
-    stay stuck at some arbitrary jog rate it was set to, and will continue to move in response to stick input, but will not update the jog rate
-    with respect to the analog value.  Releasing the stick completely and starting to move again seems to reset this condition.  Not sure what's causing that.
-]] ---
 
 ---Checks to make sure that an instance of a class has been passed as the first parameter to a method call.
 ---This catches the error when a method that should use a colon is called with a period, so we can deliver
@@ -42,7 +41,7 @@ end
 ---@param self any @the first parameter passed to the method.
 ---@return boolean @`true` if the method was called correctly.
 function isCorrectSelf(self)
-    local info = debug.getinfo(2, "nl") 
+    local info = debug.getinfo(2, "nl")
     if info and info.name then
         local expected_class = getmetatable(self)
         if expected_class then
@@ -50,9 +49,10 @@ function isCorrectSelf(self)
             local actual_function = debug.getinfo(2, "f").func
             return function_in_class == actual_function
         end
-        error(string.format("Method %s was probably called with . instead of : at line %d.", info.name, info.currentline))
+        error(
+            string.format("Method %s was probably called with . instead of : at line %d.", info.name, info.currentline))
     end
-    error(string.format("function isCorrectSelf should only be called from within a method! line: %d",info.currentline))
+    error(string.format("function isCorrectSelf should only be called from within a method! line: %d", info.currentline))
 end
 
 ---@class Controller
@@ -122,7 +122,6 @@ function Controller.new(profileName)
     self.id = "Controller"
     self.profileName = profileName or "default"
 
-
     self.UP = self:newButton("DPad_UP")
     self.DOWN = self:newButton("DPad_DOWN")
     self.RIGHT = self:newButton("DPad_RIGHT")
@@ -155,40 +154,39 @@ function Controller.new(profileName)
     self.logLevels = {"ERROR", "WARNING", "INFO", "DEBUG"}
 
     self.slots = {}
-    local names = {"Cycle Start", "Cycle Stop", "Feed Hold", "Enable On", "Soft Limits On",
-             "Soft Limits Off", "Soft Limits Toggle", "Position Remember", "Position Return", "Limit OV On",
-             "Limit OV Off", "Limit OV Toggle", "Jog Mode Toggle", "Jog Mode Step", "Jog Mode Continuous", "Jog X+",
-             "Jog Y+", "Jog Z+", "Jog A+", "Jog B+", "Jog C+", "Jog X-", "Jog Y-", "Jog Z-", "Jog A-", "Jog B-",
-             "Jog C-", "Home All", "Home X", "Home Y", "Home Z", "Home A", "Home B", "Home C"}
+    local names = {"Cycle Start", "Cycle Stop", "Feed Hold", "Enable On", "Soft Limits On", "Soft Limits Off",
+                   "Soft Limits Toggle", "Position Remember", "Position Return", "Limit OV On", "Limit OV Off",
+                   "Limit OV Toggle", "Jog Mode Toggle", "Jog Mode Step", "Jog Mode Continuous", "Jog X+", "Jog Y+",
+                   "Jog Z+", "Jog A+", "Jog B+", "Jog C+", "Jog X-", "Jog Y-", "Jog Z-", "Jog A-", "Jog B-", "Jog C-",
+                   "Home All", "Home X", "Home Y", "Home Z", "Home A", "Home B", "Home C"}
     for i, name in ipairs(names) do
         self:newSlot(name, function()
             scr.DoFunctionName(name)
         end)
     end
 
-	
-	self:newSlot("Enable Off", function()
-		local state = mc.mcCntlGetState(inst)
+    self:newSlot("Enable Off", function()
+        local state = mc.mcCntlGetState(inst)
 
-		if (state ~= mc.MC_STATE_IDLE) then
-		  scr.StartTimer(2, 250, 1);
-		end
+        if (state ~= mc.MC_STATE_IDLE) then
+            scr.StartTimer(2, 250, 1);
+        end
 
-		scr.DoFunctionName("Enable Off")
-	end)
+        scr.DoFunctionName("Enable Off")
+    end)
 
-	self:newSlot("Enable Toggle", function()
-		local enabled = self:xcGetMachSignalState(mc.OSIG_MACHINE_ENABLED)		
-		if enabled then
-			local state = mc.mcCntlGetState(inst)
-			if (state ~= mc.MC_STATE_IDLE) then
-			  scr.StartTimer(2, 250, 1);
-			end
-			scr.DoFunctionName("Enable Off")
-		else
-			scr.DoFunctionName("Enable On")
-		end
-	end)
+    self:newSlot("Enable Toggle", function()
+        local enabled = self:xcGetMachSignalState(mc.OSIG_MACHINE_ENABLED)
+        if enabled then
+            local state = mc.mcCntlGetState(inst)
+            if (state ~= mc.MC_STATE_IDLE) then
+                scr.StartTimer(2, 250, 1);
+            end
+            scr.DoFunctionName("Enable Off")
+        else
+            scr.DoFunctionName("Enable On")
+        end
+    end)
 
     self:newSlot("E Stop Toggle", function()
         self:xcToggleMachSignalState(mc.ISIG_EMERGENCY)
@@ -207,20 +205,20 @@ function Controller.new(profileName)
 
     -- Deprecated in favor of scr.DoFunctionName("Limit OV Toggle") to be removed pending testing
     --[[self.xcCntlAxisLimitOverride = self:newSlot("XC Limit Override Toggle", function()
-        self:xcToggleMachSignalState(mc.ISIG_LIMITOVER)
-    ]] -- end)
+         self:xcToggleMachSignalState(mc.ISIG_LIMITOVER)
+     ]] -- end)
 
     -- Deprecated in favor of scr.DoFunctionName("JogModeToggle") to be removed pending testing
     --[[self.xcJogTypeToggle = self:newSlot("XC JogModeToggle", function()
-        self:xcToggleMachSignalState(mc.OSIG_JOG_INC)
-        self:xcToggleMachSignalState(mc.OSIG_JOG_CONT)
-    ]] -- end)
+         self:xcToggleMachSignalState(mc.OSIG_JOG_INC)
+         self:xcToggleMachSignalState(mc.OSIG_JOG_CONT)
+     ]] -- end)
 
     -- Deprecated in favor of scr.DoFunctionName("Home All") along with ("Home X","Home Y", etc)
     --[[self.xcAxisHomeAll = self:newSlot("XC Home ALL", function() self:xcErrorCheck(mc.mcAxisHomeAll(inst)) end)
-    self.xcAxisHomeX = self:newSlot("XC Home X", function() self:xcErrorCheck(mc.mcAxisHome(inst, mc.X_AXIS)) end)
-    self.xcAxisHomeY = self:newSlot("XC Home Y", function() self:xcErrorCheck(mc.mcAxisHome(inst, mc.Y_AXIS)) end)
-    ]] -- self.xcAxisHomeZ = self:newSlot("XC Home Z", function() self:xcErrorCheck(mc.mcAxisHome(inst, mc.Z_AXIS)) end)
+     self.xcAxisHomeX = self:newSlot("XC Home X", function() self:xcErrorCheck(mc.mcAxisHome(inst, mc.X_AXIS)) end)
+     self.xcAxisHomeY = self:newSlot("XC Home Y", function() self:xcErrorCheck(mc.mcAxisHome(inst, mc.Y_AXIS)) end)
+     ]] -- self.xcAxisHomeZ = self:newSlot("XC Home Z", function() self:xcErrorCheck(mc.mcAxisHome(inst, mc.Z_AXIS)) end)
 
     self:newSlot("Goto Zero", function()
         self:xcErrorCheck(mc.mcCntlGotoZero(inst))
@@ -248,22 +246,15 @@ function Controller.new(profileName)
         end
     end)
 
-    self:newDescriptor(self,"profileName","string","default")
-    self:newDescriptor(self,"shiftButton", "input", nil)
-
-    self:newDescriptor(self,"jogIncrement", "number", 0.1)
-
-    self:newDescriptor(self,"logLevel","number",2)
-
-    self:newDescriptor(self,"xYReversed","boolean",false)
-
-    self:newDescriptor(self,"frequency","number",4)
-
+    self:newDescriptor(self, "profileName", "string", "default")
+    self:newDescriptor(self, "shiftButton", "input", nil)
+    self:newDescriptor(self, "jogIncrement", "number", 0.1)
+    self:newDescriptor(self, "logLevel", "number", 2)
+    self:newDescriptor(self, "xYReversed", "boolean", false)
+    self:newDescriptor(self, "frequency", "number", 4)
 
     return self
 end
-
-
 
 ---Custom type checking
 ---@param object any @The object to typecheck
@@ -321,7 +312,7 @@ end
 ---@param defval string|nil @a default value to assign to the key if it is not found
 ---@return string|boolean @the retrieved value or `false` if an error was encountered
 function Controller:xcProfileGetString(section, key, defval)
-	defval = tostring(defval)
+    defval = tostring(defval)
     local val, rc = mc.mcProfileGetString(inst, section, key, defval)
     if rc == mc.MERROR_NOERROR then
         return val
@@ -362,7 +353,7 @@ end
 ---@return wxSizer @the `wxSizer` (or subclass thereof) for the properties panel object
 function Controller:initUi(propertiesPanel)
     isCorrectSelf(self)
----@diagnostic disable-next-line: undefined-field
+    ---@diagnostic disable-next-line: undefined-field
     local propSizer = propertiesPanel:GetSizer()
 
     local profiles = {"default"}
@@ -381,7 +372,7 @@ function Controller:initUi(propertiesPanel)
     local choice = wx.wxChoice(propertiesPanel, wx.wxID_ANY, wx.wxDefaultPosition, wx.wxDefaultSize, choices)
     propSizer:Add(choice, 1, wx.wxEXPAND + wx.wxALL, 5)
     if self.shiftButton ~= nil then
-    ---@diagnostic disable-next-line: undefined-field
+        ---@diagnostic disable-next-line: undefined-field
         choice:SetSelection(choice:FindString(self.shiftButton.id))
     end
 
@@ -398,15 +389,16 @@ function Controller:initUi(propertiesPanel)
     propSizer:Add(logChoice, 1, wx.wxEXPAND + wx.wxALL, 5)
     logChoice:SetSelection(self.logLevel)
 
-	local swapLabel = wx.wxStaticText(propertiesPanel, wx.wxID_ANY, "Swap X and Y axes:")
-	propSizer:Add(swapLabel, 0, wx.wxALIGN_CENTER_VERTICAL + wx.wxALL, 5)
-	local swapCheck = wx.wxCheckBox(propertiesPanel, wx.wxID_ANY, "")
-	propSizer:Add(swapCheck, 1, wx.wxALIGN_RIGHT + wx.wxALL, 5)
+    local swapLabel = wx.wxStaticText(propertiesPanel, wx.wxID_ANY, "Swap X and Y axes:")
+    propSizer:Add(swapLabel, 0, wx.wxALIGN_CENTER_VERTICAL + wx.wxALL, 5)
+    local swapCheck = wx.wxCheckBox(propertiesPanel, wx.wxID_ANY, "")
+    propSizer:Add(swapCheck, 1, wx.wxALIGN_RIGHT + wx.wxALL, 5)
 
-	local frequencyLabel = wx.wxStaticText(propertiesPanel, wx.wxID_ANY, "Update Frequency:")
-	propSizer:Add(frequencyLabel, 0, wx.wxALIGN_CENTER_VERTICAL + wx.wxALL, 5)
-	local frequencyCtrl = wx.wxTextCtrl(propertiesPanel, wx.wxID_ANY, tostring(self.frequency), wx.wxDefaultPosition, wx.wxDefaultSize, wx.wxTE_RIGHT)
-	propSizer:Add(frequencyCtrl, 1, wx.wxEXPAND + wx.wxALL, 5)
+    local frequencyLabel = wx.wxStaticText(propertiesPanel, wx.wxID_ANY, "Update Frequency (Hz):")
+    propSizer:Add(frequencyLabel, 0, wx.wxALIGN_CENTER_VERTICAL + wx.wxALL, 5)
+    local frequencyCtrl = wx.wxTextCtrl(propertiesPanel, wx.wxID_ANY, tostring(self.frequency), wx.wxDefaultPosition,
+        wx.wxDefaultSize, wx.wxTE_RIGHT)
+    propSizer:Add(frequencyCtrl, 1, wx.wxEXPAND + wx.wxALL, 5)
 
     -- apply button
     propSizer:Add(0, 0)
@@ -415,34 +407,34 @@ function Controller:initUi(propertiesPanel)
     propSizer:Add(apply, 0, wx.wxALIGN_RIGHT + wx.wxALL, 5)
 
     -- event handler for apply button
----@diagnostic disable-next-line: undefined-field
+    ---@diagnostic disable-next-line: undefined-field
     propertiesPanel:Connect(applyId, wx.wxEVT_COMMAND_BUTTON_CLICKED, function()
         local choiceSelection = choice:GetStringSelection()
----@diagnostic disable-next-line: undefined-field
+        ---@diagnostic disable-next-line: undefined-field
         if choiceSelection ~= self.shiftButton.id then
             self.assignShift(self:xcGetInputById(choiceSelection))
         end
         local jogInc = tonumber(jogIncCtrl:GetValue())
----@diagnostic disable-next-line: undefined-field
+        ---@diagnostic disable-next-line: undefined-field
         if jogInc ~= nil and jogInc:IsModified() then
             self.jogIncrement = jogInc
         end
         local logChoiceSelection = logChoice:GetSelection()
         setIfNotEqual(self.logLevel, logChoiceSelection)
-		local swapSelection = swapCheck:GetValue()
-		if swapSelection ~= self.xYReversed then
-			self.xYReversed = swapSelection
-			self:mapSimpleJog()
-		end
-		local frequencyValue = tonumber(frequencyCtrl:GetValue())
-		if frequencyValue ~= nil then
-			setIfNotEqual(self.frequency, frequencyValue)
-		end
+        local swapSelection = swapCheck:GetValue()
+        if swapSelection ~= self.xYReversed then
+            self.xYReversed = swapSelection
+            self:mapSimpleJog()
+        end
+        local frequencyValue = tonumber(frequencyCtrl:GetValue())
+        if frequencyValue ~= nil then
+            setIfNotEqual(self.frequency, frequencyValue)
+        end
     end)
 
     -- Trigger the layout update and return the new sizer
     propSizer:Layout()
----@diagnostic disable-next-line: undefined-field
+    ---@diagnostic disable-next-line: undefined-field
     propertiesPanel:Layout()
     return propSizer
 end
@@ -487,13 +479,12 @@ function Controller:xcGetRegValue(reg)
         if rc == mc.MERROR_NOERROR then
             return val
         else
-            self:xcCntlLog(string.format("Error in mcRegGetValue: %s",mc.mcCntlGetErrorString(inst, rc)), 1)
+            self:xcCntlLog(string.format("Error in mcRegGetValue: %s", mc.mcCntlGetErrorString(inst, rc)), 1)
         end
     else
-        self:xcCntlLog(string.format("Error in mcRegGetHandle: %s",mc.mcCntlGetErrorString(inst, rc)), 1)
+        self:xcCntlLog(string.format("Error in mcRegGetHandle: %s", mc.mcCntlGetErrorString(inst, rc)), 1)
     end
 end
-
 
 --- Check Mach4 signal state in a single call
 ---@param signal number the Mach4 signal to check
@@ -507,10 +498,10 @@ function Controller:xcGetMachSignalState(signal)
         if rc == mc.MERROR_NOERROR then
             return val > 0
         else
-            self:xcCntlLog(string.format("Error in mcSignalGetState: %s",mc.mcCntlGetErrorString(inst, rc)), 1)
+            self:xcCntlLog(string.format("Error in mcSignalGetState: %s", mc.mcCntlGetErrorString(inst, rc)), 1)
         end
     else
-        self:xcCntlLog(string.format("Error in mcSignalGetHandle: %s",mc.mcCntlGetErrorString(inst, rc)), 1)
+        self:xcCntlLog(string.format("Error in mcSignalGetHandle: %s", mc.mcCntlGetErrorString(inst, rc)), 1)
     end
 end
 
@@ -531,8 +522,10 @@ end
 ---@param level number the logging level to display the message at
 function Controller:xcCntlLog(msg, level)
     isCorrectSelf(self) -- should raise an error if method has been called with dot notation
-    Controller.typeCheck({msg, level}, {"string", "number"})  -- should raise an error if any param is of the wrong type
-    if self.logLevel == 0 then return end -- indicates logging is disabled
+    Controller.typeCheck({msg, level}, {"string", "number"}) -- should raise an error if any param is of the wrong type
+    if self.logLevel == 0 then
+        return
+    end -- indicates logging is disabled
     if level <= self.logLevel then
         if mc.mcInEditor() ~= 1 then
             mc.mcCntlLog(inst, "[[XBOX CONTROLLER " .. self.logLevels[level] .. "]]: " .. msg, "", -1)
@@ -647,117 +640,7 @@ end
 ---@param default number|string|boolean @optional default value
 ---@return Descriptor @the new Descriptor instance
 function Controller:newDescriptor(object, key, datatype, default)
-	return self.Descriptor.new(self, object, key, datatype, default)
-end
-
----@class Descriptor
----@field new function d
----@field controller Controller
----@field attribute string
----@field object any 
----@field datatype string 
----@field default number|string|boolean
----@field get function
----@field set function 
----@field assign function 
-Controller.Descriptor = {}
-Controller.Descriptor.__index = Controller.Descriptor
-Controller.Descriptor.__type = "Descriptor"
-
-function Controller.Descriptor.new(controller, object, key, datatype, default)
-	local self = setmetatable({}, Controller.Descriptor)
-	self.controller = controller
-	self.attribute = key
-	self.object = object
-    self.datatype = datatype
-    self.default = default
-    rawset(object, key, nil)
-    self:assign(self.object, self.attribute, self.default)
-	return self
-end
-
-function Controller.Descriptor:get()
-	--isCorrectSelf(self)
-	if self.datatype == "number" then
----@diagnostic disable-next-line: param-type-mismatch
-        local val = self.controller:xcProfileGetDouble(self.object.id, self.attribute, self.default)
-        return tonumber(val)
-    else
----@diagnostic disable-next-line: param-type-mismatch
-        local val = self.controller:xcProfileGetString(self.object.id, self.attribute, self.default)
-        if self.datatype == "string" then
-            return val
-        elseif self.datatype == "boolean" then
-            return val == "true"
-        elseif self.datatype == "object" then
-			for _, input in self.controller.inputs do
-				if input.id == val then
-					return input
-				end
-			end
-			if self.attribute == "slot" then
-				return self.controller:xcGetSlotById(val)
-			end
-		end
-    end
-end
-
-function Controller.Descriptor:set(value)
-	isCorrectSelf(self)
-    if self.datatype == "number" then
-	    Controller.typeCheck({value},{"number"})
-        self.controller:xcProfileWriteDouble(self.object.id, self.attribute, value)
-        return
-	else
-		value = tostring(value)
-		self.controller:xcProfileWriteString(self.object.id, self.attribute, value)
-		return
-    end
-end
-
---- Assign the Descriptor to shadow an attribute on a given object.  ___It is important to make sure that no value is ever actually 
---- assigned to the attribute shadowed by a Descriptor!___
-function Controller.Descriptor:assign()
-	if self.object.descriptors == nil then
-        self.object.descriptors = {self}
-		local mt = getmetatable(self.object)
-        local oindex = mt.__index
-        local onewindex = mt.__newindex
-		print(self.object, self.attribute)
-		mt.__index = function(object, key)
-            for _, descriptor in ipairs(object.descriptors) do
-                if descriptor["attribute"] == key then
-                    return descriptor:get()
-                end
-            end
-            if type(oindex) == "function" then
-                return(oindex(object, key))
-            elseif type(oindex) == "table" then
-                return oindex[key]
-            else
-                return nil
-            end
-        end
-		mt.__newindex = function(object, key, value)
-            for _, descriptor in ipairs(object.descriptors) do
-                if descriptor.attribute == key then
-                    descriptor:set(value)
-                    return
-                end
-            end
-            if type(onewindex) == "function" then
-                return(onewindex(object, key, value))
-            elseif type(onewindex) == "table" then
-                setIfNotEqual(object[key], value)
-            end
-        end
-		
-	else
-		table.insert(self.object.descriptors, self)
-	end
-    if self.default ~= nil then
-        self:set(self.default)
-    end
+    return Descriptor.new(self, object, key, datatype, default)
 end
 
 function Controller:newSignal(button, id)
@@ -776,8 +659,8 @@ function Controller.Signal.new(controller, button, id)
     self.id = id
     self.button = button
     self.controller = controller
-	self.controller:newDescriptor(self, "slot", "object", nil)
-    --self.slot = nil
+    self.controller:newDescriptor(self, "slot", "object", nil)
+    -- self.slot = nil
     return self
 end
 
@@ -981,12 +864,12 @@ function Controller.ThumbstickAxis.new(controller, id)
     local self = setmetatable({}, Controller.ThumbstickAxis)
     self.controller = controller
     self.id = id
-	self.controller:newDescriptor(self, "axis", "number", nil)
-   -- self.axis = nil
-	self.controller:newDescriptor(self, "inverted", "boolean", false)
-   -- self.inverted = false
-	self.controller:newDescriptor(self, "deadzone", "number", 10)
-    --self.deadzone = 10
+    self.controller:newDescriptor(self, "axis", "number", nil)
+    -- self.axis = nil
+    self.controller:newDescriptor(self, "inverted", "boolean", false)
+    -- self.inverted = false
+    self.controller:newDescriptor(self, "deadzone", "number", 10)
+    -- self.deadzone = 10
     self.rate = nil
     self.value = 0
     self.moving = false
@@ -1051,7 +934,7 @@ function Controller.ThumbstickAxis:initUi(propertiesPanel)
     local deadzoneLabel = wx.wxStaticText(propertiesPanel, wx.wxID_ANY, "Thumbstick deadzone:")
     propSizer:Add(deadzoneLabel, 0, wx.wxALIGN_CENTER_VERTICAL + wx.wxALL, 5)
     local deadzoneCtrl = wx.wxTextCtrl(propertiesPanel, wx.wxID_ANY, tostring(self.deadzone), wx.wxDefaultPosition,
-    wx.wxDefaultSize, wx.wxTE_RIGHT)
+        wx.wxDefaultSize, wx.wxTE_RIGHT)
     propSizer:Add(deadzoneCtrl, 1, wx.wxEXPAND + wx.wxALL, 5)
 
     -- label and control
@@ -1068,9 +951,9 @@ function Controller.ThumbstickAxis:initUi(propertiesPanel)
     end
 
     -- inversion toggle
-    --local invertLabel = wx.wxStaticText(propertiesPanel, wx.wxID_ANY, "Invert axis:")
-    --propSizer:Add(invertLabel, 0, wx.wxALIGN_CENTER_VERTICAL + wx.wxALL, 5)
-    propSizer:Add(0,0)
+    -- local invertLabel = wx.wxStaticText(propertiesPanel, wx.wxID_ANY, "Invert axis:")
+    -- propSizer:Add(invertLabel, 0, wx.wxALIGN_CENTER_VERTICAL + wx.wxALL, 5)
+    propSizer:Add(0, 0)
     local invertCheck = wx.wxCheckBox(propertiesPanel, wx.wxID_ANY, "Invert axis:")
     propSizer:Add(invertCheck, 1, wx.wxEXPAND + wx.wxALL, 5)
 
@@ -1119,9 +1002,9 @@ function Controller.Slot.new(controller, id, func)
     self.controller = controller
     self.func = func
     table.insert(self.controller.slots, self)
-	if #self.controller.slots > 1 then
-		table.sort(self.controller.slots, slotSort)
-	end
+    if #self.controller.slots > 1 then
+        table.sort(self.controller.slots, slotSort)
+    end
     return self
 end
 
@@ -1130,7 +1013,7 @@ end
 ---@param slot2 Slot @a `Slot` object
 ---@return boolean true if slot1 should come before slot2, false otherwise
 function slotSort(slot1, slot2)
-	return slot1.id < slot2.id
+    return slot1.id < slot2.id
 end
 
 xc = Controller.new()
@@ -1157,8 +1040,8 @@ xc.START.altDown:connect(xc:xcGetSlotById('Home Z'))
 ----------------------------------
 ---
 --[[ TODO: The current method of mocking the mcLuaPanelParent object doesn't actually work right, wxPanel is not a top-level gui object.
-  We need to implement a mock that actually works and renders our GUI when we're not running connected to a live Mach4 instance.
-  ]] --
+   We need to implement a mock that actually works and renders our GUI when we're not running connected to a live Mach4 instance.
+   ]] --
 
 local mainSizer = wx.wxBoxSizer(wx.wxHORIZONTAL)
 mcLuaPanelParent:SetMinSize(wx.wxSize(450, 500))
@@ -1241,16 +1124,14 @@ if mocks and mcLuaPanelParent == mocks.mcLuaPanelParent or mc.mcInEditor() == 1 
     wx.wxGetApp():MainLoop()
 end
 
-
-
 --[[ TODO: Is 100ms the right rate to be polling the inputs?  If 250ms(or some other longer amount of time) would be sufficient,
-    the code would be more performant in terms of impact on the system itself, which is something we should at least be
-    considering in a CNC application.  Setting the timer too long would result in the machine's response to controller inputs
-    feeling sluggish, which is also unacceptable. Should probably do some testing to find a good happy medium value.]]
+     the code would be more performant in terms of impact on the system itself, which is something we should at least be
+     considering in a CNC application.  Setting the timer too long would result in the machine's response to controller inputs
+     feeling sluggish, which is also unacceptable. Should probably do some testing to find a good happy medium value.]]
 xc:xcCntlLog("Creating X360_timer", 4)
 X360_timer = wx.wxTimer(mcLuaPanelParent)
 mcLuaPanelParent:Connect(wx.wxEVT_TIMER, function()
-   xc:update()
+    xc:update()
 end)
 xc:xcCntlLog("Starting X360_timer", 4)
-X360_timer:Start(1000/xc.frequency)
+X360_timer:Start(1000 / xc.frequency)

@@ -4,6 +4,7 @@
         "scr",
         "mcLuaPanelParent",
         "mocks",
-        "inst"
+        "inst",
+        "mc"
     ]
 }
