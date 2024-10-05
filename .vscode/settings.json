@@ -6,5 +6,8 @@
         "mocks",
         "inst",
         "mc"
+    ],
+    "Lua.diagnostics.disable": [
+        "inject-field"
     ]
 }
