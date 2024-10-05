@@ -40,7 +40,6 @@ end
 
 
 
-
 ---@class Controller
 ---@field customType function
 ---@field typeCheck function
@@ -649,6 +648,10 @@ function Controller:newDescriptor(object, key, datatype, default)
     return Descriptor.new(self, object, key, datatype, default)
 end
 
+---Initialize a new Signal.
+---@param button Button @the Button object the Signal belongs to
+---@param id string @a unique(per Button) identifier for the Signal
+---@return Signal @the new Signal instance
 function Controller:newSignal(button, id)
     return Signal.new(self, button, id)
 end

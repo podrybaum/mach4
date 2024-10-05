@@ -1,4 +1,15 @@
-
+---@class Button
+---@field new function
+---@field controller Controller
+---@field id string
+---@field pressed boolean
+---@field up Signal
+---@field down Signal
+---@field altUp Signal
+---@field altDown Signal
+---@field signals table
+---@field getState function
+---@field initUi function
 Button = {}
 Button.__index = Button
 Button.__type = "Button"
@@ -11,10 +22,10 @@ function Button.new(controller, id)
     self.controller = controller
     self.id = id
     self.pressed = false
-    self.up = self.controller:newSignal(self, "up")
-    self.down = self.controller:newSignal(self, "down")
-    self.altUp = self.controller:newSignal(self, "altUp")
-    self.altDown = self.controller:newSignal(self, "altDown")
+    self.up = self.controller:newSignal(self, "Up")
+    self.down = self.controller:newSignal(self, "Down")
+    self.altUp = self.controller:newSignal(self, "Alternate Up")
+    self.altDown = self.controller:newSignal(self, "Alternate Down")
     self.signals = {self.up, self.down, self.altUp, self.altDown}
     return self
 end
@@ -27,8 +38,8 @@ function Button:getState()
     end
     if (state == 1) and (not self.pressed) then
         self.pressed = true
-        if self.controller.shift_btn ~= self then
-            if not self.controller.shift_btn or not self.controller.shift_btn.pressed then
+        if self.controller.shiftButton ~= self then
+            if not self.controller.shiftButton or not self.controller.shiftButton.pressed then
                 self.down:emit()
             else
                 self.altDown:emit()
@@ -36,8 +47,8 @@ function Button:getState()
         end
     elseif (state == 0) and self.pressed then
         self.pressed = false
-        if self.controller.shift_btn ~= self then
-            if not self.controller.shift_btn or not self.controller.shift_btn.pressed then
+        if self.controller.shiftButton ~= self then
+            if not self.controller.shiftButton or not self.controller.shiftButton.pressed then
                 self.up:emit()
             else
                 self.altUp:emit()
@@ -51,14 +62,16 @@ function Button:initUi(propertiesPanel)
 
     -- Slot labels and dropdowns
     local options = {""}
+    local analogOptions = {""}
     for _, slot in ipairs(self.controller.slots) do
         options[#options + 1] = slot.id
     end
-    idMapping = {}
-    for i, signal in ipairs({"Up", "Down", "Alternate Up", "Alternate Down"}) do
-        local label = wx.wxStaticText(propertiesPanel, wx.wxID_ANY, string.format("%s Action:", signal))
+    local idMapping = {}
+    for i, signal in ipairs(self.signals) do
+        local label = wx.wxStaticText(propertiesPanel, wx.wxID_ANY, string.format("%s Action:", signal.id))
         propSizer:Add(label, 0, wx.wxALIGN_LEFT + wx.wxALL, 5)
-        local choice = wx.wxChoice(propertiesPanel, wx.wxID_ANY, wx.wxDefaultPosition, wx.wxDefaultSize, options)
+        local choice = wx.wxChoice(propertiesPanel, wx.wxID_ANY, wx.wxDefaultPosition, wx.wxDefaultSize,
+            self.__type == "Trigger" and analogOptions or options)
         idMapping[self.signals[i]] = choice
         if self.signals[i].slot ~= nil then
             choice:SetSelection(choice:FindString(self.signals[i].slot.id))
@@ -66,21 +79,7 @@ function Button:initUi(propertiesPanel)
         propSizer:Add(choice, 1, wx.wxEXPAND + wx.wxALL, 5)
     end
 
-    -- Analog signal for Triggers
-    -- TODO: create analog Slot type
-    if self.__type == "Trigger" then
-        local axes = {"mc.X_AXIS", "mc.Y_AXIS", "mc.Z_AXIS", "mc.A_AXIS", "mc.B_AXIS", "mc.C_AXIS"}
-        local label = wx.wxStaticText(propertiesPanel, wx.wxID_ANY, "Analog action:")
-        propSizer:Add(label, 0, wx.wxALIGN_LEFT + wx.wxALL, 5)
-        local choice = wx.wxChoice(propertiesPanel, wx.wxID_ANY, wx.wxDefaultPosition, wx.wxDefaultSize, axes)
-        idMapping[self.analog] = choice
-        if self.analog.axis ~= nil then
-            choice:SetSelection(choice:FindString(axes[self.analog.axis]))
-        end
-        propSizer:Add(choice, 1, wx.wxEXPAND + wx.wxALL, 5)
-    end
-
-    -- Apply button
+    -- Add the apply button and the event handler 
     propSizer:Add(0, 0)
     local applyId = wx.wxNewId()
     local apply = wx.wxButton(propertiesPanel, applyId, "Apply", wx.wxDefaultPosition, wx.wxDefaultSize)
@@ -106,8 +105,12 @@ function Button:initUi(propertiesPanel)
     return propSizer
 end
 
-
-
+---@class Trigger: Button 
+---@field new function
+---@field value number|nil
+---@field analog Signal
+---@field getState function
+---@field connect function
 Trigger = {}
 Trigger.__index = Button
 Trigger.__type = "Trigger"
@@ -115,16 +118,22 @@ Trigger.__tostring = function(self)
     return string.format("Trigger: %s", self.id)
 end
 
+--- Initialize a new `Trigger` (Derived from `Button`)
+---@param controller Controller @A `Controller` instance
+---@param id string @unique identifier for the `Trigger` object
+---@return Trigger @the new `Trigger` instance
 function Trigger.new(controller, id)
-    local self = Button.new(controller, id)
+    ---@class Trigger
+    local self --[[@as Trigger]] = Button.new(controller, id)
     setmetatable(self, Trigger)
     self.__type = "Trigger"
     self.value = 0
-    self.analog = self.controller:newSignal(self, "analog")
+    self.analog = self.controller:newSignal(self, "Analog")
     table.insert(self.signals, self.analog)
     return self
 end
 
+---@param self Trigger
 function Trigger:getState()
     self.value = self.controller:xcGetRegValue(string.format("mcX360_LUA/%s", self.id))
     if type(self.value) ~= "number" then
@@ -146,6 +155,8 @@ function Trigger:getState()
     end
 end
 
+---@param self Trigger
+---@param func function
 function Trigger:connect(func)
     self.controller.isCorrectSelf(self) -- should raise an error if method has been called with dot notation
     self.controller.typeCheck({func}, {"function"}) -- should raise an error if any param is of the wrong type

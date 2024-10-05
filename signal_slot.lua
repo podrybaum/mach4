@@ -1,4 +1,11 @@
-
+---@class Signal
+---@field new function
+---@field id string
+---@field button Button|Trigger
+---@field controller Controller
+---@field descriptors table
+---@field connect function
+---@field emit function
 Signal = {}
 Signal.__index = Signal
 Signal.__type = "Signal"
@@ -12,14 +19,13 @@ function Signal.new(controller, button, id)
     self.button = button
     self.controller = controller
     self.controller:newDescriptor(self, "slot", "object", nil)
-    -- self.slot = nil
     return self
 end
 
 function Signal:connect(slot)
     self.controller.isCorrectSelf(self) -- should raise an error if method has been called with dot notation
     self.controller.typeCheck({slot}, {"Slot"}) -- should raise an error if any param is of the wrong type
-    if self.controller.shift_btn == self.button then
+    if self.controller.shiftButton == self.button then
         self.controller:xcCntlLog("Ignoring call to connect a Slot to an assigned shift button!", 2)
         return
     end
@@ -33,17 +39,21 @@ function Signal:connect(slot)
 end
 
 function Signal:emit()
-    if self.id ~= "analog" then
+    if self.id ~= "Analog" then
         -- not logging analog Signal emissions because they will happen every update while active
         self.slot.func(self.button.value)
     else
         self.controller:xcCntlLog("Signal " .. self.button.id .. self.id .. " emitted.", 3)
-        self.func()
+        self.slot.func()
     end
 end
 
 
-
+---@class Slot
+---@field new function
+---@field id string
+---@field controller Controller
+---@field func function
 Slot = {}
 Slot.__index = Slot
 Slot.__type = "Slot"
