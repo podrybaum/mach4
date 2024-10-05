@@ -1,3 +1,14 @@
+--- An object representing an analog joystick controller input.
+---@class ThumbstickAxis
+---@field id string
+---@field controller Controller
+---@field rate number
+---@field value number
+---@field moving boolean
+---@field rateSet boolean
+---@field deadzone number
+---@field inverted boolean
+---@field axis number|nil
 ThumbstickAxis = {}
 ThumbstickAxis.__index = ThumbstickAxis
 ThumbstickAxis.__type = "ThumbstickAxis"
@@ -5,26 +16,30 @@ ThumbstickAxis.__tostring = function(self)
     return string.format("ThumbstickAxis: %s", self.id)
 end
 
+--- Initialize a new ThumbstickAxis object.
+---@param controller Controller @A Controller instance
+---@param id string @A unique identifier for the input
+---@return ThumbstickAxis @The new ThumbstickAxis instance
 function ThumbstickAxis.new(controller, id)
     local self = setmetatable({}, ThumbstickAxis)
     self.controller = controller
     self.id = id
     self.controller:newDescriptor(self, "axis", "number", nil)
-    -- self.axis = nil
     self.controller:newDescriptor(self, "inverted", "boolean", false)
-    -- self.inverted = false
     self.controller:newDescriptor(self, "deadzone", "number", 10)
-    -- self.deadzone = 10
-    self.rate = nil
+    self.rate = 0
     self.value = 0
     self.moving = false
     self.rateSet = false
     return self
 end
 
+--- Connect the analog output of a ThumbstickAxis object to a machine axis.
+---@param axis number @A Mach4 enum representing a machine axis
+---@param inverted boolean @Whether or not to invert the axis travel direction
 function ThumbstickAxis:connect(axis, inverted)
-    Controller.isCorrectSelf(self) -- should raise an error if method has been called with dot notation
-    Controller.typeCheck({axis, inverted}, {"number", "boolean"}) -- should raise an error if any param is of the wrong type
+    self.controller.isCorrectSelf(self)
+    self.controller.typeCheck({axis, inverted}, {"number", "boolean"})
     self.axis = axis
     self.inverted = inverted
     local rc
@@ -34,11 +49,11 @@ function ThumbstickAxis:connect(axis, inverted)
     self.controller:xcCntlLog("Initial jog rate for " .. tostring(self.axis) .. " = " .. self.rate, 4)
 end
 
+--- Retrieve the state of the input.
 function ThumbstickAxis:update()
     if self.axis == nil then
         return
     end
-    self.value = self.controller:xcGetRegValue(string.format("mcX360_LUA/%s", self.id))
     if type(self.value) ~= "number" then
         self.controller:xcCntlLog("Invalid value for ThumbstickAxis", 1)
         return
@@ -72,7 +87,11 @@ function ThumbstickAxis:update()
     end
 end
 
+--- Create the properties panel UI for the input.
+---@param propertiesPanel userdata @A wxPanel Object
+---@return userdata @A wxSizer object containing the UI layout
 function ThumbstickAxis:initUi(propertiesPanel)
+    ---@diagnostic disable-next-line: undefined-field
     local propSizer = propertiesPanel:GetSizer()
 
     -- deadzone label and control
@@ -82,7 +101,7 @@ function ThumbstickAxis:initUi(propertiesPanel)
         wx.wxDefaultSize, wx.wxTE_RIGHT)
     propSizer:Add(deadzoneCtrl, 1, wx.wxEXPAND + wx.wxALL, 5)
 
-    -- label and control
+    -- axis label and control
     local label = wx.wxStaticText(propertiesPanel, wx.wxID_ANY, "Connect to axis:")
     propSizer:Add(label, 0, wx.wxALIGN_CENTER_VERTICAL + wx.wxALL, 5)
     local choices = {}
@@ -95,12 +114,10 @@ function ThumbstickAxis:initUi(propertiesPanel)
         choice:SetSelection(self.axis)
     end
 
-    -- inversion toggle
-    -- local invertLabel = wx.wxStaticText(propertiesPanel, wx.wxID_ANY, "Invert axis:")
-    -- propSizer:Add(invertLabel, 0, wx.wxALIGN_CENTER_VERTICAL + wx.wxALL, 5)
     propSizer:Add(0, 0)
-    local invertCheck = wx.wxCheckBox(propertiesPanel, wx.wxID_ANY, "Invert axis:")
-    propSizer:Add(invertCheck, 1, wx.wxEXPAND + wx.wxALL, 5)
+    local invertCheck = wx.wxCheckBox(propertiesPanel, wx.wxID_ANY, "Invert axis:", wx.wxDefaultPosition,
+        wx.wxDefaultSize, wx.wxALIGN_RIGHT)
+    propSizer:Add(invertCheck, 1, wx.wxALIGN_LEFT | wx.wxEXPAND + wx.wxALL, 5)
 
     -- apply button
     propSizer:Add(0, 0)
@@ -109,6 +126,7 @@ function ThumbstickAxis:initUi(propertiesPanel)
     propSizer:Add(apply, 0, wx.wxALIGN_RIGHT + wx.wxALL, 5)
 
     -- event handler
+    ---@diagnostic disable-next-line: undefined-field
     propertiesPanel:Connect(applyId, wx.wxEVT_COMMAND_BUTTON_CLICKED, function()
         local axes = {mc.X_AXIS, mc.Y_AXIS, mc.Z_AXIS, mc.A_AXIS, mc.B_AXIS, mc.C_AXIS}
         local deadzone = tonumber(deadzoneCtrl:GetValue())
@@ -122,8 +140,7 @@ function ThumbstickAxis:initUi(propertiesPanel)
 
     -- Refresh and return the new layout
     propSizer:Layout()
-    propertiesPanel:Layout()
-    propertiesPanel:Fit()
-    propertiesPanel:Refresh()
+    ---@diagnostic disable-next-line: undefined-field
+    propertiesPanel:Layout(); propertiesPanel:Fit(); propertiesPanel:Refresh()
     return propSizer
 end

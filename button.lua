@@ -63,7 +63,8 @@ function Button:getState()
 end
 
 --- Create the properties panel UI for the input.
----@param propertiesPanel any @A wxPanel object.
+---@param propertiesPanel userdata @A wxPanel Object
+---@return userdata @A wxSizer object containing the UI layout
 function Button:initUi(propertiesPanel)
     local propSizer = propertiesPanel:GetSizer()
 
