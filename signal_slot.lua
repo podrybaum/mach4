@@ -1,3 +1,4 @@
+--- An object representing a signal emitted by a controller input.
 ---@class Signal
 ---@field new function
 ---@field id string
@@ -13,6 +14,11 @@ Signal.__tostring = function(self)
     return string.format("Signal: %s", self.id)
 end
 
+--- Initialize a new Signal instance.
+---@param controller Controller @A Controller instance
+---@param button Button|Trigger @The input the Signal is assigned to
+---@param id string @A unique (per input) identifier for the Signal
+---@return Signal @The new Signal instance
 function Signal.new(controller, button, id)
     local self = setmetatable({}, Signal)
     self.id = id
@@ -22,6 +28,8 @@ function Signal.new(controller, button, id)
     return self
 end
 
+--- Connect a Signal to a Slot.
+---@param slot Slot @The Slot to connect to this Signal
 function Signal:connect(slot)
     self.controller.isCorrectSelf(self) -- should raise an error if method has been called with dot notation
     self.controller.typeCheck({slot}, {"Slot"}) -- should raise an error if any param is of the wrong type
@@ -38,9 +46,9 @@ function Signal:connect(slot)
     self.controller:xcCntlLog(self.button.id .. self.id .. " connected to Slot " .. self.slot.id, 4)
 end
 
+--- Emit the Signal.
 function Signal:emit()
-    if self.id ~= "Analog" then
-        -- not logging analog Signal emissions because they will happen every update while active
+    if self.id == "Analog" then
         self.slot.func(self.button.value)
     else
         self.controller:xcCntlLog("Signal " .. self.button.id .. self.id .. " emitted.", 3)
@@ -48,7 +56,7 @@ function Signal:emit()
     end
 end
 
-
+--- An object that wraps the callback function for a controller input.
 ---@class Slot
 ---@field new function
 ---@field id string
@@ -61,6 +69,11 @@ Slot.__tostring = function(self)
     return string.format("Slot: %s", self.id)
 end
 
+--- Initialize a new Slot instance.
+---@param controller Controller @A Controller instance
+---@param id string @A unique identifier for the Slot
+---@param func function @The function to execute when the connected Signal is emitted
+---@return Slot @The new Slot instance
 function Slot.new(controller, id, func)
     local self = setmetatable({}, Slot)
     self.id = id
@@ -73,7 +86,7 @@ function Slot.new(controller, id, func)
     return self
 end
 
----Sorting function for Controller object's slots array
+--- Sorting function for Controller object's slots array
 ---@param slot1 Slot @a `Slot` object
 ---@param slot2 Slot @a `Slot` object
 ---@return boolean true if slot1 should come before slot2, false otherwise
