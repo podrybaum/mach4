@@ -105,3 +105,49 @@ function Button:initUi(propertiesPanel)
     propertiesPanel:Refresh()
     return propSizer
 end
+
+
+
+Trigger = {}
+Trigger.__index = Button
+Trigger.__type = "Trigger"
+Trigger.__tostring = function(self)
+    return string.format("Trigger: %s", self.id)
+end
+
+function Trigger.new(controller, id)
+    local self = Button.new(controller, id)
+    setmetatable(self, Trigger)
+    self.__type = "Trigger"
+    self.value = 0
+    self.analog = self.controller:newSignal(self, "analog")
+    table.insert(self.signals, self.analog)
+    return self
+end
+
+function Trigger:getState()
+    self.value = self.controller:xcGetRegValue(string.format("mcX360_LUA/%s", self.id))
+    if type(self.value) ~= "number" then
+        self.controller:xcCntlLog("Invalid state for " .. self.id, 1)
+        return
+    end
+
+    if self.value > 0 and self.analog.slot then
+        self.analog:emit()
+        return
+    end
+
+    if math.abs(self.value) > 125 and not self.pressed then
+        self.down.emit()
+        self.pressed = true
+    elseif math.abs(self.value) < 5 and self.pressed then
+        self.up.emit()
+        self.pressed = false
+    end
+end
+
+function Trigger:connect(func)
+    self.controller.isCorrectSelf(self) -- should raise an error if method has been called with dot notation
+    self.controller.typeCheck({func}, {"function"}) -- should raise an error if any param is of the wrong type
+    self.func = func
+end

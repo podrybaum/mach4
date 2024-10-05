@@ -37,25 +37,7 @@ end
    --  with respect to the analog value.  Releasing the stick completely and starting to move again seems to reset this condition.  Not sure what's causing that.
 
 
----Checks to make sure that an instance of a class has been passed as the first parameter to a method call.
----This catches the error when a method that should use a colon is called with a period, so we can deliver
----a better error message.
----@param self any @the first parameter passed to the method.
----@return boolean @`true` if the method was called correctly.
-function isCorrectSelf(self)
-    local info = debug.getinfo(2, "nl")
-    if info and info.name then
-        local expected_class = getmetatable(self)
-        if expected_class then
-            local function_in_class = expected_class[info.name]
-            local actual_function = debug.getinfo(2, "f").func
-            return function_in_class == actual_function
-        end
-        error(
-            string.format("Method %s was probably called with . instead of : at line %d.", info.name, info.currentline))
-    end
-    error(string.format("function isCorrectSelf should only be called from within a method! line: %d", info.currentline))
-end
+
 
 ---@class Controller
 ---@field customType function
@@ -258,6 +240,26 @@ function Controller.new(profileName)
     return self
 end
 
+---STATIC METHOD: Checks to make sure that an instance of a class has been passed as the first parameter to a method call.
+---This catches the error when a method that should use a colon is called with a period, so we can deliver
+---a better error message.
+---@param self any @the first parameter passed to the method.
+---@return boolean @`true` if the method was called correctly.
+function Controller.isCorrectSelf(self)
+    local info = debug.getinfo(2, "nl")
+    if info and info.name then
+        local expected_class = getmetatable(self)
+        if expected_class then
+            local function_in_class = expected_class[info.name]
+            local actual_function = debug.getinfo(2, "f").func
+            return function_in_class == actual_function
+        end
+        error(
+            string.format("Method %s was probably called with . instead of : at line %d.", info.name, info.currentline))
+    end
+    error(string.format("function Controller.isCorrectSelf should only be called from within a method! line: %d", info.currentline))
+end
+
 ---Custom type checking
 ---@param object any @The object to typecheck
 ---@return string @The object's type, accounting for custom types defined in .__type
@@ -354,7 +356,7 @@ end
 ---@diagnostic disable-next-line: undefined-doc-name
 ---@return wxSizer @the `wxSizer` (or subclass thereof) for the properties panel object
 function Controller:initUi(propertiesPanel)
-    isCorrectSelf(self)
+    Controller.isCorrectSelf(self)
     ---@diagnostic disable-next-line: undefined-field
     local propSizer = propertiesPanel:GetSizer()
 
@@ -445,7 +447,7 @@ end
 ---@param id string the id of the input to Retrieve
 ---@return Button|Trigger|nil # the input with the given id or nil if not found
 function Controller:xcGetInputById(id)
-    isCorrectSelf(self) -- should raise an error if method has been called with dot notation
+    Controller.isCorrectSelf(self) -- should raise an error if method has been called with dot notation
     Controller.typeCheck({id}, {"string"}) -- should raise an error if any param is of the wrong type
     for _, input in ipairs(self.inputs) do
         if input.id == id then
@@ -459,7 +461,7 @@ end
 ---@param id string the id for the Slot to retrieve
 ---@return Slot|nil the Slot with the given id or nil if not found
 function Controller:xcGetSlotById(id)
-    isCorrectSelf(self) -- should raise an error if method has been called with dot notation
+    Controller.isCorrectSelf(self) -- should raise an error if method has been called with dot notation
     Controller.typeCheck({id}, {"string"}) -- should raise an error if any param is of the wrong type
     for i, slot in ipairs(self.slots) do
         if slot.id == id then
@@ -473,7 +475,7 @@ end
 ---@param reg string the register to read format
 ---@return number|nil the number retrieved from the register or nil if not found
 function Controller:xcGetRegValue(reg)
-    isCorrectSelf(self) -- should raise an error if method has been called with dot notation
+    Controller.isCorrectSelf(self) -- should raise an error if method has been called with dot notation
     Controller.typeCheck({reg}, {"string"}) -- should raise an error if any param is of the wrong type
     local hreg, rc = mc.mcRegGetHandle(inst, reg)
     if rc == mc.MERROR_NOERROR then
@@ -492,7 +494,7 @@ end
 ---@param signal number the Mach4 signal to check
 ---@return boolean|nil true if signal is 1 false in the case of 0 or nil if not found
 function Controller:xcGetMachSignalState(signal)
-    isCorrectSelf(self) -- should raise an error if method has been called with dot notation
+    Controller.isCorrectSelf(self) -- should raise an error if method has been called with dot notation
     Controller.typeCheck({signal}, {"number"}) -- should raise an error if any param is of the wrong type
     local hsig, rc = mc.mcSignalGetHandle(inst, signal)
     if rc == mc.MERROR_NOERROR then
@@ -511,7 +513,7 @@ end
 --- Toggle the state of a Mach4 signal
 ---@param signal number the Mach4 signal to toggle
 function Controller:xcToggleMachSignalState(signal)
-    isCorrectSelf(self) -- should raise an error if method has been called with dot notation
+    Controller.isCorrectSelf(self) -- should raise an error if method has been called with dot notation
     Controller.typeCheck({signal}, {"number"}) -- should raise an error if any param is of the wrong type
     local hsig, rc = mc.mcSignalGetHandle(inst, signal)
     if rc == mc.MERROR_NOERROR then
@@ -523,7 +525,7 @@ end
 ---@param msg string the message to log
 ---@param level number the logging level to display the message at
 function Controller:xcCntlLog(msg, level)
-    isCorrectSelf(self) -- should raise an error if method has been called with dot notation
+    Controller.isCorrectSelf(self) -- should raise an error if method has been called with dot notation
     Controller.typeCheck({msg, level}, {"string", "number"}) -- should raise an error if any param is of the wrong type
     if self.logLevel == 0 then
         return
@@ -540,7 +542,7 @@ end
 --- Check Mach4 error return codes
 ---@param rc number the return code to check
 function Controller:xcErrorCheck(rc)
-    isCorrectSelf(self) -- should raise an error if method has been called with dot notation
+    Controller.isCorrectSelf(self) -- should raise an error if method has been called with dot notation
     Controller.typeCheck({rc}, {"number"}) -- should raise an error if any param is of the wrong type
     if rc ~= mc.MERROR_NOERROR then
         self:xcCntlLog(mc.mcCntlGetErrorString(inst, rc), 1)
@@ -550,7 +552,7 @@ end
 --- Setter method for controller jog increment
 ---@param val number the jog increment value
 function Controller:xcJogSetInc(val)
-    isCorrectSelf(self) -- should raise an error if method has been called with dot notation
+    Controller.isCorrectSelf(self) -- should raise an error if method has been called with dot notation
     Controller.typeCheck({val}, {"number"}) -- should raise an error if any param is of the wrong type
     self.jogIncrement = val
     self:xcCntlLog("Set jogIncrement to " .. tostring(self.jogIncrement), 4)
@@ -558,7 +560,7 @@ end
 
 -- The loop method for input polling
 function Controller:update()
-    isCorrectSelf(self) -- should raise an error if method has been called with dot notation
+    Controller.isCorrectSelf(self) -- should raise an error if method has been called with dot notation
     if self.shiftButton ~= nil then
         self.shiftButton:getState()
     end
@@ -574,7 +576,7 @@ end
 
 function Controller:assignShift(input)
     -- added warning message when overriding an assigned shift button
-    isCorrectSelf(self) -- should raise an error if method has been called with dot notation
+    Controller.isCorrectSelf(self) -- should raise an error if method has been called with dot notation
     Controller.typeCheck({input}, {{"Button", "Trigger"}}) -- should raise an error if any param is of the wrong type
 
     if self.shiftButton ~= nil then
@@ -667,7 +669,7 @@ function Controller.Signal.new(controller, button, id)
 end
 
 function Controller.Signal:connect(slot)
-    isCorrectSelf(self) -- should raise an error if method has been called with dot notation
+    Controller.isCorrectSelf(self) -- should raise an error if method has been called with dot notation
     Controller.typeCheck({slot}, {"Slot"}) -- should raise an error if any param is of the wrong type
     if self.controller.shift_btn == self.button then
         self.controller:xcCntlLog("Ignoring call to connect a Slot to an assigned shift button!", 2)
@@ -697,52 +699,9 @@ function Controller:newButton(id)
 end
 
 function Controller:newTrigger(id)
-    return self.Trigger.new(self, id)
+    return Trigger.new(self, id)
 end
 
-Controller.Trigger = {}
-Controller.Trigger.__index = Button
-Controller.Trigger.__type = "Trigger"
-Controller.Trigger.__tostring = function(self)
-    return string.format("Trigger: %s", self.id)
-end
-
-function Controller.Trigger.new(controller, id)
-    local self = Button.new(controller, id)
-    setmetatable(self, Controller.Trigger)
-    self.__type = "Trigger"
-    self.value = 0
-    self.analog = self.controller:newSignal(self, "analog")
-    table.insert(self.signals, self.analog)
-    return self
-end
-
-function Controller.Trigger:getState()
-    self.value = self.controller:xcGetRegValue(string.format("mcX360_LUA/%s", self.id))
-    if type(self.value) ~= "number" then
-        self.controller:xcCntlLog("Invalid state for " .. self.id, 1)
-        return
-    end
-
-    if self.value > 0 and self.analog.slot then
-        self.analog:emit()
-        return
-    end
-
-    if math.abs(self.value) > 125 and not self.pressed then
-        self.down.emit()
-        self.pressed = true
-    elseif math.abs(self.value) < 5 and self.pressed then
-        self.up.emit()
-        self.pressed = false
-    end
-end
-
-function Controller.Trigger:connect(func)
-    isCorrectSelf(self) -- should raise an error if method has been called with dot notation
-    Controller.typeCheck({func}, {"function"}) -- should raise an error if any param is of the wrong type
-    self.func = func
-end
 
 function Controller:newThumbstickAxis(id)
     return self.ThumbstickAxis.new(self, id)
@@ -773,7 +732,7 @@ function Controller.ThumbstickAxis.new(controller, id)
 end
 
 function Controller.ThumbstickAxis:connect(axis, inverted)
-    isCorrectSelf(self) -- should raise an error if method has been called with dot notation
+    Controller.isCorrectSelf(self) -- should raise an error if method has been called with dot notation
     Controller.typeCheck({axis, inverted}, {"number", "boolean"}) -- should raise an error if any param is of the wrong type
     self.axis = axis
     self.inverted = inverted
@@ -879,7 +838,7 @@ function Controller.ThumbstickAxis:initUi(propertiesPanel)
 end
 
 function Controller:newSlot(id, func)
-    isCorrectSelf(self) -- should raise an error if method has been called with dot notation
+    Controller.isCorrectSelf(self) -- should raise an error if method has been called with dot notation
     Controller.typeCheck({id, func}, {"string", "function"}) -- should raise an error if any param is of the wrong type
     return self.Slot.new(self, id, func)
 end
