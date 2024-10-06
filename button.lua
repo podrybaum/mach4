@@ -3,11 +3,12 @@
 ---@field controller Controller
 ---@field id string
 ---@field pressed boolean
----@field up Signal
----@field down Signal
----@field altUp Signal
----@field altDown Signal
+---@field Up Signal
+---@field Down Signal
+---@field AltUp Signal
+---@field AltDown Signal
 ---@field signals table
+---@field descriptors table
 Button = {}
 Button.__index = Button
 Button.__type = "Button"
@@ -23,11 +24,12 @@ function Button.new(controller, id)
     self.controller = controller
     self.id = id
     self.pressed = false
-    self.up = self.controller:newSignal(self, "Up")
-    self.down = self.controller:newSignal(self, "Down")
-    self.altUp = self.controller:newSignal(self, "Alternate Up")
-    self.altDown = self.controller:newSignal(self, "Alternate Down")
-    self.signals = {self.up, self.down, self.altUp, self.altDown}
+    self.Up = self.controller:newSignal(self, "Up")
+    self.Down = self.controller:newSignal(self, "Down")
+    self.AltUp = self.controller:newSignal(self, "AltUp")
+    self.AltDown = self.controller:newSignal(self, "AltDown")
+    self.signals = {self.Up, self.Down, self.AltUp, self.AltDown}
+    self.descriptors = {}
     return self
 end
 
@@ -42,18 +44,18 @@ function Button:getState()
         self.pressed = true
         if self.controller.shiftButton ~= self then
             if not self.controller.shiftButton or not self.controller.shiftButton.pressed then
-                self.down:emit()
+                self.Down:emit()
             else
-                self.altDown:emit()
+                self.AltDown:emit()
             end
         end
     elseif (state == 0) and self.pressed then
         self.pressed = false
         if self.controller.shiftButton ~= self then
             if not self.controller.shiftButton or not self.controller.shiftButton.pressed then
-                self.up:emit()
+                self.Up:emit()
             else
-                self.altUp:emit()
+                self.AltUp:emit()
             end
         end
     end
@@ -161,10 +163,10 @@ function Trigger:getState()
     end
 
     if math.abs(self.value) > 125 and not self.pressed then
-        self.down.emit()
+        self.Down:emit()
         self.pressed = true
     elseif math.abs(self.value) < 5 and self.pressed then
-        self.up.emit()
+        self.Up:emit()
         self.pressed = false
     end
 end

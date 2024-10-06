@@ -22,7 +22,7 @@ function Signal.new(controller, button, id)
     self.button = button
     self.controller = controller
     self.descriptors = {}
-    self.controller:newDescriptor(self, "slot", "object", nil)
+    self.controller:newDescriptor(self, "slot", "object")
     return self
 end
 

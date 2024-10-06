@@ -1,14 +1,10 @@
 --- An object that manages access to a specific attribute of another object.
 ---@class Descriptor
----@field new function
 ---@field controller Controller
 ---@field attribute string
 ---@field object any
 ---@field datatype string
 ---@field default any
----@field get function
----@field set function
----@field assign function
 Descriptor = {}
 Descriptor.__index = Descriptor
 Descriptor.__type = "Descriptor"
@@ -16,32 +12,51 @@ Descriptor.__type = "Descriptor"
 --- Initialize a new Descriptor instance.
 ---@param controller Controller @A Controller instance
 ---@param object any @The object to attach the Descriptor to
----@param key string @The key of the attribute the Descriptor will shadow
----@param datatype string @The type of the object stored by the attribute
----@param default any @A default value for the attribute managed by the Descriptor
-function Descriptor.new(controller, object, key, datatype, default)
+---@param attribute string @The attribute the Descriptor will shadow
+---@param datatype string @The type of the object or value stored by the attribute
+---@return Descriptor @The new Descriptor instance
+function Descriptor.new(controller, object, attribute, datatype)
     local self = setmetatable({}, Descriptor)
     self.controller = controller
-    self.attribute = key
+    self.attribute = attribute
     self.object = object
     self.datatype = datatype
-    self.default = object.key or default
-    table.insert(self.object.descriptors,self)
-    object.key = nil
-    self:assign()
-    if self.attribute == "profileName" then
-        print(self.datatype, self:get())
+    local section = string.format("ControllerProfile %s", self.controller.profileName)
+    if self.datatype == "number" then
+        self.controller:xcProfileWriteDouble(section, self:lookup(), object.key)
+    else
+        self.controller:xcProfileWriteString(section, self:lookup(), object.key)
     end
+    self:assign()
     return self
 end
 
---- Return the value assigned to the attribute shadowed by the Descriptor.
+--- Assemble the section and key lookup strings for this Descriptor.
+---@return string @A string ontaining the lookup key for this Descriptor.
+function Descriptor:lookup()
+    local otype = self.object.__type
+    local lookup
+    if otype == "Controller" then
+        lookup = string.format("xc.%s", self.attribute)
+    end
+    if otype == "Button" or otype == "Trigger" then
+        lookup = string.format("xc.%s.%s.slot", self.object.id, self.attribute)
+    end
+    if otype == "ThumbstickAxis" then
+        lookup = string.format("xc.%s.%s", self.object.id, self.attribute)
+    end
+    return lookup
+end
+
+
+--- Returns the value assigned to the attribute shadowed by the Descriptor.
 function Descriptor:get()
+    local section = string.format("ControllerProfile %s", self.controller.profileName)
     if self.datatype == "number" then
-        local val = self.controller:xcProfileGetDouble(self.object.id, self.attribute, self.default)
+        local val = self.controller:xcProfileGetDouble(section, self:lookup(), self.default)
         return tonumber(val)
     else
-        local val = self.controller:xcProfileGetString(self.object.id, self.attribute, self.default)
+        local val = self.controller:xcProfileGetString(section, self:lookup(), self.default)
         if self.datatype == "string" then
             return val
         elseif self.datatype == "boolean" then
@@ -60,18 +75,16 @@ function Descriptor:get()
 end
 
 --- Set the value assigned to the attribute shadowed by the Descriptor.
----@param value string|number @The value to assign
+---@param value any @The value to assign
 function Descriptor:set(value)
+    local section = string.format("ControllerProfile %s", self.controller.profileName)
     self.controller.isCorrectSelf(self)
     if self.datatype == "number" then
-        Controller.typeCheck({value}, {"number"})
-        ---@cast value number
-        self.controller:xcProfileWriteDouble(self.object.id, self.attribute, value)
+---@diagnostic disable-next-line: param-type-mismatch
+        self.controller:xcProfileWriteDouble(section, self:lookup(), tonumber(value))
         return
     else
-        value = tostring(value)
-        ---@cast value string
-        self.controller:xcProfileWriteString(self.object.id, self.attribute, value)
+        self.controller:xcProfileWriteString(section, self:lookup(), tostring(value))
         return
     end
 end
@@ -80,16 +93,14 @@ end
 ---___It is important to make sure that no value is ever actually
 ---assigned to the attribute shadowed by a Descriptor!___
 function Descriptor:assign()
-    --local mt = getmetatable(self.object)
+    table.insert(self.object.descriptors,self)
+    self.object[self.attribute] = nil
     local oldIndex = self.object.__index
     local oldNewIndex = self.object.__newindex
-
     self.object.__index = function(object, key)
-
         if rawget(object, "__accessing") then
             return nil
         end
-
         rawset(object, "__accessing", true)
         for _, descriptor in ipairs(object.descriptors) do
             if descriptor["attribute"] == key then
@@ -117,9 +128,5 @@ function Descriptor:assign()
         elseif type(oldNewIndex) == "table" then
             oldNewIndex[key] = value
         end
-    end
-
-    if self.default ~= nil then
-        self:set(self.default)
     end
 end

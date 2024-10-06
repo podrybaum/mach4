@@ -27,9 +27,9 @@ function ThumbstickAxis.new(controller, id)
     self.id = id
     self.deadzone = 10
     self.descriptors = {}
-    self.controller:newDescriptor(self, "axis", "number", nil)
-    self.controller:newDescriptor(self, "inverted", "boolean", false)
-    self.controller:newDescriptor(self, "deadzone", "number", 10)
+    self.controller:newDescriptor(self, "axis", "number")
+    self.controller:newDescriptor(self, "inverted", "boolean")
+    self.controller:newDescriptor(self, "deadzone", "number")
     self.rate = 0
     self.value = 0
     self.moving = false

@@ -198,19 +198,19 @@ function Controller.new()
 
     -- These attributes MUST be unset when the Descriptors are assigned
     self.profileName = "default"
-    self.shiftButton = nil
+    self.shiftButton = self.LTR
     self.jogIncrement = 0.1
     self.logLevel = 2
     self.xYReversed = false
     self.frequency = 4
     self.simpleJogMapped = false
-    self:newDescriptor(self, "profileName", "string", "default")
-    self:newDescriptor(self, "shiftButton", "input", "")
-    self:newDescriptor(self, "jogIncrement", "number", 0.1)
-    self:newDescriptor(self, "logLevel", "number", 2)
-    self:newDescriptor(self, "xYReversed", "boolean", false)
-    self:newDescriptor(self, "frequency", "number", 4)
-    self:newDescriptor(self, "simpleJogMapped", "boolean", false)
+    self:newDescriptor(self, "profileName", "string")
+    self:newDescriptor(self, "shiftButton", "input")
+    self:newDescriptor(self, "jogIncrement", "number")
+    self:newDescriptor(self, "logLevel", "number")
+    self:newDescriptor(self, "xYReversed", "boolean")
+    self:newDescriptor(self, "frequency", "number")
+    self:newDescriptor(self, "simpleJogMapped", "boolean")
     return self
 end
 
@@ -274,7 +274,7 @@ end
 ---@param section string @The section of the profile.ini file to read from
 ---@param key string @The key from the section to retrieve
 ---@param defval number @A default value to assign to the key if it is not found
----@return number|boolean The retrieved value or false if an error was encountered
+---@return number|boolean @The retrieved value or false if an error was encountered
 function Controller:xcProfileGetDouble(section, key, defval)
     local val, rc = mc.mcProfileGetDouble(inst, section, key, defval)
     if rc == mc.MERROR_NOERROR then
@@ -550,41 +550,41 @@ end
 --- Convenience method to map jogging to the DPad, and incremental jogging to the DPad's alternate function.
 function Controller:mapSimpleJog()
     self:xcCntlLog(string.format("Value of reversed flag for axis orientation: %s", tostring(self.xYReversed)), 4)
-    self.UP.down:connect(self:newSlot('xcJogUp', function()
+    self.UP.Down:connect(self:newSlot('xcJogUp', function()
         mc.mcJogVelocityStart(inst, (self.xYReversed and mc.Y_AXIS) or mc.X_AXIS, mc.MC_JOG_POS)
     end))
-    self.UP.up:connect(self:newSlot('xcJogStopY', function()
+    self.UP.Up:connect(self:newSlot('xcJogStopY', function()
         mc.mcJogVelocityStop(inst, (self.xYReversed and mc.Y_AXIS) or mc.X_AXIS)
     end))
-    self.DOWN.down:connect(self:newSlot('xcJogDown', function()
+    self.DOWN.Down:connect(self:newSlot('xcJogDown', function()
         mc.mcJogVelocityStart(inst, (self.xYReversed and mc.Y_AXIS) or mc.X_AXIS, mc.MC_JOG_NEG)
     end))
-    self.DOWN.up:connect(self:xcGetSlotById('xcJogStopY'))
-    self.RIGHT.down:connect(self:newSlot('xcJogRight', function()
+    self.DOWN.Up:connect(self:xcGetSlotById('xcJogStopY'))
+    self.RIGHT.Down:connect(self:newSlot('xcJogRight', function()
         mc.mcJogVelocityStart(inst, (self.xYReversed and mc.X_AXIS) or mc.Y_AXIS, mc.MC_JOG_POS)
     end))
-    self.RIGHT.up:connect(self:newSlot('xcJogStopX', function()
+    self.RIGHT.Up:connect(self:newSlot('xcJogStopX', function()
         mc.mcJogVelocityStop(inst, (self.xYReversed and mc.X_AXIS) or mc.Y_AXIS)
     end))
-    self.LEFT.down:connect(self:newSlot('xcJogLeft', function()
+    self.LEFT.Down:connect(self:newSlot('xcJogLeft', function()
         mc.mcJogVelocityStart(inst, (self.xYReversed and mc.X_AXIS) or mc.Y_AXIS, mc.MC_JOG_NEG)
     end))
-    self.LEFT.up:connect(self:xcGetSlotById('xcJogStopX'))
+    self.LEFT.Up:connect(self:xcGetSlotById('xcJogStopX'))
     if self.xYReversed then
         self:xcCntlLog("Standard velocity jogging with X and Y axis orientation reversed mapped to D-pad", 3)
     else
         self:xcCntlLog("Standard velocity jogging mapped to D-pad", 3)
     end
-    self.UP.altDown:connect(self:newSlot('xcJogIncUp', function()
+    self.UP.AltDown:connect(self:newSlot('xcJogIncUp', function()
         mc.mcJogIncStart(inst, self.xYReversed and mc.Y_AXIS or mc.X_AXIS, self.jogIncrement)
     end))
-    self.DOWN.altDown:connect(self:newSlot('xcJogIncDown', function()
+    self.DOWN.AltDown:connect(self:newSlot('xcJogIncDown', function()
         mc.mcJogIncStart(inst, self.xYReversed and mc.Y_AXIS or mc.X_AXIS, -1 * self.jogIncrement)
     end))
-    self.RIGHT.altDown:connect(self:newSlot('xcJogIncRight', function()
+    self.RIGHT.AltDown:connect(self:newSlot('xcJogIncRight', function()
         mc.mcJogIncStart(inst, self.xYReversed and mc.X_AXIS or mc.Y_AXIS, self.jogIncrement)
     end))
-    self.LEFT.altDown:connect(self:newSlot('xcJogIncLeft', function()
+    self.LEFT.AltDown:connect(self:newSlot('xcJogIncLeft', function()
         mc.mcJogIncStart(inst, self.xYReversed and mc.X_AXIS or mc.Y_AXIS, -1 * self.jogIncrement)
     end))
     if self.xYReversed then
@@ -600,10 +600,9 @@ end
 ---@param object any @The object to attach the Descriptor to
 ---@param key string @The attribute to shadow
 ---@param datatype string @The data type the Descriptor manages
----@param default any @Optional default value
 ---@return Descriptor @The new Descriptor instance
-function Controller:newDescriptor(object, key, datatype, default)
-    return Descriptor.new(self, object, key, datatype, default)
+function Controller:newDescriptor(object, key, datatype)
+    return Descriptor.new(self, object, key, datatype)
 end
 
 --- Initialize a new Signal.
@@ -644,104 +643,79 @@ function Controller:newSlot(id, func)
     return Slot.new(self, id, func)
 end
 
---- Create configuration profile.
----@return table @A table representing the Controller's config state
-function Controller:createProfile()
+--- Create and save configuration profile.
+function Controller:createProfile(id)
     xc:xcCntlLog("Building controller profile:",4)
+    local section = string.format("ControllerProfile %s", id)
     local profile = {}
-    profile.xc = {}
-    xc:xcCntlLog("Building Controller section:", 4)
-
     for _, desc in ipairs(self.descriptors) do
-        print(desc.attribute, desc:get())
-        table.insert(profile.xc,{[desc.attribute]=desc:get()})
-        xc:xcCntlLog(string.format("%s assigned to %s", desc.attribute, desc:get()),4)
-    end
-    xc:xcCntlLog("Building input sections:",4)
-    for _, button in ipairs(xc.inputs) do
-        local signalMap = {}
-        for _, signal in ipairs(button.signals) do
-            if signal.slot ~= nil then
-                xc:xcCntlLog(string.format("%s:%s assigned Slot %s",button.id, signal.id, signal.slot.id),4)
-                table.insert(signalMap,{[signal.id] = signal.slot.id})
-            end
-        end
-        if #signalMap ~= 0 then
-            profile[button.id] = signalMap
-        end
-    end
-    xc:xcCntlLog("Building ThumbstickAxis section:",4)
-    for _, axis in ipairs(xc.axes) do
-        if axis.axis ~= nil then
-            profile[axis.id] = axis.axis
-            xc:xcCntlLog(string.format("%s assigned %s", axis.id, axis.axis), 4)
-        end
-    end
-    return profile
-end
-
-function Controller:writeProfile(profileName)
-    local profile = self:createProfile()
-    profile.xc['profileName'] = profileName
-    local section = string.format("ControllerProfile %s", profileName)
-    for k, v in pairs(profile.xc) do
-        if type(v) == "number" then
-            print(string.format("Calling mcProfileWriteDouble with params: inst, %s, %s, %s",section,k,v))
-            mc.mcProfileWriteDouble(inst, section, k, v)
-        else
-            print(string.format("Calling mcProfileWriteString with params: inst, %s, %s, %s",section,k,v))
-            mc.mcProfileWriteString(inst, section, k, v)
-        end
+        profile[desc:lookup()] = desc:get()
     end
     for _, input in ipairs(self.inputs) do
-        if profile[input.id] then
-            local signalString = ''
-            for k,v in pairs(profile[input.id]) do
-                signalString = signalString .. string.format("%s=%s ", k, v)
-            end
-            mc.mcProfileWriteString(inst, section, input.id, signalString)
+        for _, desc in ipairs(input.descriptors) do
+            profile[desc:lookup()] = desc:get()
         end
     end
     for _, axis in ipairs(self.axes) do
-        if profile[axis.id] then
-            mc.mcProfileWriteDouble(inst, section, axis.id, profile[axis.id])
+        for _, desc in ipairs(axis.descriptors) do
+            profile[desc:lookup()] = desc:get()
+        end
+    end
+    for k,v in pairs(profile) do
+        if type(v) == "number" then
+            self:xcProfileWriteDouble(section, k, v)
+        else
+            self:xcProfileWriteString(section, k, v)
         end
     end
 end
+
 
 --- Load a saved controller configuration.
 ---@param id string @The name of the saved config
 function Controller:loadProfile(id)
     local section = string.format("[ControllerProfile %s]", id)
-    local rc =  mc.mcProfileExists(inst, section)
-    if rc == mc.MC_TRUE then
-        for desc in xc.descriptors do
-            if mc.mcProfileExists(inst, section, desc.attribute) then
-                desc.set(mc.mcProfileGetString(inst, section, desc.attribute))
+    local descMap = {}
+    for _, desc in ipairs(self.descriptors) do
+        local val
+        if desc.datatype == "number" then
+            val = self:xcProfileGetDouble(section, desc:lookup())
+        else
+            val = self:xcProfileGetString(section, desc:lookup())
+        end
+        rc = mc.mcProfileExists(inst, section, desc:lookup())
+        if rc == mc.MC_TRUE then
+            descMap[desc.attribute] = {desc.datatype, val}
+        end
+    end
+    self.descriptors = {}
+    for attribute, map in pairs(descMap) do
+        self[attribute] = map[2]
+        self:newDescriptor(self, attribute, map[1])
+    end
+    descMap = {}
+    for _, input in ipairs(self.inputs) do
+        for _, desc in ipairs(input.descriptors) do
+            local val
+            if desc.datatype == "number" then
+                val = self:xcProfileGetDouble(section, desc:lookup())
+            else
+                val = self:xcProfileGetString(section, desc:lookup())
+            end
+            rc = mc.mcProfileExists(inst, section, desc:lookup())
+            if rc == mc.MC_TRUE then
+                descMap[desc.object.id] = {desc.datatype, val}
             end
         end
-        for input in xc.inputs do
-            if mc.mcProfileExists(inst, section, input.id) then
-                local signalString = mc.mcProfileGetString(inst, section, input.id)
-                local signalPairs = string.gmatch(signalString,"(%w+)=(%w+)")
-                for pair in signalPairs() do
-                    local start, finish = string.find(pair, "(%w+)")
-                    if start then
-                        local signal = string.sub(pair, start, finish)
-                        local slot = string.sub(pair, finish+2, -1)
-                        input[signal]:connect(xc:xcGetSlotById(slot))
-                    end
+        input.descriptors = {}
+        for signalId, map in pairs(descMap) do
+            for _, signal in ipairs(input.signals) do
+                if signal.id == signalId then
+                    input[signal.id].slot = self:xcGetSlotById(map[2])
+                    self:newDescriptor(input, "slot", map[1])
                 end
             end
         end
-        for axis in xc.axes do
-            if mc.mcProfileExists(inst, section, axis.id) then
-                local axisId = mc.mcProfileGetDouble(inst, section, axis.id)
-                axis:connect(axisId)
-            end
-        end
-    else
-        xc:xcCntlLog(string.format("No profile named %s was found.", id), 1)
     end
 end
 
@@ -756,14 +730,14 @@ xc.xYReversed = true
 if xc.profileName == 'default' and not xc.simpleJogMapped then
     xc:mapSimpleJog()
 end
-xc.B.down:connect(xc:xcGetSlotById('E Stop Toggle'))
+xc.B.Down:connect(xc:xcGetSlotById('E Stop Toggle'))
 --xc.Y.down:connect(xc.xcCntlTorchToggle)
-xc.RSB.down:connect(xc:xcGetSlotById('Enable Toggle'))
-xc.X.down:connect(xc:xcGetSlotById('XC Run Cycle Toggle'))
-xc.BACK.altDown:connect(xc:xcGetSlotById('Home All'))
+xc.RSB.Down:connect(xc:xcGetSlotById('Enable Toggle'))
+xc.X.Down:connect(xc:xcGetSlotById('XC Run Cycle Toggle'))
+xc.BACK.AltDown:connect(xc:xcGetSlotById('Home All'))
 --xc.START.altDown:connect(xc:xcGetSlotById('Home Z'))
 
-xc:writeProfile("default")
+--xc:createProfile("default")
 -- End of custom configuration ---
 ----------------------------------
 
