@@ -1,11 +1,6 @@
--- set mocks for external tables, we need to handle Mach4's Zerobrane editor and external editors differently.
-package.path = string.format("%s;%s?.lua", package.path,"C:\\Users\\Michael\\mach4\\")
-require("descriptor")
-require("button")
-require("thumbstickaxis")
-require("signal_slot")
-
+-- Development environment specific hacks
 if not mc then
+    package.path = string.format("%s;%s?.lua", package.path,"C:\\Users\\Michael\\mach4\\")
     mocks = require("mocks")
 end
 scr = scr or require("scr")
@@ -16,9 +11,16 @@ if mocks and mc == mocks.mc or mc.mcInEditor() == 1 then
     mcLuaPanelParent = wx.wxFrame(wx.NULL, luaPanelId, "Mock Panel")
 end
 
+-- Import needed modules.
+require("descriptor")
+require("button")
+require("thumbstickaxis")
+require("signal_slot")
+
+-- Global Mach4 instance
 inst = mc.mcGetInstance()
 
----Alias for a helpful one-liner.  If x ~= y, assign y to x.
+--- Alias for a helpful one-liner.  If x ~= y, assign y to x.
 ---@param x any @a variable
 ---@param y any @a variable
 function setIfNotEqual(x, y)
@@ -38,12 +40,8 @@ end
     -- stay stuck at some arbitrary jog rate it was set to, and will continue to move in response to stick input, but will not update the jog rate
    --  with respect to the analog value.  Releasing the stick completely and starting to move again seems to reset this condition.  Not sure what's causing that.
 
-
-
+--- An object representing an Xbox controller connected to Mach4.
 ---@class Controller
----@field customType function
----@field typeCheck function
----@field new function
 ---@field profile number
 ---@field profileName string
 ---@field id string
@@ -77,36 +75,17 @@ end
 ---@field xYReversed boolean
 ---@field frequency number
 ---@field xcCntlTorchToggle Slot
----@field xcGetInputById function
----@field xcGetSlotById function
----@field xcGetMachSignalState function
----@field xcToggleMachSignalState function
----@field xcCntlLog function
----@field xcErrorCheck function
----@field xcJogSetInc function
----@field update function
----@field assignShift function
----@field mapSimpleJog function
----@field newDescriptor function
----@field newSignal function
----@field newButton function
----@field newTrigger function
----@field newThumbstickAxis function
----@field newSlot function
----@field initUi function
----@field xcRegGetValue function
 Controller = {}
 Controller.__index = Controller
 Controller.__type = "Controller"
 
----Create a Controller instance.
----@param profileName string @the name of the saved controller profile to load
----@return Controller @the Controller instance
+--- Initialize a new Controller instance.
+---@param profileName string @The name of the saved controller profile to load
+---@return Controller @The new Controller instance
 function Controller.new(profileName)
     local self = setmetatable({}, Controller)
     self.id = "Controller"
     self.profileName = profileName or "default"
-
     self.UP = self:newButton("DPad_UP")
     self.DOWN = self:newButton("DPad_DOWN")
     self.RIGHT = self:newButton("DPad_RIGHT")
@@ -130,14 +109,7 @@ function Controller.new(profileName)
     self.inputs = {self.UP, self.DOWN, self.RIGHT, self.LEFT, self.A, self.B, self.X, self.Y, self.START, self.BACK,
                    self.LTH, self.RTH, self.LSB, self.RSB, self.LTR, self.RTR}
     self.axes = {self.LTH_X, self.LTH_Y, self.RTH_X, self.RTH_Y}
-
-    self.shiftButton = nil
-    self.jogIncrement = 0.1
-    self.logLevel = 2
-    self.xYReversed = false
-    self.frequency = 4
     self.logLevels = {"ERROR", "WARNING", "INFO", "DEBUG"}
-
     self.slots = {}
     local names = {"Cycle Start", "Cycle Stop", "Feed Hold", "Enable On", "Soft Limits On", "Soft Limits Off",
                    "Soft Limits Toggle", "Position Remember", "Position Return", "Limit OV On", "Limit OV Off",
@@ -152,14 +124,13 @@ function Controller.new(profileName)
 
     self:newSlot("Enable Off", function()
         local state = mc.mcCntlGetState(inst)
-
         if (state ~= mc.MC_STATE_IDLE) then
             scr.StartTimer(2, 250, 1);
         end
-
         scr.DoFunctionName("Enable Off")
     end)
 
+    -- Tested and working as intended.
     self:newSlot("Enable Toggle", function()
         local enabled = self:xcGetMachSignalState(mc.OSIG_MACHINE_ENABLED)
         if enabled then
@@ -173,6 +144,7 @@ function Controller.new(profileName)
         end
     end)
 
+    -- Tested and working as intended.
     self:newSlot("E Stop Toggle", function()
         self:xcToggleMachSignalState(mc.ISIG_EMERGENCY)
     end)
@@ -212,12 +184,6 @@ function Controller.new(profileName)
     -- Deprecated in favor of scr.DoFunctionName("Reset") to be removed pending testing
     -- self.xcCntlReset = self:newSlot(function() self:xcErrorCheck(mc.mcCntlReset(inst)) end)
 
-    -- TODO: Research all the available "state" emums and the states they describe.  We probably need to cover more
-    -- states than this.
-
-    -- States 100-199 are all various states that apply once a file has started running
-    -- States 200-299 are the same states that apply while MDI is running
-
     self:newSlot("XC Run Cycle Toggle", function()
         local state, rc = mc.mcCntlGetState()
         self:xcErrorCheck(rc)
@@ -231,6 +197,12 @@ function Controller.new(profileName)
         end
     end)
 
+    -- These attributes MUST be unset when the Descriptors are assigned
+    self.shiftButton = nil
+    self.jogIncrement = 0.1
+    self.logLevel = 2
+    self.xYReversed = false
+    self.frequency = 4
     self:newDescriptor(self, "profileName", "string", "default")
     self:newDescriptor(self, "shiftButton", "input", nil)
     self:newDescriptor(self, "jogIncrement", "number", 0.1)
@@ -642,7 +614,7 @@ end
 ---@param object any @the object to attach the Descriptor to
 ---@param key string @the attribute to shadow
 ---@param datatype string @one of "number","string", or "boolean" - the data type the Descriptor manages
----@param default number|string|boolean @optional default value
+---@param default any @optional default value
 ---@return Descriptor @the new Descriptor instance
 function Controller:newDescriptor(object, key, datatype, default)
     return Descriptor.new(self, object, key, datatype, default)

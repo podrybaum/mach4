@@ -25,7 +25,7 @@ function Descriptor.new(controller, object, key, datatype, default)
     self.attribute = key
     self.object = object
     self.datatype = datatype
-    self.default = default
+    self.default = object[key] or default
     object.key = nil
     return self
 end

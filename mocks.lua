@@ -111,7 +111,7 @@ profile = {}
             return 0
         end,
         mcCntlGetState = function(inst)
-            return 0
+            return 0, 0
         end,
         MC_STATE_IDLE = 0,
         MERROR_NOERROR = 0,
