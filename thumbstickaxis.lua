@@ -38,12 +38,12 @@ end
 
 --- Connect the analog output of a ThumbstickAxis object to a machine axis.
 ---@param axis number @A Mach4 enum representing a machine axis
----@param inverted boolean @Whether or not to invert the axis travel direction
+---@param inverted boolean|nil @Optional: Whether or not to invert the axis travel direction
 function ThumbstickAxis:connect(axis, inverted)
     self.controller.isCorrectSelf(self)
     self.controller.typeCheck({axis, inverted}, {"number", "boolean"})
     self.axis = axis
-    self.inverted = inverted
+    self.inverted = inverted or self.inverted
     local rc
     self.rate, rc = mc.mcJogGetRate(inst, self.axis)
     self.controller:xcErrorCheck(rc)
@@ -71,13 +71,12 @@ function ThumbstickAxis:update()
         self.moving = true
         self.rateReset = false
         self.controller:xcErrorCheck(mc.mcJogSetRate(inst, self.axis, math.abs(self.value)))
-        local direction
+        local direction = 1
         if self.inverted then
             direction = (self.value > 0) and mc.MC_JOG_NEG or mc.MC_JOG_POS
         else
             direction = (self.value > 0) and mc.MC_JOG_POS or mc.MC_JOG_NEG
         end
-
         self.controller:xcErrorCheck(mc.mcJogVelocityStart(inst, self.axis, direction))
     end
 

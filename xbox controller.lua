@@ -36,9 +36,13 @@ end
 -- TODO: create Analog Slot type
 -- TODO: refactor out to separate modules for dev branch
 -- TODO: installer script
+-- TODO: once tested, map screen functions to mapSimpleJog method
 -- TODO: Something seems to be not working entirely as intended with this method, as once in awhile the connected axis seems to
     -- stay stuck at some arbitrary jog rate it was set to, and will continue to move in response to stick input, but will not update the jog rate
    --  with respect to the analog value.  Releasing the stick completely and starting to move again seems to reset this condition.  Not sure what's causing that.
+-- TODO: update docs 
+-- TODO: create default controller profile
+-- TODO: finish testing controller polling rate
 
 --- An object representing an Xbox controller connected to Mach4.
 ---@class Controller
@@ -213,11 +217,10 @@ function Controller.new(profileName)
     return self
 end
 
----STATIC METHOD: Checks to make sure that an instance of a class has been passed as the first parameter to a method call.
----This catches the error when a method that should use a colon is called with a period, so we can deliver
----a better error message.
+--- STATIC METHOD: Checks to make sure that an instance of the correct class has been passed as the first parameter to a method call.
+---This catches the error when a method that should use a colon is called with a period, so we can deliver a better error message.
 ---@param self any @the first parameter passed to the method.
----@return boolean @`true` if the method was called correctly.
+---@return boolean @true if the method was called correctly.
 function Controller.isCorrectSelf(self)
     local info = debug.getinfo(2, "nl")
     if info and info.name then
@@ -233,9 +236,9 @@ function Controller.isCorrectSelf(self)
     error(string.format("function Controller.isCorrectSelf should only be called from within a method! line: %d", info.currentline))
 end
 
----Custom type checking
+--- Type checking for custom types used by this module.
 ---@param object any @The object to typecheck
----@return string @The object's type, accounting for custom types defined in .__type
+---@return string @The object's type, accounting for custom types defined in __type
 function Controller.customType(object)
     if type(object) == "table" then
         local mt = getmetatable(object)
@@ -246,7 +249,7 @@ function Controller.customType(object)
 end
 
 --- Strict type checking to be imposed on all public methods.  Raises an error on failed type check.
----@param objects table @an array of objects to typecheck
+---@param objects table @An array of objects to typecheck
 ---@param types table @Contains an array of arrays or strings containing types to check against for each object.
 function Controller.typeCheck(objects, types)
     local funcName = debug.getinfo(2, "n").name or "Unknown function"
@@ -270,11 +273,11 @@ function Controller.typeCheck(objects, types)
     end
 end
 
---- Retrieve a numeric value from the profile.ini file
----@param section string @the section of the profile.ini file to read from
----@param key string @the key from the section to retrieve
----@param defval number @a default value to assign to the key if it is not found
----@return number|boolean the retrieved value or `false` if an error was encountered
+--- Retrieve a numeric value from the profile.ini file.
+---@param section string @The section of the profile.ini file to read from
+---@param key string @The key from the section to retrieve
+---@param defval number @A default value to assign to the key if it is not found
+---@return number|boolean The retrieved value or false if an error was encountered
 function Controller:xcProfileGetDouble(section, key, defval)
     local val, rc = mc.mcProfileGetDouble(inst, section, key, defval)
     if rc == mc.MERROR_NOERROR then
@@ -283,11 +286,11 @@ function Controller:xcProfileGetDouble(section, key, defval)
     return false
 end
 
---- Retrieve a string value from the profile.ini file
----@param section string @the section of the profile.ini file to read from
----@param key string @the key from the section to retrieve
----@param defval string|nil @a default value to assign to the key if it is not found
----@return string|boolean @the retrieved value or `false` if an error was encountered
+--- Retrieve a string value from the profile.ini file.
+---@param section string @The section of the profile.ini file to read from
+---@param key string @The key from the section to retrieve
+---@param defval string|nil @A default value to assign to the key if it is not found
+---@return string|boolean @The retrieved value or `false` if an error was encountered
 function Controller:xcProfileGetString(section, key, defval)
     defval = tostring(defval)
     local val, rc = mc.mcProfileGetString(inst, section, key, defval)
@@ -297,10 +300,10 @@ function Controller:xcProfileGetString(section, key, defval)
     return false
 end
 
---- Write a numeric value to the profile.ini file
----@param section string @the section of the profile.ini file to write to
----@param key string @the key to be written
----@param val number @the value to write
+--- Write a numeric value to the profile.ini file.
+---@param section string @The section of the profile.ini file to write to
+---@param key string @The key to be written
+---@param val number @The value to write
 function Controller:xcProfileWriteDouble(section, key, val)
     self:xcErrorCheck(mc.mcProfileWriteDouble(inst, section, key, val))
     self:xcErrorCheck(mc.mcProfileFlush(inst))
@@ -310,10 +313,10 @@ function Controller:xcProfileWriteDouble(section, key, val)
     end
 end
 
---- Write a numeric value to the profile.ini file
----@param section string @the section of the profile.ini file to write to
----@param key string @the key to be written
----@param val string @the value to write
+--- Write a numeric value to the profile.ini file.
+---@param section string @The section of the profile.ini file to write to
+---@param key string @The key to be written
+---@param val string @The value to write
 function Controller:xcProfileWriteString(section, key, val)
     self:xcErrorCheck(mc.mcProfileWriteString(inst, section, key, val))
     self:xcErrorCheck(mc.mcProfileFlush(inst))
@@ -324,10 +327,8 @@ function Controller:xcProfileWriteString(section, key, val)
 end
 
 --- Initialize the UI panel for the Controller object.
----@diagnostic disable-next-line: undefined-doc-name
----@param propertiesPanel wxPanel @a `wxPanel` object for the properties panel
----@diagnostic disable-next-line: undefined-doc-name
----@return wxSizer @the `wxSizer` (or subclass thereof) for the properties panel object
+---@param propertiesPanel userdata @A wxPanel object for the properties panel
+---@return userdata @The wxSizer (or subclass thereof) for the properties panel object
 function Controller:initUi(propertiesPanel)
     Controller.isCorrectSelf(self)
     ---@diagnostic disable-next-line: undefined-field
@@ -349,7 +350,6 @@ function Controller:initUi(propertiesPanel)
     local choice = wx.wxChoice(propertiesPanel, wx.wxID_ANY, wx.wxDefaultPosition, wx.wxDefaultSize, choices)
     propSizer:Add(choice, 1, wx.wxEXPAND + wx.wxALL, 5)
     if self.shiftButton ~= nil then
-        ---@diagnostic disable-next-line: undefined-field
         choice:SetSelection(choice:FindString(self.shiftButton.id))
     end
 
@@ -387,12 +387,10 @@ function Controller:initUi(propertiesPanel)
     ---@diagnostic disable-next-line: undefined-field
     propertiesPanel:Connect(applyId, wx.wxEVT_COMMAND_BUTTON_CLICKED, function()
         local choiceSelection = choice:GetStringSelection()
-        ---@diagnostic disable-next-line: undefined-field
         if choiceSelection ~= self.shiftButton.id then
-            self.assignShift(self:xcGetInputById(choiceSelection))
+            self:assignShift(self:xcGetInputById(choiceSelection))
         end
         local jogInc = tonumber(jogIncCtrl:GetValue())
-        ---@diagnostic disable-next-line: undefined-field
         if jogInc ~= nil and jogIncCtrl:IsModified() then
             self.jogIncrement = jogInc
         end
@@ -416,12 +414,12 @@ function Controller:initUi(propertiesPanel)
     return propSizer
 end
 
---- Retrieve an input by it's id
----@param id string the id of the input to Retrieve
----@return Button|Trigger|nil # the input with the given id or nil if not found
+--- Retrieve an input by its id.
+---@param id string @The id of the input to retrieve
+---@return Button|Trigger|nil @The input with the given id or nil if not found
 function Controller:xcGetInputById(id)
-    Controller.isCorrectSelf(self) -- should raise an error if method has been called with dot notation
-    Controller.typeCheck({id}, {"string"}) -- should raise an error if any param is of the wrong type
+    Controller.isCorrectSelf(self)
+    Controller.typeCheck({id}, {"string"})
     for _, input in ipairs(self.inputs) do
         if input.id == id then
             return input
@@ -430,12 +428,12 @@ function Controller:xcGetInputById(id)
     self:xcCntlLog(string.format("No Button with id %s found", id), 1)
 end
 
---- Retrieve a Slot by its id
----@param id string the id for the Slot to retrieve
----@return Slot|nil the Slot with the given id or nil if not found
+--- Retrieve a Slot by its id.
+---@param id string @The id for the Slot to retrieve
+---@return Slot|nil @The Slot with the given id or nil if not found
 function Controller:xcGetSlotById(id)
-    Controller.isCorrectSelf(self) -- should raise an error if method has been called with dot notation
-    Controller.typeCheck({id}, {"string"}) -- should raise an error if any param is of the wrong type
+    Controller.isCorrectSelf(self)
+    Controller.typeCheck({id}, {"string"})
     for i, slot in ipairs(self.slots) do
         if slot.id == id then
             return slot
@@ -444,12 +442,12 @@ function Controller:xcGetSlotById(id)
     self:xcCntlLog(string.format("No Slot with id %s found", id), 1)
 end
 
---- Retrieve numeric value from Mach4 register
----@param reg string the register to read format
----@return number|nil the number retrieved from the register or nil if not found
+--- Retrieve a numeric value from a Mach4 register.
+---@param reg string @The register to read format
+---@return number|nil @The number retrieved from the register or nil if not found
 function Controller:xcGetRegValue(reg)
-    Controller.isCorrectSelf(self) -- should raise an error if method has been called with dot notation
-    Controller.typeCheck({reg}, {"string"}) -- should raise an error if any param is of the wrong type
+    Controller.isCorrectSelf(self) 
+    Controller.typeCheck({reg}, {"string"}) 
     local hreg, rc = mc.mcRegGetHandle(inst, reg)
     if rc == mc.MERROR_NOERROR then
         local val, rc = mc.mcRegGetValue(hreg)
@@ -467,8 +465,8 @@ end
 ---@param signal number the Mach4 signal to check
 ---@return boolean|nil true if signal is 1 false in the case of 0 or nil if not found
 function Controller:xcGetMachSignalState(signal)
-    Controller.isCorrectSelf(self) -- should raise an error if method has been called with dot notation
-    Controller.typeCheck({signal}, {"number"}) -- should raise an error if any param is of the wrong type
+    Controller.isCorrectSelf(self) 
+    Controller.typeCheck({signal}, {"number"}) 
     local hsig, rc = mc.mcSignalGetHandle(inst, signal)
     if rc == mc.MERROR_NOERROR then
         local val, rc = mc.mcSignalGetState(hsig)
@@ -482,12 +480,11 @@ function Controller:xcGetMachSignalState(signal)
     end
 end
 
--- Convenience method to toggle the state of a Mach4 signal with a single call and error handling.
---- Toggle the state of a Mach4 signal
----@param signal number the Mach4 signal to toggle
+--- Toggle the state of a Mach4 signal.
+---@param signal number @The Mach4 signal to toggle
 function Controller:xcToggleMachSignalState(signal)
-    Controller.isCorrectSelf(self) -- should raise an error if method has been called with dot notation
-    Controller.typeCheck({signal}, {"number"}) -- should raise an error if any param is of the wrong type
+    Controller.isCorrectSelf(self) 
+    Controller.typeCheck({signal}, {"number"}) 
     local hsig, rc = mc.mcSignalGetHandle(inst, signal)
     if rc == mc.MERROR_NOERROR then
         self:xcErrorCheck(mc.mcSignalSetState(hsig, not mc.mcSignalGetState(inst, hsig)))
@@ -495,14 +492,14 @@ function Controller:xcToggleMachSignalState(signal)
 end
 
 --- Logging method for the Controller library
----@param msg string the message to log
----@param level number the logging level to display the message at
+---@param msg string @The message to log
+---@param level number @The logging level to display the message at
 function Controller:xcCntlLog(msg, level)
-    Controller.isCorrectSelf(self) -- should raise an error if method has been called with dot notation
-    Controller.typeCheck({msg, level}, {"string", "number"}) -- should raise an error if any param is of the wrong type
+    Controller.isCorrectSelf(self) 
+    Controller.typeCheck({msg, level}, {"string", "number"}) 
     if self.logLevel == 0 then
         return
-    end -- indicates logging is disabled
+    end
     if level <= self.logLevel then
         if mc.mcInEditor() ~= 1 then
             mc.mcCntlLog(inst, "[[XBOX CONTROLLER " .. self.logLevels[level] .. "]]: " .. msg, "", -1)
@@ -512,28 +509,19 @@ function Controller:xcCntlLog(msg, level)
     end
 end
 
---- Check Mach4 error return codes
+--- Check Mach4 error return codes.
 ---@param rc number the return code to check
 function Controller:xcErrorCheck(rc)
-    Controller.isCorrectSelf(self) -- should raise an error if method has been called with dot notation
-    Controller.typeCheck({rc}, {"number"}) -- should raise an error if any param is of the wrong type
+    Controller.isCorrectSelf(self) 
+    Controller.typeCheck({rc}, {"number"}) 
     if rc ~= mc.MERROR_NOERROR then
         self:xcCntlLog(mc.mcCntlGetErrorString(inst, rc), 1)
     end
 end
 
---- Setter method for controller jog increment
----@param val number the jog increment value
-function Controller:xcJogSetInc(val)
-    Controller.isCorrectSelf(self) -- should raise an error if method has been called with dot notation
-    Controller.typeCheck({val}, {"number"}) -- should raise an error if any param is of the wrong type
-    self.jogIncrement = val
-    self:xcCntlLog("Set jogIncrement to " .. tostring(self.jogIncrement), 4)
-end
-
--- The loop method for input polling
+--- Retrieve the state of the xbox controller.
 function Controller:update()
-    Controller.isCorrectSelf(self) -- should raise an error if method has been called with dot notation
+    Controller.isCorrectSelf(self) 
     if self.shiftButton ~= nil then
         self.shiftButton:getState()
     end
@@ -547,11 +535,11 @@ function Controller:update()
     end
 end
 
+--- Assign an input as the controller's shift button.
+---@param input Button|Trigger @The input to assign as a shift button
 function Controller:assignShift(input)
-    -- added warning message when overriding an assigned shift button
-    Controller.isCorrectSelf(self) -- should raise an error if method has been called with dot notation
-    Controller.typeCheck({input}, {{"Button", "Trigger"}}) -- should raise an error if any param is of the wrong type
-
+    Controller.isCorrectSelf(self) 
+    Controller.typeCheck({input}, {{"Button", "Trigger"}}) 
     if self.shiftButton ~= nil then
         self:xcCntlLog(string.format(
             "Call to assign a shift button with a shift button already assigned.\n%s will be unassigned before assigning new shift button.",
@@ -561,9 +549,9 @@ function Controller:assignShift(input)
     self:xcCntlLog("" .. input.id .. " assigned as controller shift button.", 3)
 end
 
+--- Convenience method to map jogging to the DPad, and incremental jogging to the DPad's alternate function.
 function Controller:mapSimpleJog()
     self:xcCntlLog(string.format("Value of reversed flag for axis orientation: %s", tostring(self.xYReversed)), 4)
-    -- DPad regular jog
     self.UP.down:connect(self:newSlot('xcJogUp', function()
         mc.mcJogVelocityStart(inst, (self.xYReversed and mc.Y_AXIS) or mc.X_AXIS, mc.MC_JOG_POS)
     end))
@@ -589,7 +577,6 @@ function Controller:mapSimpleJog()
     else
         self:xcCntlLog("Standard velocity jogging mapped to D-pad", 3)
     end
-
     self.UP.altDown:connect(self:newSlot('xcJogIncUp', function()
         mc.mcJogIncStart(inst, self.xYReversed and mc.Y_AXIS or mc.X_AXIS, self.jogIncrement)
     end))
@@ -610,54 +597,58 @@ function Controller:mapSimpleJog()
     end
 end
 
----Initialize a new Descriptor.
----@param object any @the object to attach the Descriptor to
----@param key string @the attribute to shadow
----@param datatype string @one of "number","string", or "boolean" - the data type the Descriptor manages
----@param default any @optional default value
----@return Descriptor @the new Descriptor instance
+--- Initialize a new Descriptor.
+---@param object any @The object to attach the Descriptor to
+---@param key string @The attribute to shadow
+---@param datatype string @The data type the Descriptor manages
+---@param default any @Optional default value
+---@return Descriptor @The new Descriptor instance
 function Controller:newDescriptor(object, key, datatype, default)
     return Descriptor.new(self, object, key, datatype, default)
 end
 
----Initialize a new Signal.
----@param button Button @the Button object the Signal belongs to
----@param id string @a unique(per Button) identifier for the Signal
----@return Signal @the new Signal instance
+--- Initialize a new Signal.
+---@param button Button|Trigger @The input object the Signal belongs to
+---@param id string @A unique(per input) identifier for the Signal
+---@return Signal @The new Signal instance
 function Controller:newSignal(button, id)
     return Signal.new(self, button, id)
 end
 
+--- Initialize a new Button.
+---@param id string @A unique identifier for the Button.
+---@return Button @The new Button instance
 function Controller:newButton(id)
     return Button.new(self, id)
 end
 
+--- Initialize a new Trigger.
+---@param id string @A unique identifier for the Trigger
+---@return Trigger @The new Trigger instance
 function Controller:newTrigger(id)
     return Trigger.new(self, id)
 end
 
-
+--- Initialize a new ThumbstickAxis
+---@param id string @A unique identifier for the ThumbstickAxis
+---@return ThumbstickAxis @The new ThumbstickAxis instance
 function Controller:newThumbstickAxis(id)
     return ThumbstickAxis.new(self, id)
 end
 
-
+--- Initialize a new Slot.
+---@param id string @A unique identifier for the Slot 
+---@return Slot @The new Slot instance
 function Controller:newSlot(id, func)
-    Controller.isCorrectSelf(self) -- should raise an error if method has been called with dot notation
-    Controller.typeCheck({id, func}, {"string", "function"}) -- should raise an error if any param is of the wrong type
+    Controller.isCorrectSelf(self) 
+    Controller.typeCheck({id, func}, {"string", "function"}) 
     return Slot.new(self, id, func)
 end
 
-
-
-xc = Controller.new()
+xc = Controller.new("default")
 ---------------------------------
 --- Custom Configuration Here ---
 
---- TODO: consider updating documentation to not mention any manual configuration of the controller object outside of the
---- "Advanced Usage" section.  When the GUI is fully working, most users will never need to do anything here.
---- TODO: update the GUI configurator to include a section of properties that are configured at the Controller level, such as
---- logging level, axes inversions and reversals, etc.
 xc.logLevel = 4
 xc:assignShift(xc.LTR)
 xc.RTH_Y:connect(mc.Z_AXIS)
@@ -672,29 +663,16 @@ xc.START.altDown:connect(xc:xcGetSlotById('Home Z'))
 
 -- End of custom configuration ---
 ----------------------------------
----
---[[ TODO: The current method of mocking the mcLuaPanelParent object doesn't actually work right, wxPanel is not a top-level gui object.
-   We need to implement a mock that actually works and renders our GUI when we're not running connected to a live Mach4 instance.
-   ]] --
-
 local mainSizer = wx.wxBoxSizer(wx.wxHORIZONTAL)
 mcLuaPanelParent:SetMinSize(wx.wxSize(450, 500))
 mcLuaPanelParent:SetMaxSize(wx.wxSize(450, 500))
 
--- Create a static box for the tree manager (left panel)
 local treeBox = wx.wxStaticBox(mcLuaPanelParent, wx.wxID_ANY, "Controller Tree Manager")
 local treeSizer = wx.wxStaticBoxSizer(treeBox, wx.wxVERTICAL)
-
--- Create tree control
 local tree = wx.wxTreeCtrl.new(mcLuaPanelParent, wx.wxID_ANY, wx.wxDefaultPosition, wx.wxSize(100, -1),
     wx.wxTR_HAS_BUTTONS, wx.wxDefaultValidator, "tree")
-
 local root_id = tree:AddRoot(xc.id)
-local treedata = {
-    [root_id:GetValue()] = xc
-}
-
--- Populate tree with inputs and axes
+local treedata = {[root_id:GetValue()] = xc}
 for i = 1, #xc.inputs do
     local child_id = tree:AppendItem(root_id, xc.inputs[i].id)
     treedata[child_id:GetValue()] = xc.inputs[i]
@@ -703,54 +681,34 @@ for i = 1, #xc.axes do
     local child_id = tree:AppendItem(root_id, xc.axes[i].id)
     treedata[child_id:GetValue()] = xc.axes[i]
 end
-
 tree:ExpandAll()
-
--- Add the tree control to the main sizer
 treeSizer:Add(tree, 1, wx.wxEXPAND + wx.wxALL, 5)
-
--- Create a static box for the properties panel (right panel)
 local propBox = wx.wxStaticBox(mcLuaPanelParent, wx.wxID_ANY, "Properties")
 local propSizer = wx.wxStaticBoxSizer(propBox, wx.wxVERTICAL)
-
--- Create the properties panel
 propertiesPanel = wx.wxPanel(mcLuaPanelParent, wx.wxID_ANY, wx.wxDefaultPosition, wx.wxDefaultSize)
 local sizer = wx.wxFlexGridSizer(0, 2, 0, 0) -- 2 columns, auto-adjust rows
 sizer:AddGrowableCol(1, 1)
 propertiesPanel:SetSizer(sizer)
 propertiesPanel:Layout()
-
 local font = wx.wxFont(8, wx.wxFONTFAMILY_DEFAULT, wx.wxFONTSTYLE_NORMAL, wx.wxFONTWEIGHT_NORMAL)
 propertiesPanel:SetFont(font)
 propBox:SetFont(font)
 treeBox:SetFont(font)
 tree:SetFont(font)
-
--- Add the properties panel to the properties sizer
 propSizer:Add(propertiesPanel, 1, wx.wxEXPAND + wx.wxALL, 5)
-
 tree:Connect(wx.wxEVT_COMMAND_TREE_SEL_CHANGED, function(event)
-    -- Clear the current sizer's contents from the properties panel
-    propertiesPanel:GetSizer():Clear(true) -- true ensures that the controls are destroyed
-
+    propertiesPanel:GetSizer():Clear(true)
     local item = treedata[event:GetItem():GetValue()]
     propertiesPanel:SetSizer(item:initUi(propertiesPanel))
     propertiesPanel:Fit()
     propertiesPanel:Layout()
 end)
-
--- Add both sizers to the main sizer
 mainSizer:Add(treeSizer, 0, wx.wxEXPAND + wx.wxALL, 5)
 mainSizer:Add(propSizer, 1, wx.wxEXPAND + wx.wxALL, 5)
-
--- Set up the main sizer on the parent panel
 mcLuaPanelParent:SetSizer(mainSizer)
 mainSizer:Layout()
 
--- This is to simply open just the Controller related UI for quick testing.  When working in VsCode, the mocks.lua
--- file provides the wx table and mcLuaPanelParent.  When working in Mach4's included Zerobrane editor, the wx environment
--- comes from Mach4 and the mcLuaPanelParent object is provided by the mc table.  When the script is actually running in
--- Mach4, this block does nothing. 
+-- Development environment only hack
 if mocks and mcLuaPanelParent == mocks.mcLuaPanelParent or mc.mcInEditor() == 1 then
     local app = wx.wxApp(false)
     wx.wxGetApp():SetTopWindow(mcLuaPanelParent)
@@ -758,10 +716,6 @@ if mocks and mcLuaPanelParent == mocks.mcLuaPanelParent or mc.mcInEditor() == 1 
     wx.wxGetApp():MainLoop()
 end
 
---[[ TODO: Is 100ms the right rate to be polling the inputs?  If 250ms(or some other longer amount of time) would be sufficient,
-     the code would be more performant in terms of impact on the system itself, which is something we should at least be
-     considering in a CNC application.  Setting the timer too long would result in the machine's response to controller inputs
-     feeling sluggish, which is also unacceptable. Should probably do some testing to find a good happy medium value.]]
 xc:xcCntlLog("Creating X360_timer", 4)
 X360_timer = wx.wxTimer(mcLuaPanelParent)
 mcLuaPanelParent:Connect(wx.wxEVT_TIMER, function()

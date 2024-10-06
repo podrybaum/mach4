@@ -27,12 +27,15 @@ profile = {}
         end,
         mcJogVelocityStart = function(inst, axis, direction)
             print("[MOCK]: Jog started on axis " .. tostring(axis) .. " in direction " .. tostring(direction))
+            return 0
         end,
         mcJogVelocityStop = function(inst, axis)
             print("[MOCK]: Jog stopped on axis " .. tostring(axis))
+            return 0
         end,
         mcJogSetRate = function(inst, axis, rate)
             print("[MOCK]: Jog rate set on axis " .. tostring(axis) .. " to " .. tostring(rate))
+            return 0
         end,
         mcJogGetRate = function(inst, axis)
             --print("[MOCK]: Getting jog rate for axis " .. tostring(axis))
