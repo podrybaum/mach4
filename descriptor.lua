@@ -25,8 +25,13 @@ function Descriptor.new(controller, object, key, datatype, default)
     self.attribute = key
     self.object = object
     self.datatype = datatype
-    self.default = object[key] or default
+    self.default = object.key or default
+    table.insert(self.object.descriptors,self)
     object.key = nil
+    self:assign()
+    if self.attribute == "profileName" then
+        print(self.datatype, self:get())
+    end
     return self
 end
 
@@ -75,42 +80,45 @@ end
 ---___It is important to make sure that no value is ever actually
 ---assigned to the attribute shadowed by a Descriptor!___
 function Descriptor:assign()
-    if self.object.descriptors == nil then
-        self.object.descriptors = {self}
-        local mt = getmetatable(self.object)
-        local oindex = mt.__index
-        local onewindex = mt.__newindex
-        print(self.object, self.attribute)
-        mt.__index = function(object, key)
-            for _, descriptor in ipairs(object.descriptors) do
-                if descriptor["attribute"] == key then
-                    return descriptor:get()
-                end
-            end
-            if type(oindex) == "function" then
-                return (oindex(object, key))
-            elseif type(oindex) == "table" then
-                return oindex[key]
-            else
-                return nil
+    --local mt = getmetatable(self.object)
+    local oldIndex = self.object.__index
+    local oldNewIndex = self.object.__newindex
+
+    self.object.__index = function(object, key)
+
+        if rawget(object, "__accessing") then
+            return nil
+        end
+
+        rawset(object, "__accessing", true)
+        for _, descriptor in ipairs(object.descriptors) do
+            if descriptor["attribute"] == key then
+                rawset(object, "__accessing", false)
+                return descriptor:get()
             end
         end
-        mt.__newindex = function(object, key, value)
-            for _, descriptor in ipairs(object.descriptors) do
-                if descriptor.attribute == key then
-                    descriptor:set(value)
-                    return
-                end
-            end
-            if type(onewindex) == "function" then
-                return (onewindex(object, key, value))
-            elseif type(onewindex) == "table" then
-                setIfNotEqual(object[key], value)
-            end
+        if type(oldIndex) == "function" then
+            return (oldIndex(object, key))
+        elseif type(oldIndex) == "table" then
+            return oldIndex[key]
+        else
+            return nil
         end
-    else
-        table.insert(self.object.descriptors, self)
     end
+    self.object.__newindex = function(object, key, value)
+        for _, descriptor in ipairs(object.descriptors) do
+            if descriptor.attribute == key then
+                descriptor:set(value)
+                return
+            end
+        end
+        if type(oldNewIndex) == "function" then
+            return (oldNewIndex(object, key, value))
+        elseif type(oldNewIndex) == "table" then
+            oldNewIndex[key] = value
+        end
+    end
+
     if self.default ~= nil then
         self:set(self.default)
     end

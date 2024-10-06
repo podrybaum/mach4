@@ -1,12 +1,9 @@
 --- An object representing a signal emitted by a controller input.
 ---@class Signal
----@field new function
 ---@field id string
 ---@field button Button|Trigger
 ---@field controller Controller
 ---@field descriptors table
----@field connect function
----@field emit function
 Signal = {}
 Signal.__index = Signal
 Signal.__type = "Signal"
@@ -24,6 +21,7 @@ function Signal.new(controller, button, id)
     self.id = id
     self.button = button
     self.controller = controller
+    self.descriptors = {}
     self.controller:newDescriptor(self, "slot", "object", nil)
     return self
 end

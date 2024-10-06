@@ -9,6 +9,7 @@
 ---@field deadzone number
 ---@field inverted boolean
 ---@field axis number|nil
+---@field descriptors table
 ThumbstickAxis = {}
 ThumbstickAxis.__index = ThumbstickAxis
 ThumbstickAxis.__type = "ThumbstickAxis"
@@ -24,8 +25,8 @@ function ThumbstickAxis.new(controller, id)
     local self = setmetatable({}, ThumbstickAxis)
     self.controller = controller
     self.id = id
-    -- MUST be unset when Descriptor is assigned
     self.deadzone = 10
+    self.descriptors = {}
     self.controller:newDescriptor(self, "axis", "number", nil)
     self.controller:newDescriptor(self, "inverted", "boolean", false)
     self.controller:newDescriptor(self, "deadzone", "number", 10)

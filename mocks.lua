@@ -3,7 +3,73 @@ package.cpath = package.cpath..";C:/Program Files (x86)/Lua/5.1/clibs/?.dll;"
 
 wx = require("wx")
 
-profile = {}
+local function getSection(section)
+    local sectionString = string.format("[%s]", section)
+    local i = 0
+    local sectionArray = {}
+    local found = false
+    for line in io.lines("profile.ini") do
+        if found and string.sub(line,1,1) ~= '[' then
+            table.insert(sectionArray, line)
+        elseif found and string.sub(line,1,1) == '[' then
+            return sectionArray
+        end
+        if line == sectionString then
+            found = true
+        end
+    end
+end
+
+local function getKey(section, key)
+    local sec = getSection(section)
+    if sec then
+        for i, line in ipairs(sec) do
+            if string.sub(line, 1, #key) == key then
+                local pattern = string.format("%s = ",key)
+                return string.gsub(line, pattern, "")
+            end
+        end
+    end
+end
+
+local function getTable()
+    local t = {}
+    for line in io.lines("profile.ini") do
+        local current = ''
+        if string.sub(line, 1, 1) == '[' then
+            current = string.sub(line, 2, -2)
+        else
+            for k, v in string.gmatch(line, "(%w+) = (%w+)") do
+                if t[current] then
+                    local tk = t[current]
+                    tk.k = v
+                else
+                   t[current] = {[k]=v}
+                end
+            end
+        end
+    end
+    return t
+end
+
+local function writeTable(t)
+    print("writeTable called")
+    local file = io.open("profile.ini","w+")
+    if file then
+        print(string.format("file %s opened", tostring(file)))
+    end
+    local output = ''
+    for k,v in pairs(t) do
+        output = output .. string.format("[%s]\n",k)
+        for key, value in pairs(v) do
+            output = output .. string.format("%s = %s\n",key,value)
+        end
+    end
+    if file ~= nil then
+        file:write(output)
+        file:close()
+    end
+end
 
 
     mc = {
@@ -67,54 +133,67 @@ profile = {}
             return rc
         end,
         mcProfileGetString = function(inst, section, key, defval)
-            local sec = profile[section]
-            if not sec then
-                table.insert(profile, section)
-            end
-            sec = profile[section]
-            if sec[key] then
-                return sec[key], 0
-            else
-                sec[key] = defval
-                return sec[key], 0
-            end
+            return mc.mcProfileGetDouble(inst, section, key, defval)
         end,
         mcProfileWriteString = function(inst, section, key, val)
-            if not profile[section] then
-                table.insert(profile, section)
-                profile[section] = {}
-                profile[section][key] = val
+            local profileTable = getTable()
+            for k, v in pairs(profileTable) do
+                print(k, v)
+                if k == section then
+                    table.insert(profileTable[k],{[key] = val})
+                    writeTable(profileTable)
+                    return 0
+                end
+                profileTable[k] = {[key] = val}
+                writeTable(profileTable)
             end
-            profile[section][key] = val
-            return 0
         end,
         mcProfileFlush = function(inst)
             return 0
         end,
         mcProfileGetDouble = function(inst, section, key, defval)
-            local sec = profile[section]
-            if not sec then
-                table.insert(profile, section)
-            end
-            sec = profile[section]
-            if sec[key] then
-                return sec[key], 0
-            else
-                sec[key] = defval
-                return sec[key], 0
+            local profileTable = getTable()
+            for k, v in pairs(profileTable) do
+                if k == section then
+                    for fkey, val in pairs(v) do
+                        if fkey == key then
+                            return val, 0
+                        end
+                        if defval ~= nil then
+                            profileTable.k[key] = defval
+                            writeTable(profileTable)
+                            return defval, 0
+                        end
+                    end
+                end
+                profileTable[section] = {[key] = defval}
+                writeTable(profileTable)
+                return defval, 0
             end
         end,
         mcProfileWriteDouble = function(inst, section, key, val)
-            if not profile[section] then
-                table.insert(profile, section)
-                profile[section] = {}
-                profile[section][key] = val
-            end
-            profile[section][key] = val
-            return 0
+            return mc.mcProfileWriteString(inst, section, key, val)
         end,
         mcCntlGetState = function(inst)
             return 0, 0
+        end,
+        mcProfileExists = function(inst, section, key)
+            if not key then
+                if getSection(section) then
+                    return mc.MC_TRUE
+                else
+                    return mc.MC_FALSE
+                end
+            else
+                if getKey(section, key) then
+                    return mc.MC_TRUE
+                else
+                    return mc.MC_FALSE
+                end
+            end
+        end,
+        mcProfileReload = function(inst)
+            return 0
         end,
         MC_STATE_IDLE = 0,
         MERROR_NOERROR = 0,
@@ -126,6 +205,8 @@ profile = {}
         Z_AXIS = 2,
         MC_JOG_POS = 1,
         MC_JOG_NEG = -1,
+        MC_TRUE = 1,
+        MC_FALSE = 0
     }
 
 

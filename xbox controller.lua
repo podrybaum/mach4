@@ -28,18 +28,12 @@ function setIfNotEqual(x, y)
 end
 
 -- TODO: implement more user-friendly names for inputs to use in the GUI
--- TODO: finish annotations 
--- TODO: test slot functions provided by scr.DoFunctionName.  (Enable On, Enable Off and Enable Toggle already tested)
---       "Home All" and "Home Z" do not seem to be working.
+-- TODO: test slot functions provided by scr.DoFunctionName.
 -- TODO: implement profile saving
 -- TODO: unit tests
--- TODO: create Analog Slot type
--- TODO: refactor out to separate modules for dev branch
 -- TODO: installer script
 -- TODO: once tested, map screen functions to mapSimpleJog method
--- TODO: Something seems to be not working entirely as intended with this method, as once in awhile the connected axis seems to
-    -- stay stuck at some arbitrary jog rate it was set to, and will continue to move in response to stick input, but will not update the jog rate
-   --  with respect to the analog value.  Releasing the stick completely and starting to move again seems to reset this condition.  Not sure what's causing that.
+-- TODO: Something seems to be not working entirely as intended with ThumbstickAxis:connect method. The Jog rate doesn't seem to always update appropriately.
 -- TODO: update docs 
 -- TODO: create default controller profile
 -- TODO: finish testing controller polling rate
@@ -79,17 +73,17 @@ end
 ---@field xYReversed boolean
 ---@field frequency number
 ---@field xcCntlTorchToggle Slot
+---@field simpleJogMapped boolean
+---@field descriptors table
 Controller = {}
 Controller.__index = Controller
 Controller.__type = "Controller"
 
 --- Initialize a new Controller instance.
----@param profileName string @The name of the saved controller profile to load
 ---@return Controller @The new Controller instance
-function Controller.new(profileName)
+function Controller.new()
     local self = setmetatable({}, Controller)
     self.id = "Controller"
-    self.profileName = profileName or "default"
     self.UP = self:newButton("DPad_UP")
     self.DOWN = self:newButton("DPad_DOWN")
     self.RIGHT = self:newButton("DPad_RIGHT")
@@ -114,6 +108,7 @@ function Controller.new(profileName)
                    self.LTH, self.RTH, self.LSB, self.RSB, self.LTR, self.RTR}
     self.axes = {self.LTH_X, self.LTH_Y, self.RTH_X, self.RTH_Y}
     self.logLevels = {"ERROR", "WARNING", "INFO", "DEBUG"}
+    self.descriptors = {}
     self.slots = {}
     local names = {"Cycle Start", "Cycle Stop", "Feed Hold", "Enable On", "Soft Limits On", "Soft Limits Off",
                    "Soft Limits Toggle", "Position Remember", "Position Return", "Limit OV On", "Limit OV Off",
@@ -202,18 +197,20 @@ function Controller.new(profileName)
     end)
 
     -- These attributes MUST be unset when the Descriptors are assigned
+    self.profileName = "default"
     self.shiftButton = nil
     self.jogIncrement = 0.1
     self.logLevel = 2
     self.xYReversed = false
     self.frequency = 4
+    self.simpleJogMapped = false
     self:newDescriptor(self, "profileName", "string", "default")
-    self:newDescriptor(self, "shiftButton", "input", nil)
+    self:newDescriptor(self, "shiftButton", "input", "")
     self:newDescriptor(self, "jogIncrement", "number", 0.1)
     self:newDescriptor(self, "logLevel", "number", 2)
     self:newDescriptor(self, "xYReversed", "boolean", false)
     self:newDescriptor(self, "frequency", "number", 4)
-
+    self:newDescriptor(self, "simpleJogMapped", "boolean", false)
     return self
 end
 
@@ -305,7 +302,7 @@ end
 ---@param key string @The key to be written
 ---@param val number @The value to write
 function Controller:xcProfileWriteDouble(section, key, val)
-    self:xcErrorCheck(mc.mcProfileWriteDouble(inst, section, key, val))
+    mc.mcProfileWriteDouble(inst, section, key, val)
     self:xcErrorCheck(mc.mcProfileFlush(inst))
     local state, rc = mc.mcCntlGetState(inst)
     if rc == mc.MERROR_NOERROR and state == mc.MC_STATE_IDLE then
@@ -318,7 +315,7 @@ end
 ---@param key string @The key to be written
 ---@param val string @The value to write
 function Controller:xcProfileWriteString(section, key, val)
-    self:xcErrorCheck(mc.mcProfileWriteString(inst, section, key, val))
+    mc.mcProfileWriteString(inst, section, key, val)
     self:xcErrorCheck(mc.mcProfileFlush(inst))
     local state, rc = mc.mcCntlGetState(inst)
     if rc == mc.MERROR_NOERROR and state == mc.MC_STATE_IDLE then
@@ -386,9 +383,9 @@ function Controller:initUi(propertiesPanel)
     -- event handler for apply button
     ---@diagnostic disable-next-line: undefined-field
     propertiesPanel:Connect(applyId, wx.wxEVT_COMMAND_BUTTON_CLICKED, function()
-        local choiceSelection = choice:GetStringSelection()
-        if choiceSelection ~= self.shiftButton.id then
-            self:assignShift(self:xcGetInputById(choiceSelection))
+        local choiceSelection = self:xcGetInputById(choice:GetStringSelection())
+        if choiceSelection and choiceSelection ~= self.shiftButton.id then
+            self:assignShift(choiceSelection)
         end
         local jogInc = tonumber(jogIncCtrl:GetValue())
         if jogInc ~= nil and jogIncCtrl:IsModified() then
@@ -426,6 +423,7 @@ function Controller:xcGetInputById(id)
         end
     end
     self:xcCntlLog(string.format("No Button with id %s found", id), 1)
+    return nil
 end
 
 --- Retrieve a Slot by its id.
@@ -595,6 +593,7 @@ function Controller:mapSimpleJog()
     else
         self:xcCntlLog("Incremental jogging mapped to D-pad alternate function", 3)
     end
+    self.simpleJogMapped = true
 end
 
 --- Initialize a new Descriptor.
@@ -645,7 +644,108 @@ function Controller:newSlot(id, func)
     return Slot.new(self, id, func)
 end
 
-xc = Controller.new("default")
+--- Create configuration profile.
+---@return table @A table representing the Controller's config state
+function Controller:createProfile()
+    xc:xcCntlLog("Building controller profile:",4)
+    local profile = {}
+    profile.xc = {}
+    xc:xcCntlLog("Building Controller section:", 4)
+
+    for _, desc in ipairs(self.descriptors) do
+        print(desc.attribute, desc:get())
+        table.insert(profile.xc,{[desc.attribute]=desc:get()})
+        xc:xcCntlLog(string.format("%s assigned to %s", desc.attribute, desc:get()),4)
+    end
+    xc:xcCntlLog("Building input sections:",4)
+    for _, button in ipairs(xc.inputs) do
+        local signalMap = {}
+        for _, signal in ipairs(button.signals) do
+            if signal.slot ~= nil then
+                xc:xcCntlLog(string.format("%s:%s assigned Slot %s",button.id, signal.id, signal.slot.id),4)
+                table.insert(signalMap,{[signal.id] = signal.slot.id})
+            end
+        end
+        if #signalMap ~= 0 then
+            profile[button.id] = signalMap
+        end
+    end
+    xc:xcCntlLog("Building ThumbstickAxis section:",4)
+    for _, axis in ipairs(xc.axes) do
+        if axis.axis ~= nil then
+            profile[axis.id] = axis.axis
+            xc:xcCntlLog(string.format("%s assigned %s", axis.id, axis.axis), 4)
+        end
+    end
+    return profile
+end
+
+function Controller:writeProfile(profileName)
+    local profile = self:createProfile()
+    profile.xc['profileName'] = profileName
+    local section = string.format("ControllerProfile %s", profileName)
+    for k, v in pairs(profile.xc) do
+        if type(v) == "number" then
+            print(string.format("Calling mcProfileWriteDouble with params: inst, %s, %s, %s",section,k,v))
+            mc.mcProfileWriteDouble(inst, section, k, v)
+        else
+            print(string.format("Calling mcProfileWriteString with params: inst, %s, %s, %s",section,k,v))
+            mc.mcProfileWriteString(inst, section, k, v)
+        end
+    end
+    for _, input in ipairs(self.inputs) do
+        if profile[input.id] then
+            local signalString = ''
+            for k,v in pairs(profile[input.id]) do
+                signalString = signalString .. string.format("%s=%s ", k, v)
+            end
+            mc.mcProfileWriteString(inst, section, input.id, signalString)
+        end
+    end
+    for _, axis in ipairs(self.axes) do
+        if profile[axis.id] then
+            mc.mcProfileWriteDouble(inst, section, axis.id, profile[axis.id])
+        end
+    end
+end
+
+--- Load a saved controller configuration.
+---@param id string @The name of the saved config
+function Controller:loadProfile(id)
+    local section = string.format("[ControllerProfile %s]", id)
+    local rc =  mc.mcProfileExists(inst, section)
+    if rc == mc.MC_TRUE then
+        for desc in xc.descriptors do
+            if mc.mcProfileExists(inst, section, desc.attribute) then
+                desc.set(mc.mcProfileGetString(inst, section, desc.attribute))
+            end
+        end
+        for input in xc.inputs do
+            if mc.mcProfileExists(inst, section, input.id) then
+                local signalString = mc.mcProfileGetString(inst, section, input.id)
+                local signalPairs = string.gmatch(signalString,"(%w+)=(%w+)")
+                for pair in signalPairs() do
+                    local start, finish = string.find(pair, "(%w+)")
+                    if start then
+                        local signal = string.sub(pair, start, finish)
+                        local slot = string.sub(pair, finish+2, -1)
+                        input[signal]:connect(xc:xcGetSlotById(slot))
+                    end
+                end
+            end
+        end
+        for axis in xc.axes do
+            if mc.mcProfileExists(inst, section, axis.id) then
+                local axisId = mc.mcProfileGetDouble(inst, section, axis.id)
+                axis:connect(axisId)
+            end
+        end
+    else
+        xc:xcCntlLog(string.format("No profile named %s was found.", id), 1)
+    end
+end
+
+xc = Controller.new()
 ---------------------------------
 --- Custom Configuration Here ---
 
@@ -653,16 +753,20 @@ xc.logLevel = 4
 xc:assignShift(xc.LTR)
 xc.RTH_Y:connect(mc.Z_AXIS)
 xc.xYReversed = true
-xc:mapSimpleJog()
+if xc.profileName == 'default' and not xc.simpleJogMapped then
+    xc:mapSimpleJog()
+end
 xc.B.down:connect(xc:xcGetSlotById('E Stop Toggle'))
-xc.Y.down:connect(xc.xcCntlTorchToggle)
+--xc.Y.down:connect(xc.xcCntlTorchToggle)
 xc.RSB.down:connect(xc:xcGetSlotById('Enable Toggle'))
 xc.X.down:connect(xc:xcGetSlotById('XC Run Cycle Toggle'))
 xc.BACK.altDown:connect(xc:xcGetSlotById('Home All'))
-xc.START.altDown:connect(xc:xcGetSlotById('Home Z'))
+--xc.START.altDown:connect(xc:xcGetSlotById('Home Z'))
 
+xc:writeProfile("default")
 -- End of custom configuration ---
 ----------------------------------
+
 local mainSizer = wx.wxBoxSizer(wx.wxHORIZONTAL)
 mcLuaPanelParent:SetMinSize(wx.wxSize(450, 500))
 mcLuaPanelParent:SetMaxSize(wx.wxSize(450, 500))

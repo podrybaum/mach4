@@ -1,6 +1,5 @@
 --- Object representing a digital pushbutton controller input.
 ---@class Button
----@field new function
 ---@field controller Controller
 ---@field id string
 ---@field pressed boolean
@@ -9,8 +8,6 @@
 ---@field altUp Signal
 ---@field altDown Signal
 ---@field signals table
----@field getState function
----@field initUi function
 Button = {}
 Button.__index = Button
 Button.__type = "Button"
