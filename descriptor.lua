@@ -21,13 +21,6 @@ function Descriptor.new(controller, object, attribute, datatype)
     self.attribute = attribute
     self.object = object
     self.datatype = datatype
-    local section = string.format("ControllerProfile %s", self.controller.profileName)
-    if self.datatype == "number" then
-        self.controller:xcProfileWriteDouble(section, self:lookup(), object.key)
-    else
-        self.controller:xcProfileWriteString(section, self:lookup(), object.key)
-    end
-    self:assign()
     return self
 end
 
@@ -39,8 +32,8 @@ function Descriptor:lookup()
     if otype == "Controller" then
         lookup = string.format("xc.%s", self.attribute)
     end
-    if otype == "Button" or otype == "Trigger" then
-        lookup = string.format("xc.%s.%s.slot", self.object.id, self.attribute)
+    if otype == "Signal" then
+        lookup = string.format("xc.%s.%s.slot", self.object.button.id, self.object.id)
     end
     if otype == "ThumbstickAxis" then
         lookup = string.format("xc.%s.%s", self.object.id, self.attribute)
@@ -53,24 +46,26 @@ end
 function Descriptor:get()
     local section = string.format("ControllerProfile %s", self.controller.profileName)
     if self.datatype == "number" then
-        local val = self.controller:xcProfileGetDouble(section, self:lookup(), self.default)
+        local val = self.controller:xcProfileGetDouble(section, self:lookup())
+        print(string.format("returning %s",val))
         return tonumber(val)
     else
-        local val = self.controller:xcProfileGetString(section, self:lookup(), self.default)
-        if self.datatype == "string" then
-            return val
-        elseif self.datatype == "boolean" then
-            return val == "true"
-        elseif self.datatype == "object" then
+        local val = self.controller:xcProfileGetString(section, self:lookup())
+        if self.datatype == "boolean" then
+            val = val == "true"
+        end
+        if self.datatype == "object" then
             for _, input in self.controller.inputs do
                 if input.id == val then
-                    return input
+                    val = input
                 end
             end
-            if self.attribute == "slot" then
-                return self.controller:xcGetSlotById(val)
-            end
         end
+        if self.attribute == "slot" then
+            val = self.controller:xcGetSlotById(tostring(val))
+        end
+        print(string.format("returning %s",val))
+        return val
     end
 end
 
@@ -93,18 +88,31 @@ end
 ---___It is important to make sure that no value is ever actually
 ---assigned to the attribute shadowed by a Descriptor!___
 function Descriptor:assign()
+    local section = string.format("ControllerProfile %s", self.controller.profileName)
+    if self.datatype == "number" then
+        if self.object[self.attribute] ~= nil then
+            print(section, self:lookup(), self.object[self.attribute])
+            self.controller:xcProfileWriteDouble(section, self:lookup(), tonumber(self.object[self.attribute]))
+        end
+    else
+        if self.object[self.attribute] ~= nil then
+            print(section, self:lookup(), self.object[self.attribute])
+            if self.object.__type == "Signal" then
+                self.controller:xcProfileWriteString(section, self:lookup(), self.object[self.attribute].id)
+            else
+                self.controller:xcProfileWriteString(section, self:lookup(), tostring(self.object[self.attribute]))
+            end
+        end
+    end
     table.insert(self.object.descriptors,self)
     self.object[self.attribute] = nil
     local oldIndex = self.object.__index
     local oldNewIndex = self.object.__newindex
     self.object.__index = function(object, key)
-        if rawget(object, "__accessing") then
-            return nil
-        end
-        rawset(object, "__accessing", true)
+        print(string.format("__index called for %s:%s", self.object, self.attribute))
         for _, descriptor in ipairs(object.descriptors) do
             if descriptor["attribute"] == key then
-                rawset(object, "__accessing", false)
+                print(string.format("calling descriptor get for %s:%s", self.object, self.attribute))
                 return descriptor:get()
             end
         end

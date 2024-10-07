@@ -4,6 +4,7 @@
 ---@field button Button|Trigger
 ---@field controller Controller
 ---@field descriptors table
+---@field slot Slot
 Signal = {}
 Signal.__index = Signal
 Signal.__type = "Signal"
@@ -22,6 +23,7 @@ function Signal.new(controller, button, id)
     self.button = button
     self.controller = controller
     self.descriptors = {}
+    self.slot = nil
     self.controller:newDescriptor(self, "slot", "object")
     return self
 end

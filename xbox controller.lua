@@ -84,6 +84,15 @@ Controller.__type = "Controller"
 function Controller.new()
     local self = setmetatable({}, Controller)
     self.id = "Controller"
+    self.descriptors = {}
+    self.profileName = "default"
+    self.shiftButton = self.LTR
+    self.jogIncrement = 0.1
+    self.logLevel = 2
+    self.xYReversed = false
+    self.frequency = 4
+    self.simpleJogMapped = false
+
     self.UP = self:newButton("DPad_UP")
     self.DOWN = self:newButton("DPad_DOWN")
     self.RIGHT = self:newButton("DPad_RIGHT")
@@ -108,7 +117,7 @@ function Controller.new()
                    self.LTH, self.RTH, self.LSB, self.RSB, self.LTR, self.RTR}
     self.axes = {self.LTH_X, self.LTH_Y, self.RTH_X, self.RTH_Y}
     self.logLevels = {"ERROR", "WARNING", "INFO", "DEBUG"}
-    self.descriptors = {}
+
     self.slots = {}
     local names = {"Cycle Start", "Cycle Stop", "Feed Hold", "Enable On", "Soft Limits On", "Soft Limits Off",
                    "Soft Limits Toggle", "Position Remember", "Position Return", "Limit OV On", "Limit OV Off",
@@ -196,21 +205,15 @@ function Controller.new()
         end
     end)
 
-    -- These attributes MUST be unset when the Descriptors are assigned
-    self.profileName = "default"
-    self.shiftButton = self.LTR
-    self.jogIncrement = 0.1
-    self.logLevel = 2
-    self.xYReversed = false
-    self.frequency = 4
-    self.simpleJogMapped = false
-    self:newDescriptor(self, "profileName", "string")
+
     self:newDescriptor(self, "shiftButton", "input")
     self:newDescriptor(self, "jogIncrement", "number")
     self:newDescriptor(self, "logLevel", "number")
     self:newDescriptor(self, "xYReversed", "boolean")
     self:newDescriptor(self, "frequency", "number")
     self:newDescriptor(self, "simpleJogMapped", "boolean")
+    self:newDescriptor(self, "profileName", "string")
+
     return self
 end
 
@@ -273,10 +276,9 @@ end
 --- Retrieve a numeric value from the profile.ini file.
 ---@param section string @The section of the profile.ini file to read from
 ---@param key string @The key from the section to retrieve
----@param defval number @A default value to assign to the key if it is not found
 ---@return number|boolean @The retrieved value or false if an error was encountered
-function Controller:xcProfileGetDouble(section, key, defval)
-    local val, rc = mc.mcProfileGetDouble(inst, section, key, defval)
+function Controller:xcProfileGetDouble(section, key)
+    local val, rc = mc.mcProfileGetDouble(inst, section, key)
     if rc == mc.MERROR_NOERROR then
         return val
     end
@@ -286,11 +288,10 @@ end
 --- Retrieve a string value from the profile.ini file.
 ---@param section string @The section of the profile.ini file to read from
 ---@param key string @The key from the section to retrieve
----@param defval string|nil @A default value to assign to the key if it is not found
 ---@return string|boolean @The retrieved value or `false` if an error was encountered
-function Controller:xcProfileGetString(section, key, defval)
+function Controller:xcProfileGetString(section, key)
     defval = tostring(defval)
-    local val, rc = mc.mcProfileGetString(inst, section, key, defval)
+    local val, rc = mc.mcProfileGetString(inst, section, key)
     if rc == mc.MERROR_NOERROR then
         return val
     end
@@ -302,12 +303,13 @@ end
 ---@param key string @The key to be written
 ---@param val number @The value to write
 function Controller:xcProfileWriteDouble(section, key, val)
+    print(string.format("writing %s, %s, %s",section, key, val))
     mc.mcProfileWriteDouble(inst, section, key, val)
     self:xcErrorCheck(mc.mcProfileFlush(inst))
-    local state, rc = mc.mcCntlGetState(inst)
-    if rc == mc.MERROR_NOERROR and state == mc.MC_STATE_IDLE then
-        self:xcErrorCheck(mc.mcProfileReload(inst))
-    end
+   -- local state, rc = mc.mcCntlGetState(inst)
+   -- if rc == mc.MERROR_NOERROR and state == mc.MC_STATE_IDLE then
+  --      self:xcErrorCheck(mc.mcProfileReload(inst))
+  --  end
 end
 
 --- Write a numeric value to the profile.ini file.
@@ -315,12 +317,13 @@ end
 ---@param key string @The key to be written
 ---@param val string @The value to write
 function Controller:xcProfileWriteString(section, key, val)
+    print(string.format("writing %s, %s, %s",section, key, val))
     mc.mcProfileWriteString(inst, section, key, val)
     self:xcErrorCheck(mc.mcProfileFlush(inst))
-    local state, rc = mc.mcCntlGetState(inst)
-    if rc == mc.MERROR_NOERROR and state == mc.MC_STATE_IDLE then
-        self:xcErrorCheck(mc.mcProfileReload(inst))
-    end
+  --  local state, rc = mc.mcCntlGetState(inst)
+  --  if rc == mc.MERROR_NOERROR and state == mc.MC_STATE_IDLE then
+  --      self:xcErrorCheck(mc.mcProfileReload(inst))
+  --  end
 end
 
 --- Initialize the UI panel for the Controller object.
@@ -602,7 +605,9 @@ end
 ---@param datatype string @The data type the Descriptor manages
 ---@return Descriptor @The new Descriptor instance
 function Controller:newDescriptor(object, key, datatype)
-    return Descriptor.new(self, object, key, datatype)
+    local newDesc = Descriptor.new(self, object, key, datatype)
+    newDesc:assign()
+    return newDesc
 end
 
 --- Initialize a new Signal.
@@ -674,7 +679,7 @@ end
 --- Load a saved controller configuration.
 ---@param id string @The name of the saved config
 function Controller:loadProfile(id)
-    local section = string.format("[ControllerProfile %s]", id)
+    local section = string.format("ControllerProfile %s", id)
     local descMap = {}
     for _, desc in ipairs(self.descriptors) do
         local val
@@ -727,7 +732,9 @@ xc.logLevel = 4
 xc:assignShift(xc.LTR)
 xc.RTH_Y:connect(mc.Z_AXIS)
 xc.xYReversed = true
+print(xc.profileName, xc.simpleJogMapped)
 if xc.profileName == 'default' and not xc.simpleJogMapped then
+
     xc:mapSimpleJog()
 end
 xc.B.Down:connect(xc:xcGetSlotById('E Stop Toggle'))
