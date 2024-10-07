@@ -9,7 +9,6 @@
 ---@field deadzone number
 ---@field inverted boolean
 ---@field axis number|nil
----@field descriptors table
 ThumbstickAxis = {}
 ThumbstickAxis.__index = ThumbstickAxis
 ThumbstickAxis.__type = "ThumbstickAxis"
@@ -26,7 +25,6 @@ function ThumbstickAxis.new(controller, id)
     self.controller = controller
     self.id = id
     self.deadzone = 10
-    self.descriptors = {}
     self.controller:newDescriptor(self, "axis", "number")
     self.controller:newDescriptor(self, "inverted", "boolean")
     self.controller:newDescriptor(self, "deadzone", "number")

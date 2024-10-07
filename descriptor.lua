@@ -1,3 +1,5 @@
+descriptorsStorage = setmetatable({}, { __mode = "k" })
+
 --- An object that manages access to a specific attribute of another object.
 ---@class Descriptor
 ---@field controller Controller
@@ -21,6 +23,24 @@ function Descriptor.new(controller, object, attribute, datatype)
     self.attribute = attribute
     self.object = object
     self.datatype = datatype
+	local section = string.format("ControllerProfile %s", self.controller.profileName)
+    if self.datatype == "number" then
+        if self.object[self.attribute] ~= nil then
+            print(section, self:lookup(), self.object[self.attribute])
+            self.controller:xcProfileWriteDouble(section, self:lookup(), tonumber(self.object[self.attribute]))
+			mc.mcProfileFlush(inst)
+        end
+    else
+        if self.object[self.attribute] ~= nil then
+            print(section, self:lookup(), self.object[self.attribute])
+            if self.object.__type == "Signal" then
+                self.controller:xcProfileWriteString(section, self:lookup(), self.object[self.attribute].id)
+            else
+                self.controller:xcProfileWriteString(section, self:lookup(), tostring(self.object[self.attribute]))
+            end
+			mc.mcProfileFlush(inst)
+        end
+    end
     return self
 end
 
@@ -55,14 +75,16 @@ function Descriptor:get()
             val = val == "true"
         end
         if self.datatype == "object" then
-            for _, input in self.controller.inputs do
+            for _, input in ipairs(self.controller.inputs) do
                 if input.id == val then
                     val = input
                 end
             end
         end
         if self.attribute == "slot" then
+			val = string.sub(tostring(val), 7, -1)
             val = self.controller:xcGetSlotById(tostring(val))
+			
         end
         print(string.format("returning %s",val))
         return val
@@ -88,53 +110,72 @@ end
 ---___It is important to make sure that no value is ever actually
 ---assigned to the attribute shadowed by a Descriptor!___
 function Descriptor:assign()
-    local section = string.format("ControllerProfile %s", self.controller.profileName)
-    if self.datatype == "number" then
-        if self.object[self.attribute] ~= nil then
-            print(section, self:lookup(), self.object[self.attribute])
-            self.controller:xcProfileWriteDouble(section, self:lookup(), tonumber(self.object[self.attribute]))
-        end
-    else
-        if self.object[self.attribute] ~= nil then
-            print(section, self:lookup(), self.object[self.attribute])
-            if self.object.__type == "Signal" then
-                self.controller:xcProfileWriteString(section, self:lookup(), self.object[self.attribute].id)
-            else
-                self.controller:xcProfileWriteString(section, self:lookup(), tostring(self.object[self.attribute]))
-            end
-        end
+    -- Store descriptors globally
+    descriptorsStorage[self.object] = descriptorsStorage[self.object] or {}
+    table.insert(descriptorsStorage[self.object], self)
+
+    -- Save the initial value to the profile
+    
+
+    -- Prepare the metatable
+    local mt = getmetatable(self.object)
+    if not mt then
+        mt = {}
+        setmetatable(self.object, mt)
     end
-    table.insert(self.object.descriptors,self)
-    self.object[self.attribute] = nil
-    local oldIndex = self.object.__index
-    local oldNewIndex = self.object.__newindex
-    self.object.__index = function(object, key)
-        print(string.format("__index called for %s:%s", self.object, self.attribute))
-        for _, descriptor in ipairs(object.descriptors) do
-            if descriptor["attribute"] == key then
-                print(string.format("calling descriptor get for %s:%s", self.object, self.attribute))
-                return descriptor:get()
+
+    -- Save old metamethods
+    local oldIndex = mt.__index
+    local oldNewIndex = mt.__newindex
+
+    -- Define the __index metamethod
+    mt.__index = function(object, key)
+        if key == nil then
+            print("Warning: __index called with nil key")
+            print(debug.traceback())
+            return nil
+        end
+
+        local descriptors = descriptorsStorage[object]
+        if descriptors then
+            for _, descriptor in ipairs(descriptors) do
+                if descriptor.attribute == key then
+                    return descriptor:get()
+                end
             end
         end
+
         if type(oldIndex) == "function" then
-            return (oldIndex(object, key))
+            return oldIndex(object, key)
         elseif type(oldIndex) == "table" then
             return oldIndex[key]
         else
-            return nil
+            return rawget(object, key)
         end
     end
-    self.object.__newindex = function(object, key, value)
-        for _, descriptor in ipairs(object.descriptors) do
-            if descriptor.attribute == key then
-                descriptor:set(value)
-                return
+
+    -- Define the __newindex metamethod
+    mt.__newindex = function(object, key, value)
+        if key == nil then
+            print("Warning: __newindex called with nil key")
+            print(debug.traceback())
+            return
+        end
+
+        local descriptors = descriptorsStorage[object]
+        if descriptors then
+            for _, descriptor in ipairs(descriptors) do
+                if descriptor.attribute == key then
+                    descriptor:set(value)
+                    return
+                end
             end
         end
+
         if type(oldNewIndex) == "function" then
-            return (oldNewIndex(object, key, value))
-        elseif type(oldNewIndex) == "table" then
-            oldNewIndex[key] = value
+            oldNewIndex(object, key, value)
+        else
+            rawset(object, key, value)
         end
     end
 end

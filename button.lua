@@ -8,7 +8,6 @@
 ---@field AltUp Signal
 ---@field AltDown Signal
 ---@field signals table
----@field descriptors table
 Button = {}
 Button.__index = Button
 Button.__type = "Button"
@@ -29,7 +28,6 @@ function Button.new(controller, id)
     self.AltUp = self.controller:newSignal(self, "AltUp")
     self.AltDown = self.controller:newSignal(self, "AltDown")
     self.signals = {self.Up, self.Down, self.AltUp, self.AltDown}
-    self.descriptors = {}
     return self
 end
 
