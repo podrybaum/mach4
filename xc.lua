@@ -205,7 +205,7 @@ function Controller.new()
     end)
 
 
-    self:newDescriptor(self, "shiftButton", "input")
+    self:newDescriptor(self, "shiftButton", "object")
     self:newDescriptor(self, "jogIncrement", "number")
     self:newDescriptor(self, "logLevel", "number")
     self:newDescriptor(self, "xYReversed", "boolean")
