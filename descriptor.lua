@@ -99,7 +99,11 @@ function Descriptor:set(value)
         self.controller:xcProfileWriteDouble(section, self:lookup(), tonumber(value))
         return
     else
-        self.controller:xcProfileWriteString(section, self:lookup(), tostring(value))
+        if self.datatype == "object" then
+            self.controller:xcProfileWriteString(section, self:lookup(), value.id)
+        else
+            self.controller:xcProfileWriteString(section, self:lookup(), tostring(value))
+        end
         return
     end
 end
