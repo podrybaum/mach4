@@ -6,7 +6,7 @@ descriptorsStorage = setmetatable({}, { __mode = "k" })
 ---@field attribute string
 ---@field object any
 ---@field datatype string
----@field default any
+---@field initialValue any
 Descriptor = {}
 Descriptor.__index = Descriptor
 Descriptor.__type = "Descriptor"
@@ -23,23 +23,21 @@ function Descriptor.new(controller, object, attribute, datatype)
     self.attribute = attribute
     self.object = object
     self.datatype = datatype
-	local section = string.format("ControllerProfile %s", self.controller.profileName)
+	local section = string.format("ControllerProfile-%s", self.controller.profileName)
+    self.initialValue = self.object[self.attribute]
     if self.datatype == "number" then
-        if self.object[self.attribute] ~= nil then
-            print(section, self:lookup(), self.object[self.attribute])
-            self.controller:xcProfileWriteDouble(section, self:lookup(), tonumber(self.object[self.attribute]))
+        if self.initialValue ~= nil then
+            self.controller:xcProfileWriteDouble(section, self:lookup(), tonumber(self.initialValue))
 			mc.mcProfileFlush(inst)
         end
-    else
-        if self.object[self.attribute] ~= nil then
-            print(section, self:lookup(), self.object[self.attribute])
-            if self.object.__type == "Signal" then
-                self.controller:xcProfileWriteString(section, self:lookup(), self.object[self.attribute].id)
-            else
-                self.controller:xcProfileWriteString(section, self:lookup(), tostring(self.object[self.attribute]))
-            end
-			mc.mcProfileFlush(inst)
+    elseif self.initialValue ~= nil then
+        print(string.format("writing string value for attribute: %s", self.attribute))
+        if self.attribute == "slot" or self.attribute == "shiftButton" then
+            self.controller:xcProfileWriteString(section, self:lookup(), self.initialValue.id)
+        else
+            self.controller:xcProfileWriteString(section, self:lookup(), tostring(self.initialValue))
         end
+        mc.mcProfileFlush(inst)
     end
     return self
 end
@@ -64,29 +62,29 @@ end
 
 --- Returns the value assigned to the attribute shadowed by the Descriptor.
 function Descriptor:get()
-    local section = string.format("ControllerProfile %s", self.controller.profileName)
+    local section = string.format("ControllerProfile-%s", self.controller.profileName)
     if self.datatype == "number" then
         local val = self.controller:xcProfileGetDouble(section, self:lookup())
         print(string.format("returning %s",val))
-        return tonumber(val)
+        return val
     else
         local val = self.controller:xcProfileGetString(section, self:lookup())
         if self.datatype == "boolean" then
-            val = val == "true"
-        end
-        if self.datatype == "object" then
+            return val == "true"
+        elseif self.datatype == "object" then
+            print("unmodified return from xcProfileGetString is: " .. val)
             for _, input in ipairs(self.controller.inputs) do
                 if input.id == val then
-                    val = input
+                    return input
                 end
             end
+            for _, slot in ipairs(self.controller.slots) do
+                if slot.id == val then
+                    return slot
+                end
+            end
+            print(string.format("datatype is object but no input or slot was matched for %s",val))
         end
-        if self.attribute == "slot" then
-			val = string.sub(tostring(val), 7, -1)
-            val = self.controller:xcGetSlotById(tostring(val))
-			
-        end
-        print(string.format("returning %s",val))
         return val
     end
 end
@@ -94,7 +92,7 @@ end
 --- Set the value assigned to the attribute shadowed by the Descriptor.
 ---@param value any @The value to assign
 function Descriptor:set(value)
-    local section = string.format("ControllerProfile %s", self.controller.profileName)
+    local section = string.format("ControllerProfile-%s", self.controller.profileName)
     self.controller.isCorrectSelf(self)
     if self.datatype == "number" then
 ---@diagnostic disable-next-line: param-type-mismatch

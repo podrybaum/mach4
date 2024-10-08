@@ -138,7 +138,6 @@ end
         mcProfileWriteString = function(inst, section, key, val)
             local profileTable = getTable()
             for k, v in pairs(profileTable) do
-                print(k, v)
                 if k == section then
                     table.insert(profileTable[k],{[key] = val})
                     writeTable(profileTable)

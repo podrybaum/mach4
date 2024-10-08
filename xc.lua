@@ -42,7 +42,6 @@ end
 
 --- An object representing an Xbox controller connected to Mach4.
 ---@class Controller
----@field profile number
 ---@field profileName string
 ---@field id string
 ---@field UP Button
@@ -76,7 +75,6 @@ end
 ---@field frequency number
 ---@field xcCntlTorchToggle Slot
 ---@field simpleJogMapped boolean
----@field descriptors table
 Controller = {}
 Controller.__index = Controller
 Controller.__type = "Controller"
@@ -279,7 +277,7 @@ end
 ---@param key string @The key from the section to retrieve
 ---@return number|boolean @The retrieved value or false if an error was encountered
 function Controller:xcProfileGetDouble(section, key)
-	defval = 0
+	local defval = 0
     local val, rc = mc.mcProfileGetDouble(inst, section, key, defval)
 	mc.mcProfileFlush(inst)
     if rc == mc.MERROR_NOERROR then
@@ -648,14 +646,14 @@ end
 ---@return Slot @The new Slot instance
 function Controller:newSlot(id, func)
     Controller.isCorrectSelf(self) 
-    Controller.typeCheck({id, func}, {"string", "function"}) 
+    Controller.typeCheck({id, func}, {"string", "function"})
     return Slot.new(self, id, func)
 end
 
 --- Create and save configuration profile.
 function Controller:createProfile(id)
     xc:xcCntlLog("Building controller profile:",4)
-    local section = string.format("ControllerProfile %s", id)
+    local section = string.format("ControllerProfile-%s", id)
     local profile = {}
     for _, desc in ipairs(descriptorsStorage[self.id]) do
         profile[desc:lookup()] = desc:get()
@@ -683,7 +681,7 @@ end
 --- Load a saved controller configuration.
 ---@param id string @The name of the saved config
 function Controller:loadProfile(id)
-    local section = string.format("ControllerProfile %s", id)
+    local section = string.format("ControllerProfile-%s", id)
     local descMap = {}
     for _, desc in ipairs(self.descriptors) do
         local val

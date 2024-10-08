@@ -68,14 +68,6 @@ Slot.__tostring = function(self)
     return string.format("Slot: %s", self.id)
 end
 
---- Sorting function for Controller object's slots array
----@param slot1 Slot @a `Slot` object
----@param slot2 Slot @a `Slot` object
----@return boolean true if slot1 should come before slot2, false otherwise
-function slotSort(slot1, slot2)
-    return slot1.id < slot2.id
-end
-
 --- Initialize a new Slot instance.
 ---@param controller Controller @A Controller instance
 ---@param id string @A unique identifier for the Slot
@@ -93,3 +85,10 @@ function Slot.new(controller, id, func)
     return self
 end
 
+--- Sorting function for Controller object's slots array
+---@param slot1 Slot @a `Slot` object
+---@param slot2 Slot @a `Slot` object
+---@return boolean true if slot1 should come before slot2, false otherwise
+function slotSort(slot1, slot2)
+    return slot1.id < slot2.id
+end
