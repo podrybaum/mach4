@@ -305,13 +305,8 @@ end
 ---@param key string @The key to be written
 ---@param val number @The value to write
 function Controller:xcProfileWriteDouble(section, key, val)
-    print(string.format("writing %s, %s, %s",section, key, val))
     mc.mcProfileWriteDouble(inst, section, key, val)
     self:xcErrorCheck(mc.mcProfileFlush(inst))
-   -- local state, rc = mc.mcCntlGetState(inst)
-   -- if rc == mc.MERROR_NOERROR and state == mc.MC_STATE_IDLE then
-  --      self:xcErrorCheck(mc.mcProfileReload(inst))
-  --  end
 end
 
 --- Write a numeric value to the profile.ini file.
@@ -319,13 +314,8 @@ end
 ---@param key string @The key to be written
 ---@param val string @The value to write
 function Controller:xcProfileWriteString(section, key, val)
-    print(string.format("writing %s, %s, %s",section, key, val))
     mc.mcProfileWriteString(inst, section, key, val)
     self:xcErrorCheck(mc.mcProfileFlush(inst))
-  --  local state, rc = mc.mcCntlGetState(inst)
-  --  if rc == mc.MERROR_NOERROR and state == mc.MC_STATE_IDLE then
-  --      self:xcErrorCheck(mc.mcProfileReload(inst))
-  --  end
 end
 
 --- Initialize the UI panel for the Controller object.
@@ -428,7 +418,6 @@ function Controller:xcGetInputById(id)
         end
     end
     self:xcCntlLog(string.format("No Button with id %s found", id), 1)
-    return nil
 end
 
 --- Retrieve a Slot by its id.
@@ -795,14 +784,6 @@ mainSizer:Add(propSizer, 1, wx.wxEXPAND + wx.wxALL, 5)
 mcLuaPanelParent:SetSizer(mainSizer)
 mainSizer:Layout()
 
-
-if mocks and mcLuaPanelParent == mocks.mcLuaPanelParent or mc.mcInEditor() == 1 then
-    local app = wx.wxApp(false)
-    wx.wxGetApp():SetTopWindow(mcLuaPanelParent)
-    mcLuaPanelParent:Show(true)
-    wx.wxGetApp():MainLoop()
-end
-
 xc:xcCntlLog("Creating X360_timer", 4)
 X360_timer = wx.wxTimer(mcLuaPanelParent)
 mcLuaPanelParent:Connect(wx.wxEVT_TIMER, function()
@@ -810,3 +791,28 @@ mcLuaPanelParent:Connect(wx.wxEVT_TIMER, function()
 end)
 xc:xcCntlLog("Starting X360_timer", 4)
 X360_timer:Start(1000 / xc.frequency)
+
+
+if mocks and mcLuaPanelParent == mocks.mcLuaPanelParent or mc.mcInEditor() == 1 then
+    mcLuaPanelParent:Connect(wx.wxEVT_CLOSE_WINDOW, function(event)
+        print("Window is closing")
+    
+        -- Stop the timer if running
+        if X360_timer then
+            X360_timer:Stop()
+            X360_timer = nil
+        end
+    
+        -- Destroy the window to clean up
+        mcLuaPanelParent:Destroy()
+    
+        -- Call this to make sure the event loop exits
+        wx.wxGetApp():ExitMainLoop()
+    end)
+    local app = wx.wxApp(false)
+    wx.wxGetApp():SetTopWindow(mcLuaPanelParent)
+    mcLuaPanelParent:Show(true)
+    wx.wxGetApp():MainLoop()
+end
+
+

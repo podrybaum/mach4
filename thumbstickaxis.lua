@@ -117,7 +117,7 @@ function ThumbstickAxis:initUi(propertiesPanel)
     propSizer:Add(0, 0)
     local invertCheck = wx.wxCheckBox(propertiesPanel, wx.wxID_ANY, "Invert axis:", wx.wxDefaultPosition,
         wx.wxDefaultSize, wx.wxALIGN_RIGHT)
-    propSizer:Add(invertCheck, 1, wx.wxALIGN_LEFT | wx.wxEXPAND + wx.wxALL, 5)
+    propSizer:Add(invertCheck, 1, wx.wxEXPAND + wx.wxALL, 5)
 
     -- apply button
     propSizer:Add(0, 0)

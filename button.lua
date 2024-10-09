@@ -1,3 +1,4 @@
+
 --- Object representing a digital pushbutton controller input.
 ---@class Button
 ---@field controller Controller
@@ -65,7 +66,7 @@ end
 function Button:initUi(propertiesPanel)
     local propSizer = propertiesPanel:GetSizer()
 
-    if not self == self.controller.shiftButton then
+    if not (self == self.controller.shiftButton) then
         -- Slot labels and dropdowns
         local options = {""}
         local analogOptions = {""}
@@ -79,7 +80,7 @@ function Button:initUi(propertiesPanel)
             local choice = wx.wxChoice(propertiesPanel, wx.wxID_ANY, wx.wxDefaultPosition, wx.wxDefaultSize,
                 self.__type == "Trigger" and analogOptions or options)
             idMapping[self.signals[i]] = choice
-            if self.signals[i].slot ~= nil then
+            if self.signals[i].slot ~= '' then
                 choice:SetSelection(choice:FindString(self.signals[i].slot.id))
             end
             propSizer:Add(choice, 1, wx.wxEXPAND + wx.wxALL, 5)

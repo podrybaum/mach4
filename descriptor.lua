@@ -65,14 +65,12 @@ function Descriptor:get()
     local section = string.format("ControllerProfile-%s", self.controller.profileName)
     if self.datatype == "number" then
         local val = self.controller:xcProfileGetDouble(section, self:lookup())
-        print(string.format("returning %s",val))
         return val
     else
         local val = self.controller:xcProfileGetString(section, self:lookup())
         if self.datatype == "boolean" then
             return val == "true"
-        elseif self.datatype == "object" then
-            print("unmodified return from xcProfileGetString is: " .. val)
+        elseif self.datatype == "object" and val ~= false then
             for _, input in ipairs(self.controller.inputs) do
                 if input.id == val then
                     return input
@@ -83,7 +81,6 @@ function Descriptor:get()
                     return slot
                 end
             end
-            print(string.format("datatype is object but no input or slot was matched for %s",val))
         end
         return val
     end

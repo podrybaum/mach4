@@ -7,9 +7,9 @@ local inputFiles = {
 
 }
 
-local outputFile = "C:\\Mach4Hobby\\Modules\\combined.lua"
-local precompiledOutput = "C:\\Mach4Hobby\\Modules\\combined.luac"
-local removeDevSections = true  -- Toggle this to strip dev-specific code
+local outputFile = "C:\\Users\\Michael\\mach4\\combined.lua"
+local precompiledOutput = "C:\\Users\\Michael\\mach4\\combined.luac"
+local removeDevSections = false  -- Toggle this to strip dev-specific code
 
 -- Function to remove dev-specific sections
 local function stripDevSections(contents)
@@ -59,6 +59,18 @@ local function combineModules(inputFiles, outputFile, removeDevSections)
     end
 end
 
+local function minify()
+    local command = string.format("lua C:\\users\\michael\\mach4\\luasrcdiet --maximum %s -o C:\\users\\michael\\mach4\\min_combined.lua --noopt-binequiv", outputFile)
+    print("Minifying source")
+    local result = os.execute(command)
+
+    if result == 0 then
+        print("Successfully minified source")
+    else
+        print("Error during source minification.")
+    end
+end
+
 -- Function to call the Lua compiler
 local function compileToBytecode(inputFile, outputFile)
     local command = string.format("luac -o %s %s", outputFile, inputFile)
@@ -74,4 +86,5 @@ end
 
 -- Combine the modules and precompile them
 combineModules(inputFiles, outputFile, removeDevSections)
+minify()
 compileToBytecode(outputFile, precompiledOutput)

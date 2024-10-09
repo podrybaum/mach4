@@ -36,7 +36,7 @@ function Signal:connect(slot)
         self.controller:xcCntlLog("Ignoring call to connect a Slot to an assigned shift button!", 2)
         return
     end
-    if self.slot ~= nil then
+    if self.slot ~= '' then
         self.controller:xcCntlLog(string.format(
             "%s Signal of input %s already has a connected Slot.  Did you mean to override it?", self.id, self.button.id),
             2)
