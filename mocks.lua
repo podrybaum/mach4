@@ -104,14 +104,14 @@ local profileData = {}
             if profileData[section] and profileData[section][key] then
                 return profileData[section][key], 0  -- Return the value and success code
             else
-                return tostring(defaultValue), 0  -- Return the default value if key not found
+                return defaultValue, 0  -- Return the default value if key not found
             end
         end,
         mcProfileGetDouble = function(inst, section, key, defaultValue)
             if profileData[section] and profileData[section][key] then
                 return tonumber(profileData[section][key]), 0  -- Return the value and success code
             else
-                return tonumber(defaultValue), 0-- Return the default value if key not found
+                return defaultValue, 0-- Return the default value if key not found
             end
         end,
         MC_STATE_IDLE = 0,

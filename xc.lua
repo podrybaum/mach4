@@ -277,8 +277,7 @@ end
 ---@param key string @The key from the section to retrieve
 ---@return number|boolean @The retrieved value or false if an error was encountered
 function Controller:xcProfileGetDouble(section, key)
-	local defval = 0
-    local val, rc = mc.mcProfileGetDouble(inst, section, key, defval)
+    local val, rc = mc.mcProfileGetDouble(inst, section, key)
 	mc.mcProfileFlush(inst)
     if rc == mc.MERROR_NOERROR then
         return val
@@ -291,8 +290,7 @@ end
 ---@param key string @The key from the section to retrieve
 ---@return string|boolean @The retrieved value or `false` if an error was encountered
 function Controller:xcProfileGetString(section, key)
-	local defval = ''
-    local val, rc = mc.mcProfileGetString(inst, section, key, defval)
+    local val, rc = mc.mcProfileGetString(inst, section, key)
 	mc.mcProfileFlush(inst)
     if rc == mc.MERROR_NOERROR then
         return val

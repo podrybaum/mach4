@@ -80,7 +80,7 @@ function Button:initUi(propertiesPanel)
             local choice = wx.wxChoice(propertiesPanel, wx.wxID_ANY, wx.wxDefaultPosition, wx.wxDefaultSize,
                 self.__type == "Trigger" and analogOptions or options)
             idMapping[self.signals[i]] = choice
-            if self.signals[i].slot ~= '' then
+            if self.signals[i].slot ~= nil then
                 choice:SetSelection(choice:FindString(self.signals[i].slot.id))
             end
             propSizer:Add(choice, 1, wx.wxEXPAND + wx.wxALL, 5)

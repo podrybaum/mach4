@@ -70,7 +70,7 @@ function Descriptor:get()
         local val = self.controller:xcProfileGetString(section, self:lookup())
         if self.datatype == "boolean" then
             return val == "true"
-        elseif self.datatype == "object" and val ~= false then
+        elseif self.datatype == "object" and val ~= nil then
             for _, input in ipairs(self.controller.inputs) do
                 if input.id == val then
                     return input
