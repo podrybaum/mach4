@@ -713,27 +713,27 @@ function Controller:loadProfile(id)
     end
 end
 
-xc = Controller.new()
+    xc = Controller.new()
 ---------------------------------
 --- Custom Configuration Here ---
 
-xc.logLevel = 4
-xc:assignShift(xc.LTR)
-xc.RTH_Y:connect(mc.Z_AXIS)
-xc.xYReversed = true
-print(xc.profileName, xc.simpleJogMapped)
-if xc.profileName == 'default' and not xc.simpleJogMapped then
+    xc.logLevel = 4
+    xc:assignShift(xc.LTR)
+    xc.RTH_Y:connect(mc.Z_AXIS)
+    xc.xYReversed = true
+    print(xc.profileName, xc.simpleJogMapped)
+    if xc.profileName == 'default' and not xc.simpleJogMapped then
 
-    xc:mapSimpleJog()
-end
-xc.B.Down:connect(xc:xcGetSlotById('E Stop Toggle'))
---xc.Y.down:connect(xc.xcCntlTorchToggle)
-xc.RSB.Down:connect(xc:xcGetSlotById('Enable Toggle'))
-xc.X.Down:connect(xc:xcGetSlotById('XC Run Cycle Toggle'))
-xc.BACK.AltDown:connect(xc:xcGetSlotById('Home All'))
---xc.START.altDown:connect(xc:xcGetSlotById('Home Z'))
+        xc:mapSimpleJog()
+    end
+    xc.B.Down:connect(xc:xcGetSlotById('E Stop Toggle'))
+    --xc.Y.down:connect(xc.xcCntlTorchToggle)
+    xc.RSB.Down:connect(xc:xcGetSlotById('Enable Toggle'))
+    xc.X.Down:connect(xc:xcGetSlotById('XC Run Cycle Toggle'))
+    xc.BACK.AltDown:connect(xc:xcGetSlotById('Home All'))
+    --xc.START.altDown:connect(xc:xcGetSlotById('Home Z'))
 
---xc:createProfile("default")
+    --xc:createProfile("default")
 -- End of custom configuration ---
 ----------------------------------
 local mcLuaPanelParent = mcLuaPanelParent
@@ -791,7 +791,7 @@ xc:xcCntlLog("Starting X360_timer", 4)
 X360_timer:Start(1000 / xc.frequency)
 
 
-if mocks and mcLuaPanelParent == mocks.mcLuaPanelParent or mc.mcInEditor() == 1 then
+function Controller.start()
     mcLuaPanelParent:Connect(wx.wxEVT_CLOSE_WINDOW, function(event)
         print("Window is closing")
     
@@ -812,5 +812,4 @@ if mocks and mcLuaPanelParent == mocks.mcLuaPanelParent or mc.mcInEditor() == 1 
     mcLuaPanelParent:Show(true)
     wx.wxGetApp():MainLoop()
 end
-
 
