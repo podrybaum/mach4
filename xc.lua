@@ -2,12 +2,12 @@
 -- Development environment specific hacks
 if not mc then
     local home = os.getenv("USERPROFILE")
-    print(string.format("%s;%s\\mach4?.lua;C:\\Mach4Hobby\\ZeroBraneStudio\\bin\\clibs?\\?.dll", package.path, home))
-    package.path = string.format("%s;%s\\mach4\\?.lua;C:\\Mach4Hobby\\ZeroBraneStudio\\bin\\clibs53\\?.dll", package.path, home)
+    package.path = string.format("%s;%s\\mach4\\?.lua;", package.path,home)
     mocks = require("mocks")
 end
 scr = scr or require("scr")
 wx = wx or require("wx")
+
 
 -- Import needed modules.
 require("descriptor")
@@ -784,16 +784,16 @@ mainSizer:Add(propSizer, 1, wx.wxEXPAND + wx.wxALL, 5)
 mcLuaPanelParent:SetSizer(mainSizer)
 mainSizer:Layout()
 
-xc:xcCntlLog("Creating X360_timer", 4)
-X360_timer = wx.wxTimer(mcLuaPanelParent)
-mcLuaPanelParent:Connect(wx.wxEVT_TIMER, function()
-    xc:update()
-end)
-xc:xcCntlLog("Starting X360_timer", 4)
-X360_timer:Start(1000 / xc.frequency)
 
+function Controller.go()
+    xc:xcCntlLog("Creating X360_timer", 4)
+    X360_timer = wx.wxTimer(mcLuaPanelParent)
+    mcLuaPanelParent:Connect(wx.wxEVT_TIMER, function()
+        xc:update()
+    end)
+    xc:xcCntlLog("Starting X360_timer", 4)
+    X360_timer:Start(1000 / xc.frequency)
 
-function Controller.start()
     mcLuaPanelParent:Connect(wx.wxEVT_CLOSE_WINDOW, function(event)
         print("Window is closing")
     
@@ -815,6 +815,6 @@ function Controller.start()
     wx.wxGetApp():MainLoop()
 end
 
-xc.start()
+--xc.start()
 return xc
 

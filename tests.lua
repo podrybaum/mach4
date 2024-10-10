@@ -1,18 +1,25 @@
-print("is this thing on?")
-xc = require("xc")
+package.path = package.path..";C:\\Users\\Michael\\AppData\\Roaming\\luarocks\\share\\lua\\5.4\\?.lua"
+package.path = package.path..";C:\\Users\\Michael\\AppData\\Roaming\\luarocks\\share\\lua\\5.4\\?\\init.lua"
+package.path = package.path..";C:\\Users\\Michael\\mach4\\?.lua"
+
+require("xc")
 require 'busted.runner'()
+assert = require("luassert")
+
+
+assert.is_true(true)
 
 describe("XC Module", function()
   
     -- Test type checking
     it("should validate custom types correctly", function()
       local testBtn = xc:newButton("test")
-      assert.is_true(xc.cutomType(testBtn) == "Button")
+      assert.is_true(xc.customType(testBtn) == "Button")
       local testSignal = xc:newSignal(testBtn, "test2")
       assert.is_true(xc.customType(testSignal) == "Signal")
       local testTrigger = xc:newTrigger("LTR")
-      assert.is_true(xc.customType(testTrigger, "Trigger"))
-      local testSlot = xc:newSlot("Up", function() --[[do stuff ]] return end)
+      assert.is_true(xc.customType(testTrigger) == "Trigger")
+      local testSlot = xc:newSlot("Up", function() return end)
       assert.is_true(xc.customType(testSlot) == "Slot")
       local testAxis = xc:newThumbstickAxis("test3")
       assert.is_true(xc.customType(testAxis) == "newThumbstickAxis")
@@ -31,10 +38,10 @@ describe("XC Module", function()
         xbc.marco = ''
         xbc:newDescriptor(xbc, "marco", "string")
         xbc.marco = "polo"
-        assert.is_true(type(xbc.marco) == "string")
+        assert.True(type(xbc.marco) == "string")
         assert.is_true(xbc.marco == "polo")
         xbc.numeral = nil
-        xbc:newDescriptor(xbc,numeral,"number")
+        xbc:newDescriptor(xbc,"numeral","number")
         xbc.numeral = 31337
         assert.is_true(type(xbc.numeral)=="number")
         assert.is_true(xbc.numeral==31337)
