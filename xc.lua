@@ -1,5 +1,14 @@
 -- DEV_ONLY_START
 -- Development environment specific hacks
+local home = os.getenv("USERPROFILE")
+package.path = package.path..string.format(";%s\\AppData\\Roaming\\luarocks\\share\\lua\\5.4\\?.lua", home)
+package.path = package.path..string.format(";%s\\AppData\\Roaming\\luarocks\\share\\lua\\5.4\\?\\init.lua", home)
+package.path = package.path..string.format(";%s\\mach4\\?.lua", home)
+package.cpath = package.cpath..";C:\\Mach4Hobby\\ZeroBraneStudio\\bin\\clibs53\\?.dll"
+package.cpath = package.cpath..";%s\\AppData\\Roaming\\luarocks\\lib\\lua\\5.4\\?.dll"
+package.cpath = package.cpath..";%s\\AppData\\Roaming\\luarocks\\lib\\lua\\5.4\\?.so"
+
+
 if not mc then
     local home = os.getenv("USERPROFILE")
     package.path = string.format("%s;%s\\mach4\\?.lua;", package.path,home)
@@ -279,7 +288,7 @@ end
 ---@param key string @The key from the section to retrieve
 ---@return number|boolean @The retrieved value or false if an error was encountered
 function Controller:xcProfileGetDouble(section, key)
-    local val, rc = mc.mcProfileGetDouble(inst, section, key)
+    local val, rc = mc.mcProfileGetDouble(inst, section, key, 0)
 	mc.mcProfileFlush(inst)
     if rc == mc.MERROR_NOERROR then
         return val
@@ -292,7 +301,7 @@ end
 ---@param key string @The key from the section to retrieve
 ---@return string|boolean @The retrieved value or `false` if an error was encountered
 function Controller:xcProfileGetString(section, key)
-    local val, rc = mc.mcProfileGetString(inst, section, key)
+    local val, rc = mc.mcProfileGetString(inst, section, key, '')
 	mc.mcProfileFlush(inst)
     if rc == mc.MERROR_NOERROR then
         return val

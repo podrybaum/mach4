@@ -1,11 +1,7 @@
-package.path = package.path..";C:\\Users\\Michael\\AppData\\Roaming\\luarocks\\share\\lua\\5.4\\?.lua"
-package.path = package.path..";C:\\Users\\Michael\\AppData\\Roaming\\luarocks\\share\\lua\\5.4\\?\\init.lua"
-package.path = package.path..";C:\\Users\\Michael\\mach4\\?.lua"
-
+print(_VERSION)
+print(package.cpath)
 require("xc")
 require 'busted.runner'()
-assert = require("luassert")
-
 
 assert.is_true(true)
 
