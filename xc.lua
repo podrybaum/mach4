@@ -1,7 +1,9 @@
 -- DEV_ONLY_START
 -- Development environment specific hacks
 if not mc then
-    package.path = string.format("%s;%s?.lua", package.path,"C:\\Users\\Michael\\mach4\\")
+    local home = os.getenv("USERPROFILE")
+    print(string.format("%s;%s\\mach4?.lua;C:\\Mach4Hobby\\ZeroBraneStudio\\bin\\clibs?\\?.dll", package.path, home))
+    package.path = string.format("%s;%s\\mach4\\?.lua;C:\\Mach4Hobby\\ZeroBraneStudio\\bin\\clibs53\\?.dll", package.path, home)
     mocks = require("mocks")
 end
 scr = scr or require("scr")
@@ -812,4 +814,7 @@ function Controller.start()
     mcLuaPanelParent:Show(true)
     wx.wxGetApp():MainLoop()
 end
+
+xc.start()
+return xc
 

@@ -20,7 +20,12 @@ end
   }
 
 for child in pairs(xc["childs"]) do
-	print(child)
+	pcall(print(child))
+  if not pcall[1] then
+    for x in pcall[2] do
+      print(x)
+    end
+  end
 end
 
 

@@ -1,5 +1,6 @@
+print("is this thing on?")
 xc = require("xc")
-require("busted")
+require 'busted.runner'()
 
 describe("XC Module", function()
   
