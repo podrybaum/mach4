@@ -1,142 +1,208 @@
 ---@diagnostic disable: lowercase-global
-package.cpath = package.cpath..";C:/Program Files (x86)/Lua/5.1/clibs/?.dll;"
+package.cpath = package.cpath .. ";C:/Program Files (x86)/Lua/5.1/clibs/?.dll;"
 
 wx = require("wx")
 
-local profileData = {}
+-- Helper: Write `profileData` back to the INI file
+function saveIniFile()
+    local iniFile = io.open("machine.ini", "w")
+    for section, data in pairs(profileData) do
+        iniFile:write(string.format("[%s]\n", section))
+        for key, value in pairs(data) do
+            iniFile:write(string.format("%s=%s\n", key, value))
+        end
+    end
+    iniFile:close()
+end
+-- Make profileData global to access it across modules
+profileData = {}
 
+-- Helper function to trim leading and trailing whitespace
+local function trim(s)
+    return s:match("^%s*(.-)%s*$")
+end
 
-    mc = {
-        mcCntlLog = function(inst, message, style, level)
-            print("[MOCK LOG]: " .. message)
-        end,
-        mcSignalGetHandle = function(inst, signal)
-            print("[MOCK]: mcSignalGetHandle called for signal: " .. tostring(signal))
-            return 123  -- Return a dummy handle
-        end,
-        mcSignalSetState = function(handle, state)
-            print("[MOCK]: mcSignalSetState called on handle " .. tostring(handle) .. " with state " .. tostring(state))
-            return 1 --- return a dummy state
-        end,
-        mcSignalGetState = function(inst, handle)
-            print("[MOCK]: mcSignalGetState called on handle:"..handle)
-            return 1 --- return a dummy state
-        end,
-        mcCntlEnable = function(inst, state)
-            print("[MOCK]: mcCntlEnable called with state: " .. tostring(state))
-        end,
-        mcJogVelocityStart = function(inst, axis, direction)
-            print("[MOCK]: Jog started on axis " .. tostring(axis) .. " in direction " .. tostring(direction))
-            return 0
-        end,
-        mcJogVelocityStop = function(inst, axis)
-            print("[MOCK]: Jog stopped on axis " .. tostring(axis))
-            return 0
-        end,
-        mcJogSetRate = function(inst, axis, rate)
-            print("[MOCK]: Jog rate set on axis " .. tostring(axis) .. " to " .. tostring(rate))
-            return 0
-        end,
-        mcJogGetRate = function(inst, axis)
-            --print("[MOCK]: Getting jog rate for axis " .. tostring(axis))
-            return 100, 0  -- Return a dummy rate
-        end,
-        mcJogIncStart = function(inst, axis, increment)
-            print("[MOCK]: Incremental jog on axis " .. tostring(axis) .. " by " .. tostring(increment))
-        end,
-        mcCntlCycleStart = function(inst)
-            print("[MOCK]: Cycle start")
-        end,
-        mcCntlFeedHold = function(inst)
-            print("[MOCK]: Feed hold")
-        end,
-        mcGetInstance = function()
-            print("[MOCK]: mcGetInstance called")
-            return 0  -- Return a dummy instance
-        end,
-        mcRegGetHandle = function(inst, regName)
-            return keyMap[regName] or 0, 0 -- Return key code or 0 if not found
-        end,
-        mcRegGetValue = function(handle)
-            return keyStates[handle] and 1 or 0, 0
-        end,
-        mcInEditor = function()
-            return 1
-        end,
-        mcCntlGetErrorString = function(inst, rc)
-            return rc
-        end,
-        mcProfileFlush = function(inst)
-            return 0
-        end,
-        mcCntlGetState = function(inst)
-            return 0, 0
-        end,
-        mcProfileExists = function(inst, section, key)
-            if not key then
-                if profileData[section] ~= nil then
-                    return 0
-                else
-                    return 1
-                end
-            else
-                if profileData[section] == key then
-                    return 0
-                else
-                    return 1
-                end
-            end
-        end,
-        mcProfileReload = function(inst)
-            return 0
-        end,
-        mcProfileWriteString = function(inst, section, key, value)
-            profileData[section] = profileData[section] or {}
-            profileData[section][key] = tostring(value)
-            return 0  -- Return 0 to simulate success
-        end,
-        mcProfileWriteDouble = function(inst, section, key, value)
-            profileData[section] = profileData[section] or {}
-            profileData[section][key] = tonumber(value)
-            return 0  -- Return 0 to simulate success
-        end,
-        mcProfileGetString = function(inst, section, key, defaultValue)
-            if profileData[section] and profileData[section][key] then
-                return profileData[section][key], 0  -- Return the value and success code
-            else
-                return defaultValue, 0  -- Return the default value if key not found
-            end
-        end,
-        mcProfileGetDouble = function(inst, section, key, defaultValue)
-            if profileData[section] and profileData[section][key] then
-                return tonumber(profileData[section][key]), 0  -- Return the value and success code
-            else
-                return defaultValue, 0-- Return the default value if key not found
-            end
-        end,
-        MC_STATE_IDLE = 0,
-        MERROR_NOERROR = 0,
-        AXIS1 = 1,
-        AXIS0 = 0,
-        AXIS2 = 2,
-        AXIS3 = 3,
-        AXIS4 = 4,
-        AXIS5 = 5,
-        Y_AXIS = 1,
-        X_AXIS = 0,
-        Z_AXIS = 2,
-        A_AXIS = 3,
-        B_AXIS = 4,
-        C_AXIS = 5,
-        MC_JOG_POS = 1,
-        MC_JOG_NEG = -1,
-        MC_TRUE = 1,
-        MC_FALSE = 0
-    }
+-- Reload the INI file on every call, ensuring whitespace is handled
+function loadIniFile()
+    profileData = {} -- Clear existing data
 
+    local iniFile = io.open("machine.ini", "r")
+    if not iniFile then
+        error("[MOCK]: Failed to open machine.ini")
+    end
+
+    local currentSection = nil
+    for line in iniFile:lines() do
+        local section = line:match("^%[(.-)%]$")
+        if section then
+            currentSection = trim(section)
+            profileData[currentSection] = {}
+        else
+            local key, value = line:match("^(.-)=(.*)$")
+            if key and currentSection then
+                key = trim(key)
+                value = trim(value)
+                profileData[currentSection][key] = value
+            end
+        end
+    end
+    iniFile:close()
+end
+
+mc = {
+    mcCntlLog = function(inst, message, style, level)
+        print("[MOCK LOG]: " .. message)
+    end,
+    mcSignalGetHandle = function(inst, signal)
+        print("[MOCK]: mcSignalGetHandle called for signal: " .. tostring(signal))
+        return 123 -- Return a dummy handle
+    end,
+    mcSignalSetState = function(handle, state)
+        print("[MOCK]: mcSignalSetState called on handle " .. tostring(handle) .. " with state " .. tostring(state))
+        return 1 --- return a dummy state
+    end,
+    mcSignalGetState = function(inst, handle)
+        print("[MOCK]: mcSignalGetState called on handle:" .. handle)
+        return 1 --- return a dummy state
+    end,
+    mcCntlEnable = function(inst, state)
+        print("[MOCK]: mcCntlEnable called with state: " .. tostring(state))
+    end,
+    mcJogVelocityStart = function(inst, axis, direction)
+        print("[MOCK]: Jog started on axis " .. tostring(axis) .. " in direction " .. tostring(direction))
+        return 0
+    end,
+    mcJogVelocityStop = function(inst, axis)
+        print("[MOCK]: Jog stopped on axis " .. tostring(axis))
+        return 0
+    end,
+    mcJogSetRate = function(inst, axis, rate)
+        print("[MOCK]: Jog rate set on axis " .. tostring(axis) .. " to " .. tostring(rate))
+        return 0
+    end,
+    mcJogGetRate = function(inst, axis)
+        -- print("[MOCK]: Getting jog rate for axis " .. tostring(axis))
+        return 100, 0 -- Return a dummy rate
+    end,
+    mcJogIncStart = function(inst, axis, increment)
+        print("[MOCK]: Incremental jog on axis " .. tostring(axis) .. " by " .. tostring(increment))
+    end,
+    mcCntlCycleStart = function(inst)
+        print("[MOCK]: Cycle start")
+    end,
+    mcCntlFeedHold = function(inst)
+        print("[MOCK]: Feed hold")
+    end,
+    mcGetInstance = function()
+        print("[MOCK]: mcGetInstance called")
+        return 0 -- Return a dummy instance
+    end,
+    mcRegGetHandle = function(inst, regName)
+        return keyMap[regName] or 0, 0 -- Return key code or 0 if not found
+    end,
+    mcRegGetValue = function(handle)
+        return keyStates[handle] and 1 or 0, 0
+    end,
+    mcInEditor = function()
+        return 1
+    end,
+    mcCntlGetErrorString = function(inst, rc)
+        return rc
+    end,
+    mcProfileFlush = function(inst)
+        return 0
+    end,
+    mcCntlGetState = function(inst)
+        return 0, 0
+    end,
+    -- Mock function to check for section and key existence
+    mcProfileExists = function(inst, section, key)
+        loadIniFile()
+
+        section = trim(section)
+        key = trim(key)
+
+        if not profileData[section] then
+            return mc.MC_FALSE
+        end
+
+        local exists = profileData[section][key] ~= nil
+        return exists and mc.MC_TRUE or mc.MC_FALSE
+    end,
+
+    mcProfileReload = function(inst)
+        return 0
+    end,
+
+    mcProfileWriteString = function(inst, section, key, value)
+        loadIniFile() -- Ensure we're working with the latest data
+        section = trim(section)
+        key = trim(key)
+        value = tostring(value):gsub("%s+$", "") -- Trim trailing spaces from value
+
+        profileData[section] = profileData[section] or {}
+        profileData[section][key] = value
+
+        saveIniFile()
+        return 0 -- Simulate success
+    end,
+
+    -- Mock: Write a numeric value to the INI file
+    mcProfileWriteDouble = function(inst, section, key, value)
+        loadIniFile()
+        section = trim(section)
+        key=trim(key)
+        value=tonumber(value)
+        profileData[section] = profileData[section] or {}
+        profileData[section][key] = tonumber(value)
+        saveIniFile()
+        return 0 -- Simulate success
+    end,
+
+    -- Mock: Read a string value from the INI file
+    mcProfileGetString = function(inst, section, key, defaultValue)
+        loadIniFile()
+        if profileData[section] and profileData[section][key] then
+            return profileData[section][key], 0 -- Return value and success code
+        else
+            return defaultValue, 0 -- Return default value if key not found
+        end
+    end,
+
+    -- Mock: Read a numeric value from the INI file
+    mcProfileGetDouble = function(inst, section, key, defaultValue)
+        loadIniFile()
+        if profileData[section] and profileData[section][key] then
+            return tonumber(profileData[section][key]), 0 -- Return value and success code
+        else
+            return defaultValue, 0 -- Return default value if key not found
+        end
+    end,
+
+    MC_STATE_IDLE = 0,
+    MERROR_NOERROR = 0,
+    AXIS1 = 1,
+    AXIS0 = 0,
+    AXIS2 = 2,
+    AXIS3 = 3,
+    AXIS4 = 4,
+    AXIS5 = 5,
+    Y_AXIS = 1,
+    X_AXIS = 0,
+    Z_AXIS = 2,
+    A_AXIS = 3,
+    B_AXIS = 4,
+    C_AXIS = 5,
+    MC_JOG_POS = 1,
+    MC_JOG_NEG = -1,
+    MC_TRUE = 1,
+    MC_FALSE = 0
+}
 
 scr = {}
-scr.DoFunctionName = function(name) return name end
+scr.DoFunctionName = function(name)
+    return name
+end
 
 mcLuaPanelParent = wx.wxFrame(wx.NULL, wx.wxID_ANY, "Mock Panel")
 
@@ -145,12 +211,11 @@ keyMap = {
     ["mcX360_LUA/DPad_DOWN"] = wx.WXK_DOWN,
     ["mcX360_LUA/DPad_LEFT"] = wx.WXK_LEFT,
     ["mcX360_LUA/DPad_RIGHT"] = wx.WXK_RIGHT,
-    ["mcX360_LUA/Btn_A"] = string.byte("A"),  -- Map 'A' button to the 'A' key
-    ["mcX360_LUA/Btn_B"] = string.byte("B"),  -- Map 'B' button to the 'B' key
+    ["mcX360_LUA/Btn_A"] = string.byte("A"), -- Map 'A' button to the 'A' key
+    ["mcX360_LUA/Btn_B"] = string.byte("B") -- Map 'B' button to the 'B' key
     -- Add more mappings as needed
 }
 
 keyStates = {}
 
-
-return{mc,wx,mcLuaPanelParent}
+return {mc, wx, mcLuaPanelParent}

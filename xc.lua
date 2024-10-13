@@ -1,42 +1,52 @@
 -- DEV_ONLY_START
 -- Development environment specific hacks
 local home = os.getenv("USERPROFILE")
-package.path = package.path..string.format(";%s\\AppData\\Roaming\\luarocks\\share\\lua\\5.4\\?.lua", home)
-package.path = package.path..string.format(";%s\\AppData\\Roaming\\luarocks\\share\\lua\\5.4\\?\\init.lua", home)
-package.path = package.path..string.format(";%s\\mach4\\?.lua", home)
-package.cpath = package.cpath..";C:\\Mach4Hobby\\ZeroBraneStudio\\bin\\clibs53\\?.dll"
-package.cpath = package.cpath..";%s\\AppData\\Roaming\\luarocks\\lib\\lua\\5.4\\?.dll"
-package.cpath = package.cpath..";%s\\AppData\\Roaming\\luarocks\\lib\\lua\\5.4\\?.so"
-
+package.path = package.path .. string.format(";%s\\AppData\\Roaming\\luarocks\\share\\lua\\5.4\\?.lua", home)
+package.path = package.path .. string.format(";%s\\AppData\\Roaming\\luarocks\\share\\lua\\5.4\\?\\init.lua", home)
+package.path = package.path .. string.format(";%s\\mach4\\?.lua", home)
+package.path = package.path .. string.format(";%s\\Lua\\?.exe", home)
+package.cpath = package.cpath .. ";C:\\Mach4Hobby\\ZeroBraneStudio\\bin\\clibs53\\?.dll"
+package.cpath = package.cpath .. ";%s\\AppData\\Roaming\\luarocks\\lib\\lua\\5.4\\?.dll"
+package.cpath = package.cpath .. ";%s\\AppData\\Roaming\\luarocks\\lib\\lua\\5.4\\?.so"
 
 if not mc then
-    local home = os.getenv("USERPROFILE")
-    package.path = string.format("%s;%s\\mach4\\?.lua;", package.path,home)
+    package.path = string.format("%s;%s\\mach4\\?.lua;", package.path, home)
     mocks = require("mocks")
 end
 scr = scr or require("scr")
 wx = wx or require("wx")
+
+loadIniFile()
 
 -- Import needed modules.
 require("descriptor")
 require("button")
 require("thumbstickaxis")
 require("signal_slot")
+
+if mc.mcInEditor() == 1 then
+    local luaPanelId = wx.wxNewId()
+    mcLuaPanelParent = wx.wxFrame(wx.NULL, luaPanelId, "Mock Panel")
+end
 -- DEV_ONLY_END
 
+--- Extends Lua's builtin string library to add Python's .split method
+---@param str any @the string to split
+---@param delim any @the delimiter to split on
+---@return table @the split elements
 function string.split(str, delim)
     local out = {}
-    local pattern = string.format("(.-)%s(.*)", delim)  -- Non-greedy match for before the delimiter
+    local pattern = string.format("(.-)%s(.*)", delim)
     local i = 1
 
     while str do
-        local part, remainder = string.match(str, pattern)  -- Match part before and after the delimiter
+        local part, remainder = string.match(str, pattern)
         if part then
             out[i] = part
             str = remainder
             i = i + 1
         else
-            out[i] = str  -- Capture the last part
+            out[i] = str
             break
         end
     end
@@ -44,65 +54,93 @@ function string.split(str, delim)
     return out
 end
 
-if mocks and mc == mocks.mc or mc.mcInEditor() == 1 then
-    local luaPanelId = wx.wxNewId()
-    mcLuaPanelParent = wx.wxFrame(wx.NULL, luaPanelId, "Mock Panel")
+--- OVERLOADED FUNCTION: Returns the first parameter stripped of all leading and trailing occurrences of the second (if present).
+--- If no second parameter is passed, returns the first parameter stripped of leading and trailing spaces.
+---@param str string @The string to strip
+---@param ... string @The pattern to strip from string
+---@return string @The string stripped of leading and trailing occurrences of pattern, if provided, stripped of leading and trailing spaces if not.
+function string.strip(str, ...)
+    local args = {...}
+    local paramCount = #args
+    local overloads = {}
+    overloads[0] = function(strip)
+        local stripped = strip:match("^%s*(.-)%s*$")
+        return stripped
+    end
+    overloads[1] = function(strip, pattern)
+        local stripped = strip:match(string.format("^%s*(.-)%s*$", pattern))
+        return stripped
+    end
+    if overloads[paramCount] == nil then
+        error(string.format("No overload defined for %d parameter signature of string.strip", #paramCount))
+    end
+    local func = overloads[paramCount]
+    if not func then
+        error(string.format("No overload defined for %d parameter signature of string.strip", paramCount))
+    end
+
+    return func(str, table.unpack(args))
 end
 
 -- Global Mach4 instance
 inst = mc.mcGetInstance()
 
+--- Retrieve the Id of the most recently used controller profile
+---If section and key are not found in machine.ini they will be added and assigned 
+---a default value, so this one liner does the work of checking if the section exists,
+---creating it if not, assigning the default profile when necessary, OR returning the 
+---profileId of the most recently used controller profile.
+---@return number @the profileId of the most recently used profile or 0 for default.
+---@return number @mach4 return code
 local function getProfile()
-    local profileName = "default"
-    if not mc.mcProfileExists(inst, "XBC4MACH4","profileName") then
-        mc.mcProfileWriteString(inst, "XBC4MACH4", "profileName", profileName)
-    else
-        return mc.mcProfileGetString(inst, "XBC4MACH4","profileName",'')
-    end
-    return profileName
+    return mc.mcProfileGetDouble(inst, "XBC4MACH4", "xc.profileId", 0)
 end
 
-if not mc.mcProfileExists(inst, "ControllerProfile-default", "profileName") then
-    local defaultProfile = {
-    "xc.LTH_Y_Val.deadzone=10.000000",
-    "xc.RTH_X_Val.deadzone=10.000000",
-    "xc.RTH_Y_Val.deadzone=10.000000",
-    "xc.LTH_X_Val.deadzone=10.000000",
-    "xc.jogIncrement=0.100000",
-    "xc.logLevel=2.000000",
-    "xc.xYReversed=false",
-    "xc.frequency=4.000000",
-    "xc.simpleJogMapped=false",
-    "xc.profileName=default",
-    "xc.shiftButton=LTR_Val",
-    "xc.RTH_Y_Val.axis=2.000000",
-    "xc.RTH_Y_Val.inverted=false",
-    "xc.DPad_UP.Down.slot=xcJogUp",
-    "xc.DPad_UP.Up.slot=xcJogStopY",
-    "xc.DPad_DOWN.Down.slot=xcJogDown",
-    "xc.DPad_DOWN.Up.slot=xcJogStopY",
-    "xc.DPad_RIGHT.Down.slot=xcJogRight",
-    "xc.DPad_RIGHT.Up.slot=xcJogStopX",
-    "xc.DPad_LEFT.Down.slot=xcJogLeft",
-    "xc.DPad_LEFT.Up.slot=xcJogStopX",
-    "xc.DPad_UP.AltDown.slot=xcJogIncUp",
-    "xc.DPad_DOWN.AltDown.slot=xcJogIncDown",
-    "xc.DPad_RIGHT.AltDown.slot=xcJogIncRight",
-    "xc.DPad_LEFT.AltDown.slot=xcJogIncLeft",
-    "xc.Btn_B.Down.slot=E Stop Toggle",
-    "xc.Btn_RS.Down.slot=Enable Toggle",
-    "xc.Btn_X.Down.slot=XC Run Cycle Toggle",
-    "xc.Btn_BACK.AltDown.slot=Home All"}
+-- Write default profile to machine.ini if it doesn't exist
+local function writeDefaultProfile()
+    if mc.mcProfileExists(inst, "ControllerProfile-0", "xc.profileName") == mc.MC_FALSE then
+        local defaultProfile = {"xc.LTH_Y_Val.deadzone=10.000000", "xc.RTH_X_Val.deadzone=10.000000",
+                                "xc.RTH_Y_Val.deadzone=10.000000", "xc.LTH_X_Val.deadzone=10.000000",
+                                "xc.jogIncrement=0.1", "xc.logLevel=2", "xc.xYReversed=false",
+                                "xc.frequency=4", "xc.simpleJogMapped=true", "xc.profileName=default",
+                                "xc.shiftButton=LTR_Val", "xc.RTH_Y_Val.axis=2.000000", "xc.RTH_Y_Val.inverted=false",
+                                "xc.DPad_UP.Down.slot=Jog X+", "xc.DPad_UP.Up.slot=Jog X Off",
+                                "xc.DPad_DOWN.Down.slot=Jog X-", "xc.DPad_DOWN.Up.slot=Jog X Off",
+                                "xc.DPad_RIGHT.Down.slot=Jog Y+", "xc.DPad_RIGHT.Up.slot=Jog Y Off",
+                                "xc.DPad_LEFT.Down.slot=Jog Y-", "xc.DPad_LEFT.Up.slot=Jog Y Off",
+                                "xc.DPad_UP.AltDown.slot=xcJogIncUp", "xc.DPad_DOWN.AltDown.slot=xcJogIncDown",
+                                "xc.DPad_RIGHT.AltDown.slot=xcJogIncRight", "xc.DPad_LEFT.AltDown.slot=xcJogIncLeft",
+                                "xc.Btn_B.Down.slot=E Stop Toggle", "xc.Btn_RS.Down.slot=Enable Toggle",
+                                "xc.Btn_X.Down.slot=XC Run Cycle Toggle", "xc.Btn_BACK.AltDown.slot=Home All"}
 
-    for _, map in ipairs(defaultProfile) do
-        local attrib, value = string.gmatch(map, "(%w+)=(%w+)")
-        if tonumber(value) then
-            mc.mcProfileWriteDouble(inst, "ControllerProfile-default",attrib,value)
-        else
-            mc.mcProfileWriteString(inst, "ControllerProfile-default",attrib,value)
+        for _, map in ipairs(defaultProfile) do
+            for attrib, value in string.gmatch(map, "(.+)=(.+)") do
+                if tonumber(value) then
+                    mc.mcProfileWriteDouble(inst, "ControllerProfile-0", attrib, value)
+                else
+                    mc.mcProfileWriteString(inst, "ControllerProfile-0", attrib, value)
+                end
+            end
         end
     end
 end
+
+writeDefaultProfile()
+
+-- Gather all saved profiles from machine.ini and store them in profiles table
+local function getProfiles()
+    local i = 0
+    local section = string.format("ControllerProfile-%s", i)
+    local output = {}
+
+    while mc.mcProfileExists(inst, section, "xc.profileId") == mc.MC_TRUE do
+        output[i] = mc.mcProfileGetString(inst, section, "profileName", "")
+        i = i + 1
+        section = string.format("ControllerProfile-%s", i)
+    end
+    return output
+end
+local profiles = getProfiles()
 
 --- Alias for a helpful one-liner.  If x ~= y, assign y to x.
 ---@param x any @a variable
@@ -111,6 +149,8 @@ local function setIfNotEqual(x, y)
     x = (x ~= y) and y or x
 end
 
+-- TODO: ThumbstickAxis class is missing two of its descriptors
+-- TODO: Ensure profile numbers are implemented everywhere
 -- TODO: implement more user-friendly names for inputs to use in the GUI
 -- TODO: test slot functions provided by scr.DoFunctionName.
 -- TODO: implement profile saving
@@ -119,33 +159,33 @@ end
 -- TODO: once tested, map screen functions to mapSimpleJog method
 -- TODO: Something seems to be not working entirely as intended with ThumbstickAxis:connect method. The Jog rate doesn't seem to always update appropriately.
 -- TODO: update docs 
--- TODO: create default controller profile
 -- TODO: finish testing controller polling rate
 
 --- An object representing an Xbox controller connected to Mach4.
 ---@class Controller
 ---@field profileName string
+---@field profileId number
 ---@field id string
----@field UP Button
----@field DOWN Button
----@field RIGHT Button
----@field LEFT Button
----@field A Button
----@field X Button
----@field B Button
----@field Y Button
----@field START Button
----@field BACK Button
----@field LTH Button
----@field RTH Button
----@field LSB Button
----@field RSB Button
----@field LTR Trigger
----@field RTR Trigger
----@field LTH_Y ThumbstickAxis
----@field RTH_Y ThumbstickAxis
----@field LTH_X ThumbstickAxis
----@field RTH_X ThumbstickAxis
+---@field DPad_UP Button
+---@field DPad_DOWN Button
+---@field DPad_RIGHT Button
+---@field DPad_LEFT Button
+---@field Btn_A Button
+---@field Btn_X Button
+---@field Btn_B Button
+---@field Btn_Y Button
+---@field Btn_START Button
+---@field Btn_BACK Button
+---@field Btn_LTH Button
+---@field Btn_RTH Button
+---@field Btn_LS Button
+---@field Btn_RS Button
+---@field LTR_Val Trigger
+---@field RTR_Val Trigger
+---@field LTH_Y_Val ThumbstickAxis
+---@field RTH_Y_Val ThumbstickAxis
+---@field LTH_X_Val ThumbstickAxis
+---@field RTH_X_Val ThumbstickAxis
 ---@field inputs table
 ---@field axes table
 ---@field shiftButton Button|nil
@@ -167,47 +207,66 @@ function Controller.new()
     local self = setmetatable({}, Controller)
     self.id = "Controller"
     self.profileName = ""
+    self.profileId = 0
     self.shiftButton = ""
     self.jogIncrement = 0
     self.logLevel = 0
     self.xYReversed = false
     self.frequency = 0
     self.simpleJogMapped = false
-    self.UP = self:newButton("DPad_UP")
-    self.DOWN = self:newButton("DPad_DOWN")
-    self.RIGHT = self:newButton("DPad_RIGHT")
-    self.LEFT = self:newButton("DPad_LEFT")
-    self.A = self:newButton("Btn_A")
-    self.B = self:newButton("Btn_B")
-    self.X = self:newButton("Btn_X")
-    self.Y = self:newButton("Btn_Y")
-    self.START = self:newButton("Btn_START")
-    self.BACK = self:newButton("Btn_BACK")
-    self.LTH = self:newButton("Btn_LTH")
-    self.RTH = self:newButton("Btn_RTH")
-    self.LSB = self:newButton("Btn_LS")
-    self.RSB = self:newButton("Btn_RS")
-    self.LTR = self:newTrigger("LTR_Val")
-    self.RTR = self:newTrigger("RTR_Val")
-    self.LTH_Y = self:newThumbstickAxis("LTH_Y_Val")
-    self.RTH_X = self:newThumbstickAxis("RTH_X_Val")
-    self.RTH_Y = self:newThumbstickAxis("RTH_Y_Val")
-    self.LTH_X = self:newThumbstickAxis("LTH_X_Val")
-    self.inputs = {self.UP, self.DOWN, self.RIGHT, self.LEFT, self.A, self.B, self.X, self.Y, self.START, self.BACK,
-                   self.LTH, self.RTH, self.LSB, self.RSB, self.LTR, self.RTR}
-    self.axes = {self.LTH_X, self.LTH_Y, self.RTH_X, self.RTH_Y}
+    self.DPad_UP = self:newButton("DPad_UP")
+    self.DPad_DOWN = self:newButton("DPad_DOWN")
+    self.DPad_RIGHT = self:newButton("DPad_RIGHT")
+    self.DPad_LEFT = self:newButton("DPad_LEFT")
+    self.Btn_A = self:newButton("Btn_A")
+    self.Btn_B = self:newButton("Btn_B")
+    self.Btn_X = self:newButton("Btn_X")
+    self.Btn_Y = self:newButton("Btn_Y")
+    self.Btn_START = self:newButton("Btn_START")
+    self.Btn_BACK = self:newButton("Btn_BACK")
+    self.Btn_LTH = self:newButton("Btn_LTH")
+    self.Btn_RTH = self:newButton("Btn_RTH")
+    self.Btn_LS = self:newButton("Btn_LS")
+    self.Btn_RS = self:newButton("Btn_RS")
+    self.LTR_Val = self:newTrigger("LTR_Val")
+    self.RTR_Val = self:newTrigger("RTR_Val")
+    self.LTH_Y_Val = self:newThumbstickAxis("LTH_Y_Val")
+    self.RTH_X_Val = self:newThumbstickAxis("RTH_X_Val")
+    self.RTH_Y_Val = self:newThumbstickAxis("RTH_Y_Val")
+    self.LTH_X_Val = self:newThumbstickAxis("LTH_X_Val")
+    self.inputs = {self.DPad_UP, self.DPad_DOWN, self.DPad_RIGHT, self.DPad_LEFT, self.Btn_A, self.Btn_B, self.Btn_X,
+                   self.Btn_Y, self.Btn_START, self.Btn_BACK, self.Btn_LTH, self.Btn_RTH, self.Btn_LS, self.Btn_RS,
+                   self.LTR_Val, self.RTR_Val}
+    self.axes = {self.LTH_X_Val, self.LTH_Y_Val, self.RTH_X_Val, self.RTH_Y_Val}
     self.logLevels = {"ERROR", "WARNING", "INFO", "DEBUG"}
     self.slots = {}
     local names = {"Cycle Start", "Cycle Stop", "Feed Hold", "Enable On", "Soft Limits On", "Soft Limits Off",
                    "Soft Limits Toggle", "Position Remember", "Position Return", "Limit OV On", "Limit OV Off",
-                   "Limit OV Toggle", "Jog Mode Toggle", "Jog Mode Step", "Jog Mode Continuous", "Jog X+", "Jog Y+",
-                   "Jog Z+", "Jog A+", "Jog B+", "Jog C+", "Jog X-", "Jog Y-", "Jog Z-", "Jog A-", "Jog B-", "Jog C-",
-                   "Home All", "Home X", "Home Y", "Home Z", "Home A", "Home B", "Home C"}
-    for i, name in ipairs(names) do
+                   "Limit OV Toggle", "Jog Mode Toggle", "Jog Mode Step", "Jog Mode Continuous", "Jog X Off",
+                   "Jog Y Off", "Jog Z Off", "Jog A Off", "Jog B Off", "Jog C Off", "Jog X+", "Jog Y+", "Jog Z+",
+                   "Jog A+", "Jog B+", "Jog C+", "Jog X-", "Jog Y-", "Jog Z-", "Jog A-", "Jog B-", "Jog C-", "Home All",
+                   "Home X", "Home Y", "Home Z", "Home A", "Home B", "Home C"}
+    for _, name in ipairs(names) do
         self:newSlot(name, function()
             scr.DoFunctionName(name)
         end)
     end
+
+    self:newSlot('xcJogIncUp', function()
+        mc.mcJogIncStart(inst, self.xYReversed and mc.Y_AXIS or mc.X_AXIS, self.jogIncrement)
+    end)
+
+    self:newSlot('xcJogIncDown', function()
+        mc.mcJogIncStart(inst, self.xYReversed and mc.Y_AXIS or mc.X_AXIS, -1 * self.jogIncrement)
+    end)
+
+    self:newSlot('xcJogIncRight', function()
+        mc.mcJogIncStart(inst, self.xYReversed and mc.X_AXIS or mc.Y_AXIS, self.jogIncrement)
+    end)
+
+    self:newSlot('xcJogIncLeft', function()
+        mc.mcJogIncStart(inst, self.xYReversed and mc.X_AXIS or mc.Y_AXIS, -1 * self.jogIncrement)
+    end)
 
     self:newSlot("Enable Off", function()
         local state = mc.mcCntlGetState(inst)
@@ -284,16 +343,8 @@ function Controller.new()
         end
     end)
 
-    --[[
-    self:newDescriptor(self, "shiftButton", "object")
-    self:newDescriptor(self, "jogIncrement", "number")
-    self:newDescriptor(self, "logLevel", "number")
-    self:newDescriptor(self, "xYReversed", "boolean")
-    self:newDescriptor(self, "frequency", "number")
-    self:newDescriptor(self, "simpleJogMapped", "boolean")
-    self:newDescriptor(self, "profileName", "string")]]
-
     self:loadProfile(getProfile())
+
     return self
 end
 
@@ -313,7 +364,8 @@ function Controller.isCorrectSelf(self)
         error(
             string.format("Method %s was probably called with . instead of : at line %d.", info.name, info.currentline))
     end
-    error(string.format("function Controller.isCorrectSelf should only be called from within a method! line: %d", info.currentline))
+    error(string.format("function Controller.isCorrectSelf should only be called from within a method! line: %d",
+        info.currentline))
 end
 
 --- Type checking for custom types used by this module.
@@ -353,13 +405,14 @@ function Controller.typeCheck(objects, types)
     end
 end
 
---- Retrieve a numeric value from the profile.ini file.
----@param section string @The section of the profile.ini file to read from
+--- Retrieve a numeric value from the profile.ini file.  This function will always return a value of the proper type
+--- If the given section and key don't exist, they are created, assigned a default value and the default value is returned.
+---@param section number @The profileId of the selected profile
 ---@param key string @The key from the section to retrieve
 ---@return number|boolean @The retrieved value or false if an error was encountered
 function Controller:xcProfileGetDouble(section, key)
     local val, rc = mc.mcProfileGetDouble(inst, section, key, 0)
-	mc.mcProfileFlush(inst)
+    mc.mcProfileFlush(inst)
     if rc == mc.MERROR_NOERROR then
         return val
     end
@@ -372,7 +425,7 @@ end
 ---@return string|boolean @The retrieved value or `false` if an error was encountered
 function Controller:xcProfileGetString(section, key)
     local val, rc = mc.mcProfileGetString(inst, section, key, '')
-	mc.mcProfileFlush(inst)
+    mc.mcProfileFlush(inst)
     if rc == mc.MERROR_NOERROR then
         return val
     end
@@ -517,8 +570,8 @@ end
 ---@param reg string @The register to read format
 ---@return number|nil @The number retrieved from the register or nil if not found
 function Controller:xcGetRegValue(reg)
-    Controller.isCorrectSelf(self) 
-    Controller.typeCheck({reg}, {"string"}) 
+    Controller.isCorrectSelf(self)
+    Controller.typeCheck({reg}, {"string"})
     local hreg, rc = mc.mcRegGetHandle(inst, reg)
     if rc == mc.MERROR_NOERROR then
         local val, rc = mc.mcRegGetValue(hreg)
@@ -536,8 +589,8 @@ end
 ---@param signal number the Mach4 signal to check
 ---@return boolean|nil true if signal is 1 false in the case of 0 or nil if not found
 function Controller:xcGetMachSignalState(signal)
-    Controller.isCorrectSelf(self) 
-    Controller.typeCheck({signal}, {"number"}) 
+    Controller.isCorrectSelf(self)
+    Controller.typeCheck({signal}, {"number"})
     local hsig, rc = mc.mcSignalGetHandle(inst, signal)
     if rc == mc.MERROR_NOERROR then
         local val, rc = mc.mcSignalGetState(hsig)
@@ -554,8 +607,8 @@ end
 --- Toggle the state of a Mach4 signal.
 ---@param signal number @The Mach4 signal to toggle
 function Controller:xcToggleMachSignalState(signal)
-    Controller.isCorrectSelf(self) 
-    Controller.typeCheck({signal}, {"number"}) 
+    Controller.isCorrectSelf(self)
+    Controller.typeCheck({signal}, {"number"})
     local hsig, rc = mc.mcSignalGetHandle(inst, signal)
     if rc == mc.MERROR_NOERROR then
         self:xcErrorCheck(mc.mcSignalSetState(hsig, not mc.mcSignalGetState(inst, hsig)))
@@ -566,8 +619,8 @@ end
 ---@param msg string @The message to log
 ---@param level number @The logging level to display the message at
 function Controller:xcCntlLog(msg, level)
-    Controller.isCorrectSelf(self) 
-    Controller.typeCheck({msg, level}, {"string", "number"}) 
+    Controller.isCorrectSelf(self)
+    Controller.typeCheck({msg, level}, {"string", "number"})
     if self.logLevel == 0 then
         return
     end
@@ -583,8 +636,8 @@ end
 --- Check Mach4 error return codes.
 ---@param rc number the return code to check
 function Controller:xcErrorCheck(rc)
-    Controller.isCorrectSelf(self) 
-    Controller.typeCheck({rc}, {"number"}) 
+    Controller.isCorrectSelf(self)
+    Controller.typeCheck({rc}, {"number"})
     if rc ~= mc.MERROR_NOERROR then
         self:xcCntlLog(mc.mcCntlGetErrorString(inst, rc), 1)
     end
@@ -592,7 +645,7 @@ end
 
 --- Retrieve the state of the xbox controller.
 function Controller:update()
-    Controller.isCorrectSelf(self) 
+    Controller.isCorrectSelf(self)
     if self.shiftButton ~= nil then
         self.shiftButton:getState()
     end
@@ -609,8 +662,8 @@ end
 --- Assign an input as the controller's shift button.
 ---@param input Button|Trigger @The input to assign as a shift button
 function Controller:assignShift(input)
-    Controller.isCorrectSelf(self) 
-    Controller.typeCheck({input}, {{"Button", "Trigger"}}) 
+    Controller.isCorrectSelf(self)
+    Controller.typeCheck({input}, {{"Button", "Trigger"}})
     if self.shiftButton ~= nil then
         self:xcCntlLog(string.format(
             "Call to assign a shift button with a shift button already assigned.\n%s will be unassigned before assigning new shift button.",
@@ -623,43 +676,23 @@ end
 --- Convenience method to map jogging to the DPad, and incremental jogging to the DPad's alternate function.
 function Controller:mapSimpleJog()
     self:xcCntlLog(string.format("Value of reversed flag for axis orientation: %s", tostring(self.xYReversed)), 4)
-    self.UP.Down:connect(self:newSlot('xcJogUp', function()
-        mc.mcJogVelocityStart(inst, (self.xYReversed and mc.Y_AXIS) or mc.X_AXIS, mc.MC_JOG_POS)
-    end))
-    self.UP.Up:connect(self:newSlot('xcJogStopY', function()
-        mc.mcJogVelocityStop(inst, (self.xYReversed and mc.Y_AXIS) or mc.X_AXIS)
-    end))
-    self.DOWN.Down:connect(self:newSlot('xcJogDown', function()
-        mc.mcJogVelocityStart(inst, (self.xYReversed and mc.Y_AXIS) or mc.X_AXIS, mc.MC_JOG_NEG)
-    end))
-    self.DOWN.Up:connect(self:xcGetSlotById('xcJogStopY'))
-    self.RIGHT.Down:connect(self:newSlot('xcJogRight', function()
-        mc.mcJogVelocityStart(inst, (self.xYReversed and mc.X_AXIS) or mc.Y_AXIS, mc.MC_JOG_POS)
-    end))
-    self.RIGHT.Up:connect(self:newSlot('xcJogStopX', function()
-        mc.mcJogVelocityStop(inst, (self.xYReversed and mc.X_AXIS) or mc.Y_AXIS)
-    end))
-    self.LEFT.Down:connect(self:newSlot('xcJogLeft', function()
-        mc.mcJogVelocityStart(inst, (self.xYReversed and mc.X_AXIS) or mc.Y_AXIS, mc.MC_JOG_NEG)
-    end))
-    self.LEFT.Up:connect(self:xcGetSlotById('xcJogStopX'))
+    self.DPad_UP.Down:connect(self.xYReversed and self:xcGetSlotById("Jog Y+") or self:xcGetSlotById("Jog X+"))
+    self.DPad_UP.Up:connect(self.xYReversed and self:xcGetSlotById("Jog Y Off") or self:xcGetSlotById("Jog X Off"))
+    self.DPad_DOWN.Down:connect(self.xYReversed and self:xcGetSlotById("Jog Y-") or self:xcGetSlotById("Jog X-"))
+    self.DPad_DOWN.Up:connect(self.xYReversed and self:xcGetSlotById("Jog Y Off") or self:xcGetSlotById("Jog X Off"))
+    self.DPad_RIGHT.Down:connect(self.xYReversed and self:xcGetSlotById("Jog X+") or self:xcGetSlotById("Jog Y+"))
+    self.DPad_RIGHT.Up:connect(self.xYReversed and self:xcGetSlotById("Jog X Off") or self:xcGetSlotById("Jog Y Off"))
+    self.DPad_LEFT.Down:connect(self.xYReversed and self:xcGetSlotById("Jog X-") or self:xcGetSlotById("Jog Y-"))
+    self.DPad_LEFT.Up:connect(self.xYReversed and self:xcGetSlotById("Jog X Off") or self:xcGetSlotById("Jog Y Off"))
     if self.xYReversed then
         self:xcCntlLog("Standard velocity jogging with X and Y axis orientation reversed mapped to D-pad", 3)
     else
         self:xcCntlLog("Standard velocity jogging mapped to D-pad", 3)
     end
-    self.UP.AltDown:connect(self:newSlot('xcJogIncUp', function()
-        mc.mcJogIncStart(inst, self.xYReversed and mc.Y_AXIS or mc.X_AXIS, self.jogIncrement)
-    end))
-    self.DOWN.AltDown:connect(self:newSlot('xcJogIncDown', function()
-        mc.mcJogIncStart(inst, self.xYReversed and mc.Y_AXIS or mc.X_AXIS, -1 * self.jogIncrement)
-    end))
-    self.RIGHT.AltDown:connect(self:newSlot('xcJogIncRight', function()
-        mc.mcJogIncStart(inst, self.xYReversed and mc.X_AXIS or mc.Y_AXIS, self.jogIncrement)
-    end))
-    self.LEFT.AltDown:connect(self:newSlot('xcJogIncLeft', function()
-        mc.mcJogIncStart(inst, self.xYReversed and mc.X_AXIS or mc.Y_AXIS, -1 * self.jogIncrement)
-    end))
+    self.DPad_UP.AltDown:connect(self:xcGetSlotById("xcJogIncUp"))
+    self.DPad_DOWN.AltDown:connect(self:xcGetSlotById("xcJogIncDown"))
+    self.DPad_RIGHT.AltDown:connect(self:xcGetSlotById("xcJogIncRight"))
+    self.DPad_LEFT.AltDown:connect(self:xcGetSlotById("xcJogIncLeft"))
     if self.xYReversed then
         self:xcCntlLog("Incremental jogging with X and Y axis orientation reversed mapped to D-pad alternate function",
             3)
@@ -713,19 +746,20 @@ end
 ---@param id string @A unique identifier for the Slot 
 ---@return Slot @The new Slot instance
 function Controller:newSlot(id, func)
-    Controller.isCorrectSelf(self) 
+    Controller.isCorrectSelf(self)
     Controller.typeCheck({id, func}, {"string", "function"})
     return Slot.new(self, id, func)
 end
 
 --- Create and save configuration profile.
-function Controller:createProfile(id)
-    xc:xcCntlLog("Building controller profile:",4)
-    local section = string.format("ControllerProfile-%s", id)
+function Controller:createProfile(name)
+    xc:xcCntlLog("Building controller profile:", 4)
+    local section = string.format("ControllerProfile-%s", #profiles + 1)
     local profile = {}
     for _, desc in ipairs(descriptorsStorage[self.id]) do
         profile[desc:lookup()] = desc:get()
     end
+    profile["xc.profileName"] = name
     for _, input in ipairs(self.inputs) do
         for _, desc in ipairs(descriptorsStorage[input.id]) do
             profile[desc:lookup()] = desc:get()
@@ -736,86 +770,110 @@ function Controller:createProfile(id)
             profile[desc:lookup()] = desc:get()
         end
     end
-    for k,v in pairs(profile) do
+    for k, v in pairs(profile) do
         if type(v) == "number" then
             self:xcProfileWriteDouble(section, k, v)
         else
             self:xcProfileWriteString(section, k, v)
         end
     end
+
 end
 
-
 --- Load a saved controller configuration.
----@param id string @The name of the saved config
+---@param id number the id number of the profile (0 for default)
 function Controller:loadProfile(id)
     local section = string.format("ControllerProfile-%s", id)
-    self.profileName = id
-    self:newDescriptor(self, "profileName", "string")
-    if mc.mcProfileExists(inst, section, "profileName") == mc.MC_TRUE then
+    self.profileId = id
+    if mc.mcProfileExists(inst, section, "xc.profileName") == mc.MC_TRUE then
         local numAttribs = {"jogIncrement", "logLevel", "frequency"}
-        local stringAttribs = {"shiftButton", "xYReversed","simpleJogMapped","profileName"}
+        local stringAttribs = {"shiftButton", "xYReversed", "simpleJogMapped", "profileName"}
         for _, attrib in ipairs(numAttribs) do
-            if mc.mcProfileExists(inst, section, string.format("xc.%s",attrib)) == mc.MC_TRUE then
-                local val = self:xcProfileGetDouble(section, string.format("xc.%s",attrib))
+            if mc.mcProfileExists(inst, section, string.format("xc.%s", attrib)) == mc.MC_TRUE then
+                local val = self:xcProfileGetDouble(section, string.format("xc.%s", attrib))
                 if type(val) == "number" then
                     self[attrib] = val
                     self:newDescriptor(self, attrib, "number")
+                    self:xcCntlLog(string.format("returning a descriptor for %s.%s = %s", self.id, attrib, val), 4)
                 end
             end
         end
         for _, attrib in ipairs(stringAttribs) do
-            if mc.mcProfileExists(inst, section, string.format("xc.%s",attrib)) == mc.MC_TRUE then
-                local val = self:xcProfileGetString(section, string.format("xc.%s",attrib))
+            if mc.mcProfileExists(inst, section, string.format("xc.%s", attrib)) == mc.MC_TRUE then
+                local val = self:xcProfileGetString(section, string.format("xc.%s", attrib))
                 if type(val) == "string" then
                     if attrib == "shiftButton" then
                         self.shiftButton = self:xcGetInputById(val)
                         self:newDescriptor(self, "shiftButton", "object")
+                        self:xcCntlLog(string.format("returning a descriptor for self.shiftButton = %s", val), 4)
                     elseif attrib == "xYReversed" then
                         self.xYReversed = val == true
                         self:newDescriptor(self, "xYReversed", "boolean")
+                        self:xcCntlLog(string.format("returning a descriptor for self.xYReversed = %s", val), 4)
                     elseif attrib == "simpleJogMapped" then
                         self.simpleJogMapped = val == true
                         self:newDescriptor(self, "simpleJogMapped", "boolean")
+                        self:xcCntlLog(string.format("returning a descriptor for self.simpleJogMapped = %s", val), 4)
                         if self.simpleJogMapped then
                             self:mapSimpleJog()
-                        end                           
+                        end
+                    else
+                        self[attrib] = val
+                        self:newDescriptor(self, attrib, "string")
+                        self:xcCntlLog(string.format("returning a descriptor for %s = %s", attrib, val), 4)
                     end
                 end
             end
         end
         for _, input in ipairs(self.inputs) do
-            for _, signal in ipairs(input.signals) do
-                if mc.mcProfileExists(inst, section, string.format("xc.%s.%s.slot", input.id, signal.id)) == mc.MC_TRUE then
-                    local val = self:xcProfileGetString(section, string.format("xc.%s.%s.slot", input.id, signal.id))
+            for i, signal in ipairs(input.signals) do
+                local lookup = string.format("xc.%s.%s.slot", input.id, signal.id)
+                if mc.mcProfileExists(inst, section, lookup) == mc.MC_TRUE then
+                    local val = string.strip(self:xcProfileGetString(section, lookup))
                     if type(val) == "string" then
-                        self[input.id][signal.id].slot = self:xcGetSlotById(val)
-                        self:newDescriptor(input, signal.id, "object")
+                        input[signal.id].slot = self:xcGetSlotById(val)
+                        self:newDescriptor(signal, "slot", "object")
+                        self:xcCntlLog(
+                            string.format("returning a descriptor for %s.%s = %s", input.id, input.signals[i], val), 4)
                     end
                 end
             end
         end
         for _, axis in ipairs(self.axes) do
-            if mc.mcProfileExists(inst, section, string.format("xc.%s.axis",axis)) == mc.MC_TRUE then
-                local val = self:xcProfileGetDouble(section, string.format("xc.%s.axis",axis))
+            if mc.mcProfileExists(inst, section, string.format("xc.%s.axis", axis)) == mc.MC_TRUE then
+                -- deadzone, axis, inverted
+                local val = self:xcProfileGetDouble(section, string.format("xc.%s.axis", axis))
                 if type(val) == "number" then
                     self[axis.id][axis] = val
                     self:newDescriptor(axis, "axis", "number")
+                    self:xcCntlLog(string.format("returning a descriptor for xc.%s.axis = %s", axis.id, val), 4)
+                end
+                local val = self:xcProfileGetDouble(section, string.format("xc.%s.deadzone = %s", axis.id, val), 4)
+                if type(val) == "number" then
+                    self[axis.id]["deadzone"] = val
+                    self:newDescriptor(axis, "deadzone", "number")
+                    self:xcCntlLog(string.format("returning a descriptor for %s.deadzone = %s", axis.id, val), 4)
+                end
+                local val = self:xcProfileGetString(section, string.format("xc.%s.inverted", axis))
+                if type(val) == "string" then
+                    self[axis.id]["inverted"] = val == true
+                    self:newDescriptor(axis, "inverted", "boolean")
+                    self:xcCntlLog(string.format("returning a descriptor for xc.%s.inverted = %s", axis.id, val), 4)
                 end
             end
         end
+        print("setting last used profile", self.profileId)
+        self:xcProfileWriteDouble("XBC4MACH4", "profileId", self.profileId)
     else
-        self:xcCntlLog(string.format("No profile found for name: %s", id),1)
+        self:xcCntlLog(string.format("No profile found for name: %s", id), 1)
     end
-    self:xcProfileWriteString("XBC4MACH4", "profileName", self.profileName)
 end
 
-    xc = Controller.new()
+xc = Controller.new()
 ---------------------------------
 --- Custom Configuration Here ---
 
-
- --[[   xc.logLevel = 4
+--[[   xc.logLevel = 4
     xc:assignShift(xc.LTR)
     xc.RTH_Y:connect(mc.Z_AXIS)
     xc.xYReversed = true
@@ -831,7 +889,7 @@ end
     xc.BACK.AltDown:connect(xc:xcGetSlotById('Home All'))
     --xc.START.altDown:connect(xc:xcGetSlotById('Home Z'))
 
-   ]] --xc:createProfile("default")
+   ]] -- xc:createProfile("default")
 -- End of custom configuration ---
 ----------------------------------
 local mcLuaPanelParent = mcLuaPanelParent
@@ -844,7 +902,9 @@ local treeSizer = wx.wxStaticBoxSizer(treeBox, wx.wxVERTICAL)
 local tree = wx.wxTreeCtrl.new(mcLuaPanelParent, wx.wxID_ANY, wx.wxDefaultPosition, wx.wxSize(100, -1),
     wx.wxTR_HAS_BUTTONS, wx.wxDefaultValidator, "tree")
 local root_id = tree:AddRoot(xc.id)
-local treedata = {[root_id:GetValue()] = xc}
+local treedata = {
+    [root_id:GetValue()] = xc
+}
 for i = 1, #xc.inputs do
     local child_id = tree:AppendItem(root_id, xc.inputs[i].id)
     treedata[child_id:GetValue()] = xc.inputs[i]
@@ -880,7 +940,6 @@ mainSizer:Add(propSizer, 1, wx.wxEXPAND + wx.wxALL, 5)
 mcLuaPanelParent:SetSizer(mainSizer)
 mainSizer:Layout()
 
-
 function Controller.go()
     xc:xcCntlLog("Creating X360_timer", 4)
     X360_timer = wx.wxTimer(mcLuaPanelParent)
@@ -891,17 +950,16 @@ function Controller.go()
     X360_timer:Start(1000 / xc.frequency)
 
     mcLuaPanelParent:Connect(wx.wxEVT_CLOSE_WINDOW, function(event)
-        print("Window is closing")
-    
+
         -- Stop the timer if running
         if X360_timer then
             X360_timer:Stop()
             X360_timer = nil
         end
-    
+
         -- Destroy the window to clean up
         mcLuaPanelParent:Destroy()
-    
+
         -- Call this to make sure the event loop exits
         wx.wxGetApp():ExitMainLoop()
     end)
@@ -914,5 +972,11 @@ end
 if mc.mcInEditor() == 1 then
     xc.go()
 end
-return xc
+return {
+    Controller = Controller,
+    writeDefaultProfile = writeDefaultProfile,
+    getProfile = getProfile,
+    getProfiles = getProfiles,
+    string = string
+}
 

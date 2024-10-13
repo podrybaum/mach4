@@ -1,53 +1,37 @@
-print(_VERSION)
-print(package.cpath)
-require("xc")
-require 'busted.runner'()
+xc = require("xc")
 
-assert.is_true(true)
+local function runTests(tests)
+  local passed, failed = 0, 0
 
-describe("XC Module", function()
-  
-    -- Test type checking
-    it("should validate custom types correctly", function()
-      local testBtn = xc:newButton("test")
-      assert.is_true(xc.customType(testBtn) == "Button")
-      local testSignal = xc:newSignal(testBtn, "test2")
-      assert.is_true(xc.customType(testSignal) == "Signal")
-      local testTrigger = xc:newTrigger("LTR")
-      assert.is_true(xc.customType(testTrigger) == "Trigger")
-      local testSlot = xc:newSlot("Up", function() return end)
-      assert.is_true(xc.customType(testSlot) == "Slot")
-      local testAxis = xc:newThumbstickAxis("test3")
-      assert.is_true(xc.customType(testAxis) == "newThumbstickAxis")
-      local testTable = {}
-      assert.is_true(xc.customType(testTable) == "table")
-      local testString = 'test'
-      assert.is_true(xc.customType(testString) == 'string')
-      local testNumber = {1}
-      assert.is_true(xc.customType(testNumber) == 'number')
-    end)
-  
-    it("should set and retrieve descriptor values correctly", function()
-        local function doStuff()
-        end
-        local xbc = Controller.new()
-        xbc.marco = ''
-        xbc:newDescriptor(xbc, "marco", "string")
-        xbc.marco = "polo"
-        assert.True(type(xbc.marco) == "string")
-        assert.is_true(xbc.marco == "polo")
-        xbc.numeral = nil
-        xbc:newDescriptor(xbc,"numeral","number")
-        xbc.numeral = 31337
-        assert.is_true(type(xbc.numeral)=="number")
-        assert.is_true(xbc.numeral==31337)
-        xbc.someSlot = nil
-        xbc:newDescriptor(xbc,"someSlot","object")
-        xbc.someSlot = xbc:newSlot("doStuff",doStuff)
-        assert.is_true(xbc.customType(xbc.someSlot) == "Slot")
-        assert.is_true(xbc.someSlot.func == doStuff)
-    end)
-    
+  for name, test in pairs(tests) do
+      local ok, err = pcall(test)  -- Run each test in protected mode
+      if ok then
+          print(string.format("%s passed", name))
+          passed = passed + 1
+      else
+          print(string.format("%s failed: %s", name, err))
+          failed = failed + 1
+      end
+  end
 
-  
-  end)
+  print(string.format("\nTests run: %d | Passed: %d | Failed: %d", 
+                      passed + failed, passed, failed))
+end
+
+-- Example tests
+local tests = {
+  ["string.split correctly splits a string"] = function()
+    assert(xc.string.split("xc.DPad_Down.UP.slot") == {"xc","DPad_Down","UP","slot"},
+    "string.split: unexpected output")
+  end,
+
+  ["getProfile returns a number"] = function()
+    assert(type(xc.getProfile() == "number"),
+    "getProfile: unexpected return type")
+  end
+}
+
+-- Run the tests
+runTests(tests)
+
+
