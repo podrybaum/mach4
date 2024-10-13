@@ -1,24 +1,10 @@
----@diagnostic disable: lowercase-global
-package.cpath = package.cpath .. ";C:/Program Files (x86)/Lua/5.1/clibs/?.dll;"
-
 wx = require("wx")
 
--- Helper: Write `profileData` back to the INI file
-function saveIniFile()
-    local iniFile = io.open("machine.ini", "w")
-    for section, data in pairs(profileData) do
-        iniFile:write(string.format("[%s]\n", section))
-        for key, value in pairs(data) do
-            iniFile:write(string.format("%s=%s\n", key, value))
-        end
-    end
-    iniFile:close()
-end
 -- Make profileData global to access it across modules
 profileData = {}
 
 -- Helper function to trim leading and trailing whitespace
-local function trim(s)
+function trim(s)
     return s:match("^%s*(.-)%s*$")
 end
 
@@ -49,6 +35,20 @@ function loadIniFile()
     iniFile:close()
 end
 
+-- Helper: Write `profileData` back to the INI file
+function saveIniFile()
+    local iniFile = io.open("machine.ini", "w")
+    if iniFile ~= nil then
+        for section, data in pairs(profileData) do
+            iniFile:write(string.format("[%s]\n", section))
+            for key, value in pairs(data) do
+                iniFile:write(string.format("%s=%s\n", key, value))
+            end
+        end
+        iniFile:close()
+    end
+end
+
 mc = {
     mcCntlLog = function(inst, message, style, level)
         print("[MOCK LOG]: " .. message)
@@ -59,7 +59,7 @@ mc = {
     end,
     mcSignalSetState = function(handle, state)
         print("[MOCK]: mcSignalSetState called on handle " .. tostring(handle) .. " with state " .. tostring(state))
-        return 1 --- return a dummy state
+        return 0
     end,
     mcSignalGetState = function(inst, handle)
         print("[MOCK]: mcSignalGetState called on handle:" .. handle)
@@ -67,6 +67,7 @@ mc = {
     end,
     mcCntlEnable = function(inst, state)
         print("[MOCK]: mcCntlEnable called with state: " .. tostring(state))
+        return 0
     end,
     mcJogVelocityStart = function(inst, axis, direction)
         print("[MOCK]: Jog started on axis " .. tostring(axis) .. " in direction " .. tostring(direction))
@@ -86,34 +87,37 @@ mc = {
     end,
     mcJogIncStart = function(inst, axis, increment)
         print("[MOCK]: Incremental jog on axis " .. tostring(axis) .. " by " .. tostring(increment))
+        return 0
     end,
     mcCntlCycleStart = function(inst)
         print("[MOCK]: Cycle start")
+        return 0
     end,
     mcCntlFeedHold = function(inst)
         print("[MOCK]: Feed hold")
+        return 0
     end,
     mcGetInstance = function()
         print("[MOCK]: mcGetInstance called")
         return 0 -- Return a dummy instance
     end,
     mcRegGetHandle = function(inst, regName)
-        return keyMap[regName] or 0, 0 -- Return key code or 0 if not found
+        return 123, 0 -- return dummy handle and 0 for success
     end,
     mcRegGetValue = function(handle)
-        return keyStates[handle] and 1 or 0, 0
+        return 123, 0 -- return dummy numeric value and 0 for success
     end,
     mcInEditor = function()
         return 1
     end,
     mcCntlGetErrorString = function(inst, rc)
-        return rc
+        return "This is an error string"
     end,
     mcProfileFlush = function(inst)
         return 0
     end,
     mcCntlGetState = function(inst)
-        return 0, 0
+        return 123, 0 -- return dummy state and 0 for success
     end,
     -- Mock function to check for section and key existence
     mcProfileExists = function(inst, section, key)
@@ -206,16 +210,4 @@ end
 
 mcLuaPanelParent = wx.wxFrame(wx.NULL, wx.wxID_ANY, "Mock Panel")
 
-keyMap = {
-    ["mcX360_LUA/DPad_UP"] = wx.WXK_UP,
-    ["mcX360_LUA/DPad_DOWN"] = wx.WXK_DOWN,
-    ["mcX360_LUA/DPad_LEFT"] = wx.WXK_LEFT,
-    ["mcX360_LUA/DPad_RIGHT"] = wx.WXK_RIGHT,
-    ["mcX360_LUA/Btn_A"] = string.byte("A"), -- Map 'A' button to the 'A' key
-    ["mcX360_LUA/Btn_B"] = string.byte("B") -- Map 'B' button to the 'B' key
-    -- Add more mappings as needed
-}
-
-keyStates = {}
-
-return {mc, wx, mcLuaPanelParent}
+return {mc, wx, mcLuaPanelParent, trim, loadIniFile, saveIniFile}
