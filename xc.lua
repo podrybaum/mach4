@@ -28,6 +28,21 @@ if mc.mcInEditor() == 1 then
     local luaPanelId = wx.wxNewId()
     mcLuaPanelParent = wx.wxFrame(wx.NULL, luaPanelId, "Mock Panel")
 end
+
+-- TODO: have profile functions handle a profile object, which is a table of concatenated strings
+-- TODO: will need a readProfile, createProfile, saveProfile, rework loadProfile
+-- NOTE: maybe createProfile is a method of Controller?  readProfile reads from machine.ini - both output profile objects
+-- NOTE: do we need a Profile class?
+-- TODO: loadProfile needs to copy the loaded profile into the active profile instead of loading it directly
+-- TODO: implement more user-friendly names for inputs to use in the GUI
+-- TODO: test slot functions provided by scr.DoFunctionName.
+-- TODO: implement profile saving
+-- TODO: unit tests
+-- TODO: installer script
+-- TODO: once tested, map screen functions to mapSimpleJog method
+-- TODO: Something seems to be not working entirely as intended with ThumbstickAxis:connect method. The Jog rate doesn't seem to always update appropriately.
+-- TODO: update docs 
+
 -- DEV_ONLY_END
 
 --- Extends Lua's builtin string library to add Python's .split method
@@ -96,32 +111,47 @@ local function getProfile()
     return mc.mcProfileGetDouble(inst, "XBC4MACH4", "xc.profileId", 0)
 end
 
--- Write default profile to machine.ini if it doesn't exist
-local function writeDefaultProfile()
-    if mc.mcProfileExists(inst, "ControllerProfile-0", "xc.profileName") == mc.MC_FALSE then
-        local defaultProfile = {"xc.LTH_Y_Val.deadzone=10.000000", "xc.RTH_X_Val.deadzone=10.000000",
-                                "xc.RTH_Y_Val.deadzone=10.000000", "xc.LTH_X_Val.deadzone=10.000000",
-                                "xc.jogIncrement=0.1", "xc.logLevel=2", "xc.xYReversed=false",
-                                "xc.frequency=4", "xc.simpleJogMapped=true", "xc.profileName=default",
-                                "xc.shiftButton=LTR_Val", "xc.RTH_Y_Val.axis=2.000000", "xc.RTH_Y_Val.inverted=false",
-                                "xc.DPad_UP.Down.slot=Jog X+", "xc.DPad_UP.Up.slot=Jog X Off",
-                                "xc.DPad_DOWN.Down.slot=Jog X-", "xc.DPad_DOWN.Up.slot=Jog X Off",
-                                "xc.DPad_RIGHT.Down.slot=Jog Y+", "xc.DPad_RIGHT.Up.slot=Jog Y Off",
-                                "xc.DPad_LEFT.Down.slot=Jog Y-", "xc.DPad_LEFT.Up.slot=Jog Y Off",
-                                "xc.DPad_UP.AltDown.slot=xcJogIncUp", "xc.DPad_DOWN.AltDown.slot=xcJogIncDown",
-                                "xc.DPad_RIGHT.AltDown.slot=xcJogIncRight", "xc.DPad_LEFT.AltDown.slot=xcJogIncLeft",
-                                "xc.Btn_B.Down.slot=E Stop Toggle", "xc.Btn_RS.Down.slot=Enable Toggle",
-                                "xc.Btn_X.Down.slot=XC Run Cycle Toggle", "xc.Btn_BACK.AltDown.slot=Home All"}
+local defaultProfile = {"xc.profileId=0","xc.profileName=default",
+    "xc.LTH_Y_Val.deadzone=10.000000", "xc.RTH_X_Val.deadzone=10.000000",                           
+    "xc.RTH_Y_Val.deadzone=10.000000", "xc.LTH_X_Val.deadzone=10.000000",
+    "xc.jogIncrement=0.1", "xc.logLevel=2", "xc.xYReversed=false",
+    "xc.frequency=4", "xc.simpleJogMapped=true", 
+    "xc.shiftButton=LTR_Val", "xc.RTH_Y_Val.axis=2.000000", "xc.RTH_Y_Val.inverted=false",
+    "xc.DPad_UP.Down.slot=Jog X+", "xc.DPad_UP.Up.slot=Jog X Off",
+    "xc.DPad_DOWN.Down.slot=Jog X-", "xc.DPad_DOWN.Up.slot=Jog X Off",
+    "xc.DPad_RIGHT.Down.slot=Jog Y+", "xc.DPad_RIGHT.Up.slot=Jog Y Off",
+    "xc.DPad_LEFT.Down.slot=Jog Y-", "xc.DPad_LEFT.Up.slot=Jog Y Off",
+    "xc.DPad_UP.AltDown.slot=xcJogIncUp", "xc.DPad_DOWN.AltDown.slot=xcJogIncDown",
+    "xc.DPad_RIGHT.AltDown.slot=xcJogIncRight", "xc.DPad_LEFT.AltDown.slot=xcJogIncLeft",
+    "xc.Btn_B.Down.slot=E Stop Toggle", "xc.Btn_RS.Down.slot=Enable Toggle",
+    "xc.Btn_X.Down.slot=XC Run Cycle Toggle", "xc.Btn_BACK.AltDown.slot=Home All"}
 
-        for _, map in ipairs(defaultProfile) do
-            for attrib, value in string.gmatch(map, "(.+)=(.+)") do
-                if tonumber(value) then
-                    mc.mcProfileWriteDouble(inst, "ControllerProfile-0", attrib, value)
-                else
-                    mc.mcProfileWriteString(inst, "ControllerProfile-0", attrib, value)
-                end
+local function writeProfile(profile)
+    for _, map in ipairs(profile) do
+        local id=0
+        for attrib, value in string.gmatch(map, "(.+)=(.+)") do
+            if attrib == "xc.profileId" then
+                id = value
+            end
+            if tonumber(value) then
+                mc.mcProfileWriteDouble(inst, id, attrib, value)
+            else
+                mc.mcProfileWriteString(inst, id, attrib, value)
             end
         end
+    end
+end 
+
+-- Write default profile to machine.ini if it doesn't exist
+local function writeDefaultProfile()
+    if mc.mcProfileExists(inst, "ControllerProfile-0", "xc.profileName") == mc.MC_FALSE then   
+       writeProfile(defaultProfile)
+    end
+    if mc.mcProfieExists(inst, "ControllerProfile-99", "xc.profileName") == mc.MC_FALSE then
+        local activeProfile = defaultProfile
+        activeProfile[1] = "xc.profileId=99"
+        activeProfile[2] = "xc.profileName=active"
+        writeProfile(activeProfile)
     end
 end
 
@@ -149,17 +179,7 @@ local function setIfNotEqual(x, y)
     x = (x ~= y) and y or x
 end
 
--- TODO: ThumbstickAxis class is missing two of its descriptors
--- TODO: Ensure profile numbers are implemented everywhere
--- TODO: implement more user-friendly names for inputs to use in the GUI
--- TODO: test slot functions provided by scr.DoFunctionName.
--- TODO: implement profile saving
--- TODO: unit tests
--- TODO: installer script
--- TODO: once tested, map screen functions to mapSimpleJog method
--- TODO: Something seems to be not working entirely as intended with ThumbstickAxis:connect method. The Jog rate doesn't seem to always update appropriately.
--- TODO: update docs 
--- TODO: finish testing controller polling rate
+
 
 --- An object representing an Xbox controller connected to Mach4.
 ---@class Controller
@@ -407,7 +427,7 @@ end
 
 --- Retrieve a numeric value from the profile.ini file.  This function will always return a value of the proper type
 --- If the given section and key don't exist, they are created, assigned a default value and the default value is returned.
----@param section number @The profileId of the selected profile
+---@param section string @The section header of the selected profile
 ---@param key string @The key from the section to retrieve
 ---@return number|boolean @The retrieved value or false if an error was encountered
 function Controller:xcProfileGetDouble(section, key)
