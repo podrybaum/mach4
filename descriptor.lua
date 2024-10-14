@@ -1,5 +1,3 @@
-descriptorsStorage = setmetatable({}, { __mode = "k" })
-
 --- An object that manages access to a specific attribute of another object.
 ---@class Descriptor
 ---@field controller Controller
@@ -111,8 +109,8 @@ end
 ---assigned to the attribute shadowed by a Descriptor!___
 function Descriptor:assign()
     -- Store descriptors globally
-    descriptorsStorage[self.object] = descriptorsStorage[self.object] or {}
-    table.insert(descriptorsStorage[self.object], self)
+    self.controller.profile.descriptors[self.object] = self.controller.profile.descriptors[self.object] or {}
+    table.insert(self.controller.profile.descriptors[self.object], self)
 
     -- Save the initial value to the profile
     
@@ -136,7 +134,7 @@ function Descriptor:assign()
             return nil
         end
 
-        local descriptors = descriptorsStorage[object]
+        local descriptors = self.controller.profile.descriptors[object]
         if descriptors then
             for _, descriptor in ipairs(descriptors) do
                 if descriptor.attribute == key then
@@ -162,7 +160,7 @@ function Descriptor:assign()
             return
         end
 
-        local descriptors = descriptorsStorage[object]
+        local descriptors = self.controller.profile.descriptors[object]
         if descriptors then
             for _, descriptor in ipairs(descriptors) do
                 if descriptor.attribute == key then

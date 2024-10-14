@@ -23,6 +23,7 @@ require("descriptor")
 require("button")
 require("thumbstickaxis")
 require("signal_slot")
+require("profile")
 
 if mc.mcInEditor() == 1 then
     local luaPanelId = wx.wxNewId()
@@ -183,8 +184,7 @@ end
 
 --- An object representing an Xbox controller connected to Mach4.
 ---@class Controller
----@field profileName string
----@field profileId number
+---@field profile Profile
 ---@field id string
 ---@field DPad_UP Button
 ---@field DPad_DOWN Button
@@ -226,8 +226,9 @@ Controller.__type = "Controller"
 function Controller.new()
     local self = setmetatable({}, Controller)
     self.id = "Controller"
-    self.profileName = ""
-    self.profileId = 0
+    self.profile = Profile.new(self, "default", 0)
+    --self.profileName = ""
+    --self.profileId = 0
     self.shiftButton = ""
     self.jogIncrement = 0
     self.logLevel = 0
@@ -363,7 +364,7 @@ function Controller.new()
         end
     end)
 
-    self:loadProfile(getProfile())
+    self.profile:read(getProfile())
 
     return self
 end
@@ -802,92 +803,14 @@ end
 
 --- Load a saved controller configuration.
 ---@param id number the id number of the profile (0 for default)
-function Controller:loadProfile(id)
-    local section = string.format("ControllerProfile-%s", id)
-    self.profileId = id
-    if mc.mcProfileExists(inst, section, "xc.profileName") == mc.MC_TRUE then
-        local numAttribs = {"jogIncrement", "logLevel", "frequency"}
-        local stringAttribs = {"shiftButton", "xYReversed", "simpleJogMapped", "profileName"}
-        for _, attrib in ipairs(numAttribs) do
-            if mc.mcProfileExists(inst, section, string.format("xc.%s", attrib)) == mc.MC_TRUE then
-                local val = self:xcProfileGetDouble(section, string.format("xc.%s", attrib))
-                if type(val) == "number" then
-                    self[attrib] = val
-                    self:newDescriptor(self, attrib, "number")
-                    self:xcCntlLog(string.format("returning a descriptor for %s.%s = %s", self.id, attrib, val), 4)
-                end
-            end
-        end
-        for _, attrib in ipairs(stringAttribs) do
-            if mc.mcProfileExists(inst, section, string.format("xc.%s", attrib)) == mc.MC_TRUE then
-                local val = self:xcProfileGetString(section, string.format("xc.%s", attrib))
-                if type(val) == "string" then
-                    if attrib == "shiftButton" then
-                        self.shiftButton = self:xcGetInputById(val)
-                        self:newDescriptor(self, "shiftButton", "object")
-                        self:xcCntlLog(string.format("returning a descriptor for self.shiftButton = %s", val), 4)
-                    elseif attrib == "xYReversed" then
-                        self.xYReversed = val == true
-                        self:newDescriptor(self, "xYReversed", "boolean")
-                        self:xcCntlLog(string.format("returning a descriptor for self.xYReversed = %s", val), 4)
-                    elseif attrib == "simpleJogMapped" then
-                        self.simpleJogMapped = val == true
-                        self:newDescriptor(self, "simpleJogMapped", "boolean")
-                        self:xcCntlLog(string.format("returning a descriptor for self.simpleJogMapped = %s", val), 4)
-                        if self.simpleJogMapped then
-                            self:mapSimpleJog()
-                        end
-                    else
-                        self[attrib] = val
-                        self:newDescriptor(self, attrib, "string")
-                        self:xcCntlLog(string.format("returning a descriptor for %s = %s", attrib, val), 4)
-                    end
-                end
-            end
-        end
-        for _, input in ipairs(self.inputs) do
-            for i, signal in ipairs(input.signals) do
-                local lookup = string.format("xc.%s.%s.slot", input.id, signal.id)
-                if mc.mcProfileExists(inst, section, lookup) == mc.MC_TRUE then
-                    local val = string.strip(self:xcProfileGetString(section, lookup))
-                    if type(val) == "string" then
-                        input[signal.id].slot = self:xcGetSlotById(val)
-                        self:newDescriptor(signal, "slot", "object")
-                        self:xcCntlLog(
-                            string.format("returning a descriptor for %s.%s = %s", input.id, input.signals[i], val), 4)
-                    end
-                end
-            end
-        end
-        for _, axis in ipairs(self.axes) do
-            if mc.mcProfileExists(inst, section, string.format("xc.%s.axis", axis)) == mc.MC_TRUE then
-                -- deadzone, axis, inverted
-                local val = self:xcProfileGetDouble(section, string.format("xc.%s.axis", axis))
-                if type(val) == "number" then
-                    self[axis.id][axis] = val
-                    self:newDescriptor(axis, "axis", "number")
-                    self:xcCntlLog(string.format("returning a descriptor for xc.%s.axis = %s", axis.id, val), 4)
-                end
-                local val = self:xcProfileGetDouble(section, string.format("xc.%s.deadzone = %s", axis.id, val), 4)
-                if type(val) == "number" then
-                    self[axis.id]["deadzone"] = val
-                    self:newDescriptor(axis, "deadzone", "number")
-                    self:xcCntlLog(string.format("returning a descriptor for %s.deadzone = %s", axis.id, val), 4)
-                end
-                local val = self:xcProfileGetString(section, string.format("xc.%s.inverted", axis))
-                if type(val) == "string" then
-                    self[axis.id]["inverted"] = val == true
-                    self:newDescriptor(axis, "inverted", "boolean")
-                    self:xcCntlLog(string.format("returning a descriptor for xc.%s.inverted = %s", axis.id, val), 4)
-                end
-            end
-        end
-        print("setting last used profile", self.profileId)
-        self:xcProfileWriteDouble("XBC4MACH4", "profileId", self.profileId)
-    else
-        self:xcCntlLog(string.format("No profile found for name: %s", id), 1)
-    end
+function Controller:loadProfile(profile)
+    -- change the profile
+    self.profile = profile
+    -- record the most recently used profile
+    self:xcProfileWriteDouble("XBC4MACH4", "profileId", self.profile.id)
 end
+
+
 
 xc = Controller.new()
 ---------------------------------
