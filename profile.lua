@@ -103,18 +103,3 @@ function Profile:read(id)
         self.controller:xcCntlLog(string.format("No profile found for name: %s", id), 1)
     end
 end
-
---[[ {"xc.profileId=0","xc.profileName=default",
-    "xc.LTH_Y_Val.deadzone=10.000000", "xc.RTH_X_Val.deadzone=10.000000",                           
-    "xc.RTH_Y_Val.deadzone=10.000000", "xc.LTH_X_Val.deadzone=10.000000",
-    "xc.jogIncrement=0.1", "xc.logLevel=2", "xc.xYReversed=false",
-    "xc.frequency=4", "xc.simpleJogMapped=true", 
-    "xc.shiftButton=LTR_Val", "xc.RTH_Y_Val.axis=2.000000", "xc.RTH_Y_Val.inverted=false",
-    "xc.DPad_UP.Down.slot=Jog X+", "xc.DPad_UP.Up.slot=Jog X Off",
-    "xc.DPad_DOWN.Down.slot=Jog X-", "xc.DPad_DOWN.Up.slot=Jog X Off",
-    "xc.DPad_RIGHT.Down.slot=Jog Y+", "xc.DPad_RIGHT.Up.slot=Jog Y Off",
-    "xc.DPad_LEFT.Down.slot=Jog Y-", "xc.DPad_LEFT.Up.slot=Jog Y Off",
-    "xc.DPad_UP.AltDown.slot=xcJogIncUp", "xc.DPad_DOWN.AltDown.slot=xcJogIncDown",
-    "xc.DPad_RIGHT.AltDown.slot=xcJogIncRight", "xc.DPad_LEFT.AltDown.slot=xcJogIncLeft",
-    "xc.Btn_B.Down.slot=E Stop Toggle", "xc.Btn_RS.Down.slot=Enable Toggle",
-    "xc.Btn_X.Down.slot=XC Run Cycle Toggle", "xc.Btn_BACK.AltDown.slot=Home All"} ]]
