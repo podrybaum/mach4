@@ -91,9 +91,6 @@ function string.strip(str, ...)
         error(string.format("No overload defined for %d parameter signature of string.strip", #paramCount))
     end
     local func = overloads[paramCount]
-    if not func then
-        error(string.format("No overload defined for %d parameter signature of string.strip", paramCount))
-    end
 
     return func(str, table.unpack(args))
 end
