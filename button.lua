@@ -1,48 +1,43 @@
+require("signal_slot")
 
 --- Object representing a digital pushbutton controller input.
----@class Button
----@field controller Controller
+---@class Button: Object
+---@field parent Controller
 ---@field id string
 ---@field pressed boolean
 ---@field Up Signal
 ---@field Down Signal
 ---@field AltUp Signal
 ---@field AltDown Signal
----@field signals table
-Button = {}
+---@field children table
+Button = setmetatable({}, Object)
 Button.__index = Button
 Button.__type = "Button"
-Button.__tostring = function(self)
-    return string.format("Button: %s", self.id)
-end
 
 --- Initialize a new Button instance.
----@param controller Controller @A Controller instance.
+---@param parent Controller @A Controller instance
 ---@param id string @A unique identifier for the input.
-function Button.new(controller, id)
-    local self = setmetatable({}, Button)
-    self.controller = controller
-    self.id = id
+function Button:new(parent, id)
+    self = Object.new(self, parent, id)
     self.pressed = false
-    self.Up = self.controller:newSignal(self, "Up")
-    self.Down = self.controller:newSignal(self, "Down")
-    self.AltUp = self.controller:newSignal(self, "AltUp")
-    self.AltDown = self.controller:newSignal(self, "AltDown")
-    self.signals = {self.Up, self.Down, self.AltUp, self.AltDown}
+    self:addChild(Signal:new(self, "Up"))
+    self:addChild(Signal:new(self, "Down"))
+    self:addChild(Signal:new(self, "AltUp"))
+    self:addChild(Signal:new(self, "AltDown"))
     return self
 end
 
 --- Retrieves the state of the input.
 function Button:getState()
-    local state = self.controller:xcGetRegValue(string.format("mcX360_LUA/%s", self.id))
+    local state = self.parent:xcGetRegValue(string.format("mcX360_LUA/%s", self.id))
     if type(state) ~= "number" then
-        self.controller:xcCntlLog(string.format("Invalid state for %s", self.id), 1)
+        self.parent:xcCntlLog(string.format("Invalid state for %s", self.id), 1)
         return
     end
     if (state == 1) and (not self.pressed) then
         self.pressed = true
-        if self.controller.shiftButton ~= self then
-            if not self.controller.shiftButton or not self.controller.shiftButton.pressed then
+        if self.parent.shiftButton ~= self then
+            if not self.parent.shiftButton or not self.parent.shiftButton.pressed then
                 self.Down:emit()
             else
                 self.AltDown:emit()
@@ -50,8 +45,8 @@ function Button:getState()
         end
     elseif (state == 0) and self.pressed then
         self.pressed = false
-        if self.controller.shiftButton ~= self then
-            if not self.controller.shiftButton or not self.controller.shiftButton.pressed then
+        if self.parent.shiftButton ~= self then
+            if not self.parent.shiftButton or not self.parent.shiftButton.pressed then
                 self.Up:emit()
             else
                 self.AltUp:emit()
@@ -66,22 +61,22 @@ end
 function Button:initUi(propertiesPanel)
     local propSizer = propertiesPanel:GetSizer()
 
-    if not (self == self.controller.shiftButton) then
+    if not (self == self.parent.shiftButton) then
         -- Slot labels and dropdowns
         local options = {""}
         local analogOptions = {""}
-        for _, slot in ipairs(self.controller.slots) do
+        for _, slot in ipairs(self.parent.slots) do
             options[#options + 1] = slot.id
         end
         local idMapping = {}
-        for i, signal in ipairs(self.signals) do
+        for i, signal in ipairs(self.children) do
             local label = wx.wxStaticText(propertiesPanel, wx.wxID_ANY, string.format("%s Action:", signal.id))
             propSizer:Add(label, 0, wx.wxALIGN_LEFT + wx.wxALL, 5)
             local choice = wx.wxChoice(propertiesPanel, wx.wxID_ANY, wx.wxDefaultPosition, wx.wxDefaultSize,
                 self.__type == "Trigger" and analogOptions or options)
-            idMapping[self.signals[i]] = choice
-            if self.signals[i].slot ~= nil then
-                choice:SetSelection(choice:FindString(self.signals[i].slot.id))
+            idMapping[self.children[i]] = choice
+            if self.children[i].slot ~= nil then
+                choice:SetSelection(choice:FindString(self.children[i].slot.id))
             end
             propSizer:Add(choice, 1, wx.wxEXPAND + wx.wxALL, 5)
         end
@@ -94,11 +89,11 @@ function Button:initUi(propertiesPanel)
 
         -- Event handler
         propertiesPanel:Connect(applyId, wx.wxEVT_COMMAND_BUTTON_CLICKED, function()
-            for i, signal in ipairs(self.signals) do
+            for i, signal in ipairs(self.children) do
                 local choice = idMapping[signal]
                 local selection = choice:GetStringSelection()
                 if (signal.slot == nil and selection ~= "") or (signal.slot and signal.slot.id ~= selection) then
-                    signal:connect(self.controller:xcGetSlotById(selection))
+                    signal:connect(self.parent:xcGetSlotById(selection))
                 elseif signal.slot and selection == "" then
                     signal.slot = nil
                 end
@@ -121,43 +116,37 @@ end
 
 --- Object representing an analog pushbutton controller input.
 ---@class Trigger: Button 
----@field new function
+---@field parent Controller
+---@field id string
 ---@field value number|nil
----@field analog Signal
----@field getState function
----@field connect function
-Trigger = {}
-Trigger.__index = Button
+---@field Analog Signal
+---@field children table
+Trigger = setmetatable({}, Button)
+Trigger.__index = Trigger
 Trigger.__type = "Trigger"
-Trigger.__tostring = function(self)
-    return string.format("Trigger: %s", self.id)
-end
+setmetatable(Trigger, {__index = Button})
 
 --- Initialize a new Trigger instance.
----@param controller Controller @A Controller instance
+---@param parent Controller @A Controller instance
 ---@param id string @unique identifier for the Trigger object
 ---@return Trigger @the new Trigger instance
-function Trigger.new(controller, id)
-    ---@class Trigger
-    local self --[[@as Trigger]] = Button.new(controller, id)
-    setmetatable(self, Trigger)
-    self.__type = "Trigger"
+function Trigger:new(parent, id)
+    self = Button.new(self, parent, id)
     self.value = 0
-    self.analog = self.controller:newSignal(self, "Analog")
-    table.insert(self.signals, self.analog)
+    self:addChild(Signal:new(self, "Analog"))
     return self
 end
 
 --- Retrieve the state of the input.
 function Trigger:getState()
-    self.value = self.controller:xcGetRegValue(string.format("mcX360_LUA/%s", self.id))
+    self.value = self.parent:xcGetRegValue(string.format("mcX360_LUA/%s", self.id))
     if type(self.value) ~= "number" then
-        self.controller:xcCntlLog("Invalid state for " .. self.id, 1)
+        self.parent:xcCntlLog("Invalid state for " .. self.id, 1)
         return
     end
 
-    if self.value > 0 and self.analog.slot then
-        self.analog:emit()
+    if self.value > 0 and self.Analog.slot then
+        self.Analog:emit()
         return
     end
 
@@ -173,7 +162,9 @@ end
 --- Connect a Trigger's analog output to a function.
 ---@param func function @The function to connect.
 function Trigger:connect(func)
-    self.controller.isCorrectSelf(self) -- should raise an error if method has been called with dot notation
-    self.controller.typeCheck({func}, {"function"}) -- should raise an error if any param is of the wrong type
+    self.parent.isCorrectSelf(self) -- should raise an error if method has been called with dot notation
+    self.parent.typeCheck({func}, {"function"}) -- should raise an error if any param is of the wrong type
     self.func = func
 end
+
+return Button, Trigger

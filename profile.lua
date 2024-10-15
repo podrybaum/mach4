@@ -2,19 +2,26 @@ Profile = {}
 Profile.__index = Profile
 Profile.__type = "Profile"
 Profile.__tostring = function(self)
-    return string.format("Profile: %s", self.name)
+    local output = string.format("Profile: %s\n", self.name)
+    if self.profileString ~= '' then
+        output = output .. self.profileString
+    end
+    return output
 end
 
-function Profile.new(controller, name, id)
+function Profile.new(id, name)
     local self = setmetatable({}, Profile)
-    self.controller = controller
     self.id = id
     self.name = name
-    -- Replace the global descriptorStorage table
-    self.descriptors = setmetatable({}, { __mode = "k" })
+    self.profileString = ''
     return self
 end
 
+function Profile:createFromActive(controller)
+    profile = string.format("xc.profileId = %s", self.id)
+    return controller.serialize()
+end
+    
 
 --- Load profile data from the machine.ini file.
 ---@param id number the id number of the profile (0 for default)

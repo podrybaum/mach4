@@ -1,7 +1,7 @@
---- An object representing an analog joystick controller input.
+--- An object representing an analog joystick parent input.
 ---@class ThumbstickAxis
 ---@field id string
----@field controller Controller
+---@field parent Controller
 ---@field rate number
 ---@field value number
 ---@field moving boolean
@@ -9,25 +9,20 @@
 ---@field deadzone number
 ---@field inverted boolean
 ---@field axis number|nil
-ThumbstickAxis = {}
+ThumbstickAxis = setmetatable({}, Object)
 ThumbstickAxis.__index = ThumbstickAxis
 ThumbstickAxis.__type = "ThumbstickAxis"
-ThumbstickAxis.__tostring = function(self)
-    return string.format("ThumbstickAxis: %s", self.id)
-end
+
 
 --- Initialize a new ThumbstickAxis object.
----@param controller Controller @A Controller instance
+---@param parent Controller @A Controller instance
 ---@param id string @A unique identifier for the input
 ---@return ThumbstickAxis @The new ThumbstickAxis instance
-function ThumbstickAxis.new(controller, id)
-    local self = setmetatable({}, ThumbstickAxis)
-    self.controller = controller
-    self.id = id
-    self.deadzone = 10
-    --self.controller:newDescriptor(self, "axis", "number")
-   -- self.controller:newDescriptor(self, "inverted", "boolean")
-   -- self.controller:newDescriptor(self, "deadzone", "number")
+function ThumbstickAxis:new(parent, id)
+    self = Object.new(self, parent, id)
+    table.insert(self.configValues, {"axis", nil})
+    table.insert(self.configValues, {"inverted", false})
+    table.insert(self.configValues, {"deadzone", 10})
     self.rate = 0
     self.value = 0
     self.moving = false
@@ -39,15 +34,15 @@ end
 ---@param axis number @A Mach4 enum representing a machine axis
 ---@param inverted boolean|nil @Optional: Whether or not to invert the axis travel direction
 function ThumbstickAxis:connect(axis, inverted)
-    self.controller.isCorrectSelf(self)
-    self.controller.typeCheck({axis, inverted}, {"number", "boolean"})
+    self.parent.isCorrectSelf(self)
+    self.parent.typeCheck({axis, inverted}, {"number", "boolean"})
     self.axis = axis
     self.inverted = inverted or self.inverted
     local rc
     self.rate, rc = mc.mcJogGetRate(inst, self.axis)
-    self.controller:xcErrorCheck(rc)
-    self.controller:xcCntlLog(self.id .. " connected to " .. tostring(self.axis), 4)
-    self.controller:xcCntlLog("Initial jog rate for " .. tostring(self.axis) .. " = " .. self.rate, 4)
+    self.parent:xcErrorCheck(rc)
+    self.parent:xcCntlLog(self.id .. " connected to " .. tostring(self.axis), 4)
+    self.parent:xcCntlLog("Initial jog rate for " .. tostring(self.axis) .. " = " .. self.rate, 4)
 end
 
 --- Retrieve the state of the input.
@@ -56,7 +51,7 @@ function ThumbstickAxis:update()
         return
     end
     if type(self.value) ~= "number" then
-        self.controller:xcCntlLog("Invalid value for ThumbstickAxis", 1)
+        self.parent:xcCntlLog("Invalid value for ThumbstickAxis", 1)
         return
     end
     if not self.moving and not self.rateReset then
@@ -69,20 +64,20 @@ function ThumbstickAxis:update()
     if math.abs(self.value) > self.deadzone and not self.moving then
         self.moving = true
         self.rateReset = false
-        self.controller:xcErrorCheck(mc.mcJogSetRate(inst, self.axis, math.abs(self.value)))
+        self.parent:xcErrorCheck(mc.mcJogSetRate(inst, self.axis, math.abs(self.value)))
         local direction = 1
         if self.inverted then
             direction = (self.value > 0) and mc.MC_JOG_NEG or mc.MC_JOG_POS
         else
             direction = (self.value > 0) and mc.MC_JOG_POS or mc.MC_JOG_NEG
         end
-        self.controller:xcErrorCheck(mc.mcJogVelocityStart(inst, self.axis, direction))
+        self.parent:xcErrorCheck(mc.mcJogVelocityStart(inst, self.axis, direction))
     end
 
     if math.abs(self.value) < self.deadzone and self.moving then
-        self.controller:xcErrorCheck(mc.mcJogVelocityStop(inst, self.axis))
+        self.parent:xcErrorCheck(mc.mcJogVelocityStop(inst, self.axis))
         self.moving = false
-        self.controller:xcErrorCheck(mc.mcJogSetRate(inst, self.axis, self.rate))
+        self.parent:xcErrorCheck(mc.mcJogSetRate(inst, self.axis, self.rate))
         self.rateReset = true
     end
 end
@@ -144,3 +139,5 @@ function ThumbstickAxis:initUi(propertiesPanel)
     propertiesPanel:Layout(); propertiesPanel:Fit(); propertiesPanel:Refresh()
     return propSizer
 end
+
+return ThumbstickAxis
