@@ -23,11 +23,27 @@ require("descriptor")
 require("button")
 require("thumbstickaxis")
 require("signal_slot")
+require("profile")
 
 if mc.mcInEditor() == 1 then
     local luaPanelId = wx.wxNewId()
     mcLuaPanelParent = wx.wxFrame(wx.NULL, luaPanelId, "Mock Panel")
 end
+
+-- TODO: have profile functions handle a profile object, which is a table of concatenated strings
+-- TODO: will need a readProfile, createProfile, saveProfile, rework loadProfile
+-- NOTE: maybe createProfile is a method of Controller?  readProfile reads from machine.ini - both output profile objects
+-- NOTE: do we need a Profile class?
+-- TODO: loadProfile needs to copy the loaded profile into the active profile instead of loading it directly
+-- TODO: implement more user-friendly names for inputs to use in the GUI
+-- TODO: test slot functions provided by scr.DoFunctionName.
+-- TODO: implement profile saving
+-- TODO: unit tests
+-- TODO: installer script
+-- TODO: once tested, map screen functions to mapSimpleJog method
+-- TODO: Something seems to be not working entirely as intended with ThumbstickAxis:connect method. The Jog rate doesn't seem to always update appropriately.
+-- TODO: update docs 
+
 -- DEV_ONLY_END
 
 --- Extends Lua's builtin string library to add Python's .split method
@@ -96,32 +112,47 @@ local function getProfile()
     return mc.mcProfileGetDouble(inst, "XBC4MACH4", "xc.profileId", 0)
 end
 
--- Write default profile to machine.ini if it doesn't exist
-local function writeDefaultProfile()
-    if mc.mcProfileExists(inst, "ControllerProfile-0", "xc.profileName") == mc.MC_FALSE then
-        local defaultProfile = {"xc.LTH_Y_Val.deadzone=10.000000", "xc.RTH_X_Val.deadzone=10.000000",
-                                "xc.RTH_Y_Val.deadzone=10.000000", "xc.LTH_X_Val.deadzone=10.000000",
-                                "xc.jogIncrement=0.1", "xc.logLevel=2", "xc.xYReversed=false",
-                                "xc.frequency=4", "xc.simpleJogMapped=true", "xc.profileName=default",
-                                "xc.shiftButton=LTR_Val", "xc.RTH_Y_Val.axis=2.000000", "xc.RTH_Y_Val.inverted=false",
-                                "xc.DPad_UP.Down.slot=Jog X+", "xc.DPad_UP.Up.slot=Jog X Off",
-                                "xc.DPad_DOWN.Down.slot=Jog X-", "xc.DPad_DOWN.Up.slot=Jog X Off",
-                                "xc.DPad_RIGHT.Down.slot=Jog Y+", "xc.DPad_RIGHT.Up.slot=Jog Y Off",
-                                "xc.DPad_LEFT.Down.slot=Jog Y-", "xc.DPad_LEFT.Up.slot=Jog Y Off",
-                                "xc.DPad_UP.AltDown.slot=xcJogIncUp", "xc.DPad_DOWN.AltDown.slot=xcJogIncDown",
-                                "xc.DPad_RIGHT.AltDown.slot=xcJogIncRight", "xc.DPad_LEFT.AltDown.slot=xcJogIncLeft",
-                                "xc.Btn_B.Down.slot=E Stop Toggle", "xc.Btn_RS.Down.slot=Enable Toggle",
-                                "xc.Btn_X.Down.slot=XC Run Cycle Toggle", "xc.Btn_BACK.AltDown.slot=Home All"}
+local defaultProfile = {"xc.profileId=0","xc.profileName=default",
+    "xc.LTH_Y_Val.deadzone=10.000000", "xc.RTH_X_Val.deadzone=10.000000",                           
+    "xc.RTH_Y_Val.deadzone=10.000000", "xc.LTH_X_Val.deadzone=10.000000",
+    "xc.jogIncrement=0.1", "xc.logLevel=2", "xc.xYReversed=false",
+    "xc.frequency=4", "xc.simpleJogMapped=true", 
+    "xc.shiftButton=LTR_Val", "xc.RTH_Y_Val.axis=2.000000", "xc.RTH_Y_Val.inverted=false",
+    "xc.DPad_UP.Down.slot=Jog X+", "xc.DPad_UP.Up.slot=Jog X Off",
+    "xc.DPad_DOWN.Down.slot=Jog X-", "xc.DPad_DOWN.Up.slot=Jog X Off",
+    "xc.DPad_RIGHT.Down.slot=Jog Y+", "xc.DPad_RIGHT.Up.slot=Jog Y Off",
+    "xc.DPad_LEFT.Down.slot=Jog Y-", "xc.DPad_LEFT.Up.slot=Jog Y Off",
+    "xc.DPad_UP.AltDown.slot=xcJogIncUp", "xc.DPad_DOWN.AltDown.slot=xcJogIncDown",
+    "xc.DPad_RIGHT.AltDown.slot=xcJogIncRight", "xc.DPad_LEFT.AltDown.slot=xcJogIncLeft",
+    "xc.Btn_B.Down.slot=E Stop Toggle", "xc.Btn_RS.Down.slot=Enable Toggle",
+    "xc.Btn_X.Down.slot=XC Run Cycle Toggle", "xc.Btn_BACK.AltDown.slot=Home All"}
 
-        for _, map in ipairs(defaultProfile) do
-            for attrib, value in string.gmatch(map, "(.+)=(.+)") do
-                if tonumber(value) then
-                    mc.mcProfileWriteDouble(inst, "ControllerProfile-0", attrib, value)
-                else
-                    mc.mcProfileWriteString(inst, "ControllerProfile-0", attrib, value)
-                end
+local function writeProfile(profile)
+    for _, map in ipairs(profile) do
+        local id=0
+        for attrib, value in string.gmatch(map, "(.+)=(.+)") do
+            if attrib == "xc.profileId" then
+                id = value
+            end
+            if tonumber(value) then
+                mc.mcProfileWriteDouble(inst, id, attrib, value)
+            else
+                mc.mcProfileWriteString(inst, id, attrib, value)
             end
         end
+    end
+end 
+
+-- Write default profile to machine.ini if it doesn't exist
+local function writeDefaultProfile()
+    if mc.mcProfileExists(inst, "ControllerProfile-0", "xc.profileName") == mc.MC_FALSE then   
+       writeProfile(defaultProfile)
+    end
+    if mc.mcProfieExists(inst, "ControllerProfile-99", "xc.profileName") == mc.MC_FALSE then
+        local activeProfile = defaultProfile
+        activeProfile[1] = "xc.profileId=99"
+        activeProfile[2] = "xc.profileName=active"
+        writeProfile(activeProfile)
     end
 end
 
@@ -149,22 +180,11 @@ local function setIfNotEqual(x, y)
     x = (x ~= y) and y or x
 end
 
--- TODO: ThumbstickAxis class is missing two of its descriptors
--- TODO: Ensure profile numbers are implemented everywhere
--- TODO: implement more user-friendly names for inputs to use in the GUI
--- TODO: test slot functions provided by scr.DoFunctionName.
--- TODO: implement profile saving
--- TODO: unit tests
--- TODO: installer script
--- TODO: once tested, map screen functions to mapSimpleJog method
--- TODO: Something seems to be not working entirely as intended with ThumbstickAxis:connect method. The Jog rate doesn't seem to always update appropriately.
--- TODO: update docs 
--- TODO: finish testing controller polling rate
+
 
 --- An object representing an Xbox controller connected to Mach4.
 ---@class Controller
----@field profileName string
----@field profileId number
+---@field profile Profile
 ---@field id string
 ---@field DPad_UP Button
 ---@field DPad_DOWN Button
@@ -206,8 +226,9 @@ Controller.__type = "Controller"
 function Controller.new()
     local self = setmetatable({}, Controller)
     self.id = "Controller"
-    self.profileName = ""
-    self.profileId = 0
+    self.profile = Profile.new(self, "default", 0)
+    --self.profileName = ""
+    --self.profileId = 0
     self.shiftButton = ""
     self.jogIncrement = 0
     self.logLevel = 0
@@ -343,7 +364,7 @@ function Controller.new()
         end
     end)
 
-    self:loadProfile(getProfile())
+    self.profile:read(getProfile())
 
     return self
 end
@@ -407,7 +428,7 @@ end
 
 --- Retrieve a numeric value from the profile.ini file.  This function will always return a value of the proper type
 --- If the given section and key don't exist, they are created, assigned a default value and the default value is returned.
----@param section number @The profileId of the selected profile
+---@param section string @The section header of the selected profile
 ---@param key string @The key from the section to retrieve
 ---@return number|boolean @The retrieved value or false if an error was encountered
 function Controller:xcProfileGetDouble(section, key)
@@ -782,92 +803,14 @@ end
 
 --- Load a saved controller configuration.
 ---@param id number the id number of the profile (0 for default)
-function Controller:loadProfile(id)
-    local section = string.format("ControllerProfile-%s", id)
-    self.profileId = id
-    if mc.mcProfileExists(inst, section, "xc.profileName") == mc.MC_TRUE then
-        local numAttribs = {"jogIncrement", "logLevel", "frequency"}
-        local stringAttribs = {"shiftButton", "xYReversed", "simpleJogMapped", "profileName"}
-        for _, attrib in ipairs(numAttribs) do
-            if mc.mcProfileExists(inst, section, string.format("xc.%s", attrib)) == mc.MC_TRUE then
-                local val = self:xcProfileGetDouble(section, string.format("xc.%s", attrib))
-                if type(val) == "number" then
-                    self[attrib] = val
-                    self:newDescriptor(self, attrib, "number")
-                    self:xcCntlLog(string.format("returning a descriptor for %s.%s = %s", self.id, attrib, val), 4)
-                end
-            end
-        end
-        for _, attrib in ipairs(stringAttribs) do
-            if mc.mcProfileExists(inst, section, string.format("xc.%s", attrib)) == mc.MC_TRUE then
-                local val = self:xcProfileGetString(section, string.format("xc.%s", attrib))
-                if type(val) == "string" then
-                    if attrib == "shiftButton" then
-                        self.shiftButton = self:xcGetInputById(val)
-                        self:newDescriptor(self, "shiftButton", "object")
-                        self:xcCntlLog(string.format("returning a descriptor for self.shiftButton = %s", val), 4)
-                    elseif attrib == "xYReversed" then
-                        self.xYReversed = val == true
-                        self:newDescriptor(self, "xYReversed", "boolean")
-                        self:xcCntlLog(string.format("returning a descriptor for self.xYReversed = %s", val), 4)
-                    elseif attrib == "simpleJogMapped" then
-                        self.simpleJogMapped = val == true
-                        self:newDescriptor(self, "simpleJogMapped", "boolean")
-                        self:xcCntlLog(string.format("returning a descriptor for self.simpleJogMapped = %s", val), 4)
-                        if self.simpleJogMapped then
-                            self:mapSimpleJog()
-                        end
-                    else
-                        self[attrib] = val
-                        self:newDescriptor(self, attrib, "string")
-                        self:xcCntlLog(string.format("returning a descriptor for %s = %s", attrib, val), 4)
-                    end
-                end
-            end
-        end
-        for _, input in ipairs(self.inputs) do
-            for i, signal in ipairs(input.signals) do
-                local lookup = string.format("xc.%s.%s.slot", input.id, signal.id)
-                if mc.mcProfileExists(inst, section, lookup) == mc.MC_TRUE then
-                    local val = string.strip(self:xcProfileGetString(section, lookup))
-                    if type(val) == "string" then
-                        input[signal.id].slot = self:xcGetSlotById(val)
-                        self:newDescriptor(signal, "slot", "object")
-                        self:xcCntlLog(
-                            string.format("returning a descriptor for %s.%s = %s", input.id, input.signals[i], val), 4)
-                    end
-                end
-            end
-        end
-        for _, axis in ipairs(self.axes) do
-            if mc.mcProfileExists(inst, section, string.format("xc.%s.axis", axis)) == mc.MC_TRUE then
-                -- deadzone, axis, inverted
-                local val = self:xcProfileGetDouble(section, string.format("xc.%s.axis", axis))
-                if type(val) == "number" then
-                    self[axis.id][axis] = val
-                    self:newDescriptor(axis, "axis", "number")
-                    self:xcCntlLog(string.format("returning a descriptor for xc.%s.axis = %s", axis.id, val), 4)
-                end
-                local val = self:xcProfileGetDouble(section, string.format("xc.%s.deadzone = %s", axis.id, val), 4)
-                if type(val) == "number" then
-                    self[axis.id]["deadzone"] = val
-                    self:newDescriptor(axis, "deadzone", "number")
-                    self:xcCntlLog(string.format("returning a descriptor for %s.deadzone = %s", axis.id, val), 4)
-                end
-                local val = self:xcProfileGetString(section, string.format("xc.%s.inverted", axis))
-                if type(val) == "string" then
-                    self[axis.id]["inverted"] = val == true
-                    self:newDescriptor(axis, "inverted", "boolean")
-                    self:xcCntlLog(string.format("returning a descriptor for xc.%s.inverted = %s", axis.id, val), 4)
-                end
-            end
-        end
-        print("setting last used profile", self.profileId)
-        self:xcProfileWriteDouble("XBC4MACH4", "profileId", self.profileId)
-    else
-        self:xcCntlLog(string.format("No profile found for name: %s", id), 1)
-    end
+function Controller:loadProfile(profile)
+    -- change the profile
+    self.profile = profile
+    -- record the most recently used profile
+    self:xcProfileWriteDouble("XBC4MACH4", "profileId", self.profile.id)
 end
+
+
 
 xc = Controller.new()
 ---------------------------------
