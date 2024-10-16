@@ -1,34 +1,35 @@
+---@class Object
+---@field parent Object
+---@field id string 
+---@field children table
+---@field configValues table
 Object = {}
 Object.__type = "Object"
 Object.__tostring = function(self) return self.id end
 
 Object.__index = function(object, key)
-    if object.configValues and object.configValues[key] then
-        return object.configValues[key]
-    else
-        return rawget(object, key)
-    end
+    return rawget(object.configValues, key) or rawget(object, key)
 end
 
 Object.__newindex = function(object, key, value)
-    if object.configValues and object.configValues[key] then
+    if rawget(object.configValues, key) then
         object.configValues[key] = value
     else
         rawset(object, key, value)
     end
 end
 
+-- Constructor
 function Object:new(parent, id)
-    self = setmetatable({}, self)
-    self.parent = parent
-    self.id = id
-    self.children = {}
-    self.configValues = {}
-    self.childIndex = 0
-    self.nextSibling = self.parent.children[self.childIndex+1]
-    return self
+    local obj = setmetatable({}, self)
+    obj.parent = parent
+    obj.id = id
+    obj.children = {}
+    obj.configValues = {}
+    return obj
 end
 
+-- Retrieve full path of an object in the hierarchy.
 function Object:getPath()
     if self.parent == self then
         return self.id
@@ -37,42 +38,47 @@ function Object:getPath()
     end
 end
 
+-- Add a child and store it by both index and ID.
 function Object:addChild(child)
     table.insert(self.children, child)
-    child["childIndex"] = #self.children
     self[child.id] = child
 end
 
+-- Serialize the object's attributes and all its children.
 function Object:serialize()
-    local serial = ''
-    for attrib, value in ipairs(self.configValues) do
+    local serial = ""
+    for key, value in pairs(self.configValues) do
         if value ~= nil then
-            serial = serial .. string.format("%s = %s\n", self:getPath() .. "." .. attrib, tostring(value))
+            self:getRoot().profile.profileData[self:getPath().."."..key] = value
         end
     end
     for _, child in ipairs(self.children) do
-        serial = serial + child:serialize()
+        serial = serial .. child:serialize()
     end
     return serial
 end
 
-function Object:deserialize(str)
-    local term = str:gmatch("(%S+)%.")   -- NOTE: This match is actually unnecessary, we know what the first term is always
-    if term == self.id then              -- and we always pass the string to the next object in the path.  
-                                         -- TODO: Create string.lstrip and replace this with logic that lstrips self.id from str
-        local nextTerm = str:gmatch("%S+%.(.+)%.")
-        if not nextTerm then
-            local attrib = str:gmatch("%S+%.(.+)%s=")
-            local value = str:gmatch("=%s(%S+)")
-            self.configValues[attrib] = value
-            return
-        else
-            str = str:gmatch("%S+%.(.+)")
-            return self[nextTerm]:deserialize(str)
-        end
-    end
+-- Helper to strip a prefix from a string.
+function string.lstrip(str, prefix)
+    return str:sub(#prefix + 2)
 end
 
+-- Deserialize the given path-value string into the correct object.
+function Object:deserialize(path, val)
+    path = path:lstrip(self.id)
+    local child = path:match("^(%S+)[%.$]")
+    if #self.configValues > 0 then
+        for k, _ in pairs(self.configValues) do
+            if k == child then
+                self[k] = val
+                return
+            end
+        end
+    end
+    return self[child]:deserialize(path, val)
+end
+
+-- Get the root object of the hierarchy.
 function Object:getRoot()
     if self.parent == self then
         return self
@@ -81,4 +87,4 @@ function Object:getRoot()
     end
 end
 
-return Object
+return { Object = Object }

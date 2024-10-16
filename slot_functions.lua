@@ -119,3 +119,5 @@ slots["Cycle Start/Stop"] = function()
         scr.DoFunctionName('Cycle Stop')
     end
 end
+
+return slots

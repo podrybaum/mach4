@@ -1,15 +1,17 @@
-require("signal_slot")
+require("object")
+require("controller")
+local slots = require("slot_functions")
 
 --- Object representing a digital pushbutton controller input.
 ---@class Button: Object
 ---@field parent Controller
 ---@field id string
 ---@field pressed boolean
----@field Up Signal
----@field Down Signal
----@field AltUp Signal
----@field AltDown Signal
----@field children table
+---@field configValues table
+---@field Up string
+---@field Down string
+---@field altUp string
+---@field altDown string
 Button = setmetatable({}, Object)
 Button.__index = Button
 Button.__type = "Button"
@@ -20,10 +22,10 @@ Button.__type = "Button"
 function Button:new(parent, id)
     self = Object.new(self, parent, id)
     self.pressed = false
-    self:addChild(Signal:new(self, "Up"))
-    self:addChild(Signal:new(self, "Down"))
-    self:addChild(Signal:new(self, "AltUp"))
-    self:addChild(Signal:new(self, "AltDown"))
+    self.configValues["Up"] = ""
+    self.configValues["Down"] = ""
+    self.configValues["altUp"] = ""
+    self.configValues["altDown"] = ""
     return self
 end
 
@@ -37,19 +39,23 @@ function Button:getState()
     if (state == 1) and (not self.pressed) then
         self.pressed = true
         if self.parent.shiftButton ~= self then
-            if not self.parent.shiftButton or not self.parent.shiftButton.pressed then
-                self.Down:emit()
+            if not self.parent.shiftButton or not self.parent[self.parent.shiftButton].pressed then
+                if self.configValues["down"] ~= "" then
+                    slots[self.configValues["down"]]()
+                end
             else
-                self.AltDown:emit()
+                if self.configValues["altDown"] ~= "" then
+                    slots[self.configValues["altDown"]]()
+                end
             end
         end
     elseif (state == 0) and self.pressed then
         self.pressed = false
         if self.parent.shiftButton ~= self then
-            if not self.parent.shiftButton or not self.parent.shiftButton.pressed then
-                self.Up:emit()
+            if not self.parent.shiftButton or not self.parent[self.parent.shiftButton].pressed then
+                slots[self.configValues["up"]]()
             else
-                self.AltUp:emit()
+                slots[self.configValues["altUp"]]()
             end
         end
     end
@@ -59,24 +65,25 @@ end
 ---@param propertiesPanel userdata @A wxPanel Object
 ---@return userdata @A wxSizer object containing the UI layout
 function Button:initUi(propertiesPanel)
+---@diagnostic disable-next-line: undefined-field
     local propSizer = propertiesPanel:GetSizer()
 
-    if not (self == self.parent.shiftButton) then
+    if not (self.id == self.parent.shiftButton) then
         -- Slot labels and dropdowns
         local options = {""}
         local analogOptions = {""}
-        for _, slot in ipairs(self.parent.slots) do
+        for _, slot in ipairs(slots) do
             options[#options + 1] = slot.id
         end
         local idMapping = {}
-        for i, signal in ipairs(self.children) do
-            local label = wx.wxStaticText(propertiesPanel, wx.wxID_ANY, string.format("%s Action:", signal.id))
+        for state, _ in pairs(self.configValues) do
+            local label = wx.wxStaticText(propertiesPanel, wx.wxID_ANY, string.format("%s Action:", state))
             propSizer:Add(label, 0, wx.wxALIGN_LEFT + wx.wxALL, 5)
             local choice = wx.wxChoice(propertiesPanel, wx.wxID_ANY, wx.wxDefaultPosition, wx.wxDefaultSize,
                 self.__type == "Trigger" and analogOptions or options)
-            idMapping[self.children[i]] = choice
-            if self.children[i].slot ~= nil then
-                choice:SetSelection(choice:FindString(self.children[i].slot.id))
+            idMapping[state] = choice
+            if self.configValues[state] ~= "" then
+                choice:SetSelection(choice:FindString(self.configValues[state]))
             end
             propSizer:Add(choice, 1, wx.wxEXPAND + wx.wxALL, 5)
         end
@@ -88,21 +95,21 @@ function Button:initUi(propertiesPanel)
         propSizer:Add(apply, 0, wx.wxALIGN_RIGHT + wx.wxALL, 5)
 
         -- Event handler
+    ---@diagnostic disable-next-line: undefined-field
         propertiesPanel:Connect(applyId, wx.wxEVT_COMMAND_BUTTON_CLICKED, function()
-            for i, signal in ipairs(self.children) do
-                local choice = idMapping[signal]
+            for state, _ in pairs(self.configValues) do
+                local choice = idMapping[state]
                 local selection = choice:GetStringSelection()
-                if (signal.slot == nil and selection ~= "") or (signal.slot and signal.slot.id ~= selection) then
-                    signal:connect(self.parent:xcGetSlotById(selection))
-                elseif signal.slot and selection == "" then
-                    signal.slot = nil
-                end
+                self.configValues[state] = selection
             end
         end)
 
         -- Refresh and return the layout
+    ---@diagnostic disable-next-line: undefined-field
         propertiesPanel:Layout()
+    ---@diagnostic disable-next-line: undefined-field
         propertiesPanel:Fit()
+    ---@diagnostic disable-next-line: undefined-field
         propertiesPanel:Refresh()
         return propSizer
     else
@@ -118,9 +125,10 @@ end
 ---@class Trigger: Button 
 ---@field parent Controller
 ---@field id string
----@field value number|nil
----@field Analog Signal
----@field children table
+---@field value number
+---@field pressed boolean
+---@field configValues table
+---@field analog string
 Trigger = setmetatable({}, Button)
 Trigger.__index = Trigger
 Trigger.__type = "Trigger"
@@ -133,38 +141,49 @@ setmetatable(Trigger, {__index = Button})
 function Trigger:new(parent, id)
     self = Button.new(self, parent, id)
     self.value = 0
-    self:addChild(Signal:new(self, "Analog"))
+    self.configValues["analog"] = ""
     return self
 end
 
 --- Retrieve the state of the input.
 function Trigger:getState()
-    self.value = self.parent:xcGetRegValue(string.format("mcX360_LUA/%s", self.id))
+    local val = self.parent:xcGetRegValue(string.format("mcX360_LUA/%s", self.id))
+    if val ~= nil then
+        self.value = val
+    end
     if type(self.value) ~= "number" then
         self.parent:xcCntlLog("Invalid state for " .. self.id, 1)
         return
     end
 
-    if self.value > 0 and self.Analog.slot then
-        self.Analog:emit()
+    if self.value > 0 and self.configValues["analog"] ~= "" then
+        slots[self.configValues["analog"]](self.value)
         return
     end
 
-    if math.abs(self.value) > 125 and not self.pressed then
-        self.Down:emit()
+    if self.value > 0 and (not self.pressed) then
         self.pressed = true
-    elseif math.abs(self.value) < 5 and self.pressed then
-        self.Up:emit()
+        if self.parent.shiftButton ~= self then
+            if not self.parent.shiftButton or not self.parent[self.parent.shiftButton].pressed then
+                if self.configValues["down"] ~= "" then
+                    slots[self.configValues["down"]]()
+                end
+            else
+                if self.configValues["altDown"] ~= "" then
+                    slots[self.configValues["altDown"]]()
+                end
+            end
+        end
+    elseif self.value == 0 and self.pressed then
         self.pressed = false
+        if self.parent.shiftButton ~= self then
+            if not self.parent.shiftButton or not self.parent[self.parent.shiftButton].pressed then
+                slots[self.configValues["up"]]()
+            else
+                slots[self.configValues["altUp"]]()
+            end
+        end
     end
 end
 
---- Connect a Trigger's analog output to a function.
----@param func function @The function to connect.
-function Trigger:connect(func)
-    self.parent.isCorrectSelf(self) -- should raise an error if method has been called with dot notation
-    self.parent.typeCheck({func}, {"function"}) -- should raise an error if any param is of the wrong type
-    self.func = func
-end
-
-return Button, Trigger
+return {Button=Button, Trigger=Trigger}
