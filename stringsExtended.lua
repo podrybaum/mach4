@@ -25,18 +25,13 @@ function string.split(str, ...)
     return out
 end
 
---- Extends Lua's builtin string library to include Python's .split method.<br>
---- OVERLOADED METHOD: Returns the first parameter stripped of all leading and trailing occurrences of the second (if present).
---- If no second parameter is passed, returns the first parameter stripped of leading and trailing spaces.
----@param str string @The string to strip
----@param ... string @The pattern to strip from string
----@return string @The string stripped of leading and trailing occurrences of pattern, if provided, stripped of leading and trailing spaces if not.
-function string.strip(str, ...)
+
+--[[function string.strip(str, ...)
     local args = {...}
     local pattern = args[1] or "%s"
     local stripped = str:match(string.format("^%s*(.-)%s*$", pattern))
     return stripped
-end
+end]]--
 
 --- Extends Lua's builtin string library to include Python's .lstrip method.<br>
 --- OVERLOADED METHOD: Returns the first parameter stripped of all leading occurences of any character present in the second.
@@ -60,6 +55,17 @@ end
 function string.rstrip(str, ...)
     local args = {...}
     return str:match(string.format("^(.-)[%s]+", args[1] or "%s"))
+end
+
+--- Extends Lua's builtin string library to include Python's .split method.<br>
+--- OVERLOADED METHOD: Returns the first parameter stripped of all leading and trailing occurrences of the second (if present).
+--- If no second parameter is passed, returns the first parameter stripped of leading and trailing spaces.
+---@param str string @The string to strip
+---@param ... string @The pattern to strip from string
+---@return string @The string stripped of leading and trailing occurrences of pattern, if provided, stripped of leading and trailing spaces if not.
+function string.strip(str, ...)
+    local args = {...}
+    return str:lstrip(args[1] or "%s"):rstrip(args[1] or "%s")
 end
 
 return {string = string}
