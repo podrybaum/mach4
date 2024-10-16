@@ -1,3 +1,5 @@
+require("stringsExtended")
+
 ---@class Object
 ---@field parent Object
 ---@field id string 
@@ -58,10 +60,7 @@ function Object:serialize()
     return serial
 end
 
--- Helper to strip a prefix from a string.
-function string.lstrip(str, prefix)
-    return str:sub(#prefix + 2)
-end
+
 
 -- Deserialize the given path-value string into the correct object.
 function Object:deserialize(path, val)
