@@ -46,14 +46,11 @@ end
 --- @param str string @The string to strip
 --- @param ... string @A string containing all the elements to strip.
 function string.lstrip(str, ...)
-    local args = (...)
-    local elements = args[1] or "%s"
-    repeat str = str:match(string.format("^[%s]+(.+$)", elements))
-    until str:match(string.format("^[%s](.+$)", elements)) == nil
-    return str
+    local args = {...}
+    return str:match(string.format("^[%s]+(.+)", args[1] or "%s"))
 end
 
---- Extends Lua's builtin string library to include Python's .lstrip method.<br>
+--- Extends Lua's builtin string library to include Python's .rstrip method.<br>
 --- OVERLOADED METHOD: Returns the first parameter stripped of all trailing  occurences of any character present in the second.
 --- Continues stripping characters until no occurence of any character in elements remains at the end of the string.<br>
 --- In other words, string.rstrip("abcac", "ac") returns "ab", not "abc".<br>
@@ -61,12 +58,8 @@ end
 --- @param str string @The string to strip
 --- @param ... string @A string containing all the elements to strip.
 function string.rstrip(str, ...)
-    local args = (...)
-    local elements = args[1] or "%s"
-    repeat str = str:match(string.format("^(.+$)[%s]", elements))
-    until str:match(string.format("^(.+$)[%s]", elements)) == nil
-    return str
+    local args = {...}
+    return str:match(string.format("^(.-)[%s]+", args[1] or "%s"))
 end
-
 
 return {string = string}
