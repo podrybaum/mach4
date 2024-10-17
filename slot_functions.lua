@@ -1,5 +1,6 @@
-local scr = require("scr")
-local mc = require("mc")
+if not mc then
+    require("mocks")
+end
 
 local inst = mc.mcGetInstance()
 --- Check Mach4 signal state in a single call
@@ -102,7 +103,9 @@ end
 
 slots["E Stop Toggle"] = toggleMachSignalState(mc.ISIG_EMERGENCY)
 
-slots["Go To Work Zero"] = mc.mcCntlGotoZero(inst)
+slots["Go To Work Zero"] = function()
+    mc.mcCntlGotoZero(inst)
+end
 
 --- Below this line, slot functions depend on modules that may not be present in all Mach4 deployments ---
 --- These should go in some kind of custom code section ---

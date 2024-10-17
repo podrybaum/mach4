@@ -42,6 +42,7 @@ Controller.__index = Controller
 
 function Controller:new()
     self = Object:new(self, "xc")
+
     self.configValues["shiftButton"] = ""
     self.configValues["jogIncrement"] = "0"
     self.configValues["logLevel"] = "0"

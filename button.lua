@@ -1,5 +1,4 @@
-require("object")
-require("controller")
+
 local slots = require("slot_functions")
 
 --- Object representing a digital pushbutton controller input.
@@ -13,7 +12,7 @@ local slots = require("slot_functions")
 ---@field altUp string
 ---@field altDown string
 Button = setmetatable({}, Object)
-Button.__index = Button
+Button.__index = rawset(Button, "__index", Button)
 Button.__type = "Button"
 
 --- Initialize a new Button instance.
@@ -22,6 +21,7 @@ Button.__type = "Button"
 function Button:new(parent, id)
     self = Object.new(self, parent, id)
     self.pressed = false
+    self.configValues = setmetatable({}, self.configValues)
     self.configValues["Up"] = ""
     self.configValues["Down"] = ""
     self.configValues["altUp"] = ""

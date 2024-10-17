@@ -1,6 +1,11 @@
 local iniFile = "xbcontroller.ini"
 
-if not mc.mcIneditor() == 1 then
+if not mc then
+    require("mocks")
+end
+
+
+if not mc.mcInEditor() == 1 then
     local path = "C:\\Mach4Hobby\\Profiles\\" .. mc.mcProfileGetName(inst)
     iniFile = path .. "\\" .. iniFile
 else

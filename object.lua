@@ -10,12 +10,13 @@ Object.__type = "Object"
 Object.__tostring = function(self) return self.id end
 
 Object.__index = function(object, key)
-    return rawget(object.configValues, key) or rawget(object, key)
+    print(object, key)
+    --return rawget(object.configValues, key) or rawget(object, key)
 end
 
 Object.__newindex = function(object, key, value)
     if rawget(object.configValues, key) then
-        object.configValues[key] = value
+        rawset(object.configValues, key, value)
     else
         rawset(object, key, value)
     end
@@ -27,7 +28,7 @@ function Object:new(parent, id)
     obj.parent = parent
     obj.id = id
     obj.children = {}
-    obj.configValues = {}
+    --obj.configValues = setmetatable({}, nil)
     return obj
 end
 
@@ -60,11 +61,9 @@ function Object:serialize()
     return serial
 end
 
-
-
 -- Deserialize the given path-value string into the correct object.
 function Object:deserialize(path, val)
-    path = path:lstrip(self.id)
+    path = path:lstrip(self.id):lstrip("%.") -- we do it this way to ensure we don't overstrip the path
     local child = path:match("^(%S+)[%.$]")
     if #self.configValues > 0 then
         for k, _ in pairs(self.configValues) do

@@ -4,6 +4,7 @@
 if not mc then
     local home = os.getenv("USERPROFILE")
     package.path = string.format("%s;%s\\mach4\\?.lua;", package.path, home)
+    package.cpath = string.format("%s;C:\\Mach4Hobby\\ZeroBraneStudio\\bin\\clibs53\\?.dll", package.cpath)
     require("mocks")
 end
 scr = scr or require("scr")

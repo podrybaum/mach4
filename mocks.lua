@@ -1,3 +1,5 @@
+package.cpath = string.format("%s;C:\\Mach4Hobby\\ZeroBraneStudio\\bin\\clibs53\\?.dll", package.cpath)
+
 wx = require("wx")
 
 -- Make profileData global to access it across modules

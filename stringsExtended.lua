@@ -25,14 +25,6 @@ function string.split(str, ...)
     return out
 end
 
-
---[[function string.strip(str, ...)
-    local args = {...}
-    local pattern = args[1] or "%s"
-    local stripped = str:match(string.format("^%s*(.-)%s*$", pattern))
-    return stripped
-end]]--
-
 --- Extends Lua's builtin string library to include Python's .lstrip method.<br>
 --- OVERLOADED METHOD: Returns the first parameter stripped of all leading occurences of any character present in the second.
 --- Continues stripping characters until no occurence of any character in elements remains at the beginning of the string.<br>

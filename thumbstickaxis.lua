@@ -21,6 +21,7 @@ ThumbstickAxis.__type = "ThumbstickAxis"
 ---@return ThumbstickAxis @The new ThumbstickAxis instance
 function ThumbstickAxis:new(parent, id)
     self = Object.new(self, parent, id)
+    self.configValues = setmetatable({}, self.configValues)
     table.insert(self.configValues, {"axis", ""})
     table.insert(self.configValues, {"inverted", "false"})
     table.insert(self.configValues, {"deadzone", "10"})
