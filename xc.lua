@@ -126,7 +126,8 @@ function Controller.go()
     wx.wxGetApp():MainLoop()
 end
 
-
+print(xc.logLevel)
+print(xc.configValues["logLevel"])
 if mc.mcInEditor() == 1 then
     xc.go()
 end

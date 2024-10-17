@@ -6,24 +6,28 @@ require("stringsExtended")
 ---@field children table
 ---@field configValues table
 Object = {}
+setmetatable(Object, Object)
 Object.__type = "Object"
-Object.__tostring = function(self) return self.id end
+Object.__tostring = function(object) if object.id then return object.id else return "Object" end end
 
 Object.__index = function(object, key)
-    if rawget(object, "configValues") and rawget(rawget(object, "configValues"), key) then
-        return rawget(rawget(object, "configValues"), key)
-    elseif rawget(object, key) then
-        return rawget(object, key)
+    if rawget(object, "configValues") then
+        local configTable = rawget(object, "configValues")        
+        if rawget(configTable, key) then
+            return rawget(configTable, key)
+        end
     else
-        return Object
+        return rawget(Object, key)
     end
 end
 
 Object.__newindex = function(object, key, value)
-    if rawget(object, "configValues") == nil or rawget(rawget(object, "configValues"), key) == nil then
+    print(object, key, value)
+    local configTable = rawget(object, "configValues")
+    if configTable == nil or rawget(configTable, key) == nil then
         rawset(object, key, value)
-    elseif rawget(rawget(object, "configValues"), key) then
-        rawset(rawget(object, "configValues"), key, value)
+    elseif rawget(configTable, key) then
+        rawset(configTable, key,value)
     else
         rawset(object, key, value)
     end

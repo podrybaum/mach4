@@ -19,8 +19,7 @@ Button.__type = "Button"
 ---@param parent Controller @A Controller instance
 ---@param id string @A unique identifier for the input.
 function Button:new(parent, id)
-    self = Object.new(self, parent, id)
-    setmetatable(self, Button)
+    self = setmetatable(Object.new(self, parent, id), Button)
     self.pressed = false
     --self.configValues = setmetatable({}, self.configValues)
     self.configValues["Up"] = ""
