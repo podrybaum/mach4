@@ -149,7 +149,8 @@ function Profile.getProfiles()
     if file then
         for line in file:lines() do
             if line:match("^%[ControllerProfile-.*%]$") then
-                id = line:match("^%[ControllerProfile-(%d+)%]$")
+                id = line:match("^%[ControllerProfile%-(%d+)%]$")
+                print(line, id)
             end
             if line:match("^profileName=.*$") then
                 name = line:match("^profileName=(.*)$")

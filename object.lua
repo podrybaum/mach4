@@ -2,7 +2,7 @@ require("stringsExtended")
 
 ---@class Object
 ---@field parent Object
----@field id string 
+---@field id string
 ---@field children table
 ---@field configValues table
 Object = {}
@@ -10,27 +10,26 @@ Object.__type = "Object"
 Object.__tostring = function(self) return self.id end
 
 Object.__index = function(object, key)
-    print(object, key)
-    --return rawget(object.configValues, key) or rawget(object, key)
+    if rawget(object, "configValues") and rawget(rawget(object, "configValues"), key) then
+        return rawget(rawget(object, "configValues"), key)
+    elseif rawget(object, key) then
+        return rawget(object, key)
+    else
+        return Object
+    end
 end
 
 Object.__newindex = function(object, key, value)
-    if rawget(object.configValues, key) then
-        rawset(object.configValues, key, value)
+    if rawget(object, "configValues") == nil or rawget(rawget(object, "configValues"), key) == nil then
+        rawset(object, key, value)
+    elseif rawget(rawget(object, "configValues"), key) then
+        rawset(rawget(object, "configValues"), key, value)
     else
         rawset(object, key, value)
     end
 end
 
--- Constructor
-function Object:new(parent, id)
-    local obj = setmetatable({}, self)
-    obj.parent = parent
-    obj.id = id
-    obj.children = {}
-    --obj.configValues = setmetatable({}, nil)
-    return obj
-end
+
 
 -- Retrieve full path of an object in the hierarchy.
 function Object:getPath()
@@ -52,7 +51,7 @@ function Object:serialize()
     local serial = ""
     for key, value in pairs(self.configValues) do
         if value ~= nil then
-            self:getRoot().profile.profileData[self:getPath().."."..key] = value
+            self:getRoot().profile.profileData[self:getPath() .. "." .. key] = value
         end
     end
     for _, child in ipairs(self.children) do
@@ -83,6 +82,16 @@ function Object:getRoot()
     else
         return self.parent:getRoot()
     end
+end
+
+-- Constructor
+function Object:new(parent, id)
+    local obj = setmetatable({}, self)
+    obj.parent = parent
+    obj.id = id
+    obj.children = {}
+    obj.configValues = setmetatable({}, nil)
+    return obj
 end
 
 return { Object = Object }

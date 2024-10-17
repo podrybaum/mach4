@@ -11,8 +11,8 @@ local slots = require("slot_functions")
 ---@field Down string
 ---@field altUp string
 ---@field altDown string
-Button = setmetatable({}, Object)
-Button.__index = rawset(Button, "__index", Button)
+Button = setmetatable({}, {__index = Object})
+Button.__index = Button
 Button.__type = "Button"
 
 --- Initialize a new Button instance.
@@ -20,8 +20,9 @@ Button.__type = "Button"
 ---@param id string @A unique identifier for the input.
 function Button:new(parent, id)
     self = Object.new(self, parent, id)
+    setmetatable(self, Button)
     self.pressed = false
-    self.configValues = setmetatable({}, self.configValues)
+    --self.configValues = setmetatable({}, self.configValues)
     self.configValues["Up"] = ""
     self.configValues["Down"] = ""
     self.configValues["altUp"] = ""

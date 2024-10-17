@@ -36,19 +36,21 @@ require("thumbstickaxis")
 ---@field LTH_X_Val ThumbstickAxis
 ---@field RTH_Y_Val ThumbstickAxis
 ---@field RTH_X_Val ThumbstickAxis
-Controller = setmetatable({}, Object)
+Controller = {}
+setmetatable(Controller, {__index=Object})
 Controller.__type = "Controller"
 Controller.__index = Controller
 
-function Controller:new()
-    self = Object:new(self, "xc")
-
+function Controller:new(id)
+    self = setmetatable(Object:new(self, id), Controller)
     self.configValues["shiftButton"] = ""
     self.configValues["jogIncrement"] = "0"
     self.configValues["logLevel"] = "0"
     self.configValues["xYReversed"] = "false"
     self.configValues["frequency"] = "0"
     self.configValues["simpleJogMapped"] = "false"
+    print("addChild method is: ", self.addChild)  -- Ensure it's a function
+
     self:addChild(Button:new(self, "DPad_UP"))
     self:addChild(Button:new(self, "DPad_DOWN"))
     self:addChild(Button:new(self, "DPad_LEFT"))

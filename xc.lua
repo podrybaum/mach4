@@ -30,7 +30,7 @@ require("controller")
 -- Global Mach4 instance
 inst = mc.mcGetInstance()
 
-xc = Controller:new()
+xc = Controller:new("xc")
 ---------------------------------
 --- Custom Configuration Here ---
 
@@ -66,13 +66,9 @@ local root_id = tree:AddRoot(xc.id)
 local treedata = {
     [root_id:GetValue()] = xc
 }
-for i = 1, #xc.inputs do
-    local child_id = tree:AppendItem(root_id, xc.inputs[i].id)
-    treedata[child_id:GetValue()] = xc.inputs[i]
-end
-for i = 1, #xc.axes do
-    local child_id = tree:AppendItem(root_id, xc.axes[i].id)
-    treedata[child_id:GetValue()] = xc.axes[i]
+for i = 1, #xc.children do
+    local child_id = tree:AppendItem(root_id, xc.children[i].id)
+    treedata[child_id:GetValue()] = xc.children[i]
 end
 tree:ExpandAll()
 treeSizer:Add(tree, 1, wx.wxEXPAND + wx.wxALL, 5)
@@ -129,6 +125,7 @@ function Controller.go()
     mcLuaPanelParent:Show(true)
     wx.wxGetApp():MainLoop()
 end
+
 
 if mc.mcInEditor() == 1 then
     xc.go()
