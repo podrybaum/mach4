@@ -36,12 +36,11 @@ require("thumbstickaxis")
 ---@field LTH_X_Val ThumbstickAxis
 ---@field RTH_Y_Val ThumbstickAxis
 ---@field RTH_X_Val ThumbstickAxis
-Controller = setmetatable({}, Object)
-Controller.__type = "Controller"
-Controller.__index = Controller
+Controller = class("Controller", Type)
+print(Controller)
 
 function Controller:new(id)
-    self = setmetatable(Object.new(self, self, id), Controller)
+    self = setmetatable(Type.new(self, self, id), Controller)
     self.configValues["shiftButton"] = ""
     self.configValues["jogIncrement"] = "0"
     self.configValues["logLevel"] = "0"

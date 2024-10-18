@@ -10,7 +10,7 @@
 ---@field inverted string
 ---@field axis string
 ---@field configValues table
-ThumbstickAxis = setmetatable({}, Object)
+ThumbstickAxis = setmetatable({}, Type)
 ThumbstickAxis.__index = ThumbstickAxis
 ThumbstickAxis.__type = "ThumbstickAxis"
 
@@ -20,7 +20,7 @@ ThumbstickAxis.__type = "ThumbstickAxis"
 ---@param id string @A unique identifier for the input
 ---@return ThumbstickAxis @The new ThumbstickAxis instance
 function ThumbstickAxis:new(parent, id)
-    self = Object.new(self, parent, id)
+    self = Type.new(self, parent, id)
     self.configValues = setmetatable({}, self.configValues)
     table.insert(self.configValues, {"axis", ""})
     table.insert(self.configValues, {"inverted", "false"})

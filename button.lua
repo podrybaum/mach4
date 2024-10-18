@@ -11,7 +11,7 @@ local slots = require("slot_functions")
 ---@field Down string
 ---@field altUp string
 ---@field altDown string
-Button = setmetatable({}, {__index = Object})
+Button = setmetatable({}, {__index = Type})
 Button.__index = Button
 Button.__type = "Button"
 
@@ -19,7 +19,7 @@ Button.__type = "Button"
 ---@param parent Controller @A Controller instance
 ---@param id string @A unique identifier for the input.
 function Button:new(parent, id)
-    self = setmetatable(Object.new(self, parent, id), Button)
+    self = setmetatable(Type.new(self, parent, id), Button)
     self.pressed = false
     --self.configValues = setmetatable({}, self.configValues)
     self.configValues["Up"] = ""
