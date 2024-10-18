@@ -22,7 +22,6 @@ Object.__index = function(object, key)
 end
 
 Object.__newindex = function(object, key, value)
-    print(object, key, value)
     local configTable = rawget(object, "configValues")
     if configTable == nil or rawget(configTable, key) == nil then
         rawset(object, key, value)
@@ -67,16 +66,15 @@ end
 -- Deserialize the given path-value string into the correct object.
 function Object:deserialize(path, val)
     path = path:lstrip(self.id):lstrip("%.") -- we do it this way to ensure we don't overstrip the path
-    local child = path:match("^(%S+)[%.$]")
-    if #self.configValues > 0 then
-        for k, _ in pairs(self.configValues) do
-            if k == child then
-                self[k] = val
-                return
-            end
-        end
+    local child = path:match("(^%S+)[%.%s=]")
+    if child == "configValues" then
+        path = path:lstrip("configValues"):lstrip("%.")
+        local attrib, value = path:match("(^%S+)[%s=]+(%S+)$")
+        self.configValues[attrib] = value
+        return
+    else    
+        return self[child]:deserialize(path, val)
     end
-    return self[child]:deserialize(path, val)
 end
 
 -- Get the root object of the hierarchy.
