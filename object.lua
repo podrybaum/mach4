@@ -1,12 +1,7 @@
-function class(name, ...)
+function class(name, super)
     local cls = {}
-    local args = { ... }
-    if args[1] then
-        setmetatable(cls, args[1])
-        cls.__super = args[1]
-    else
-        setmetatable(cls, cls)
-    end
+    cls.__super = super or Type
+    setmetatable(cls, cls.__super)
     cls.__index = cls
     cls.__type = name
     cls.__name = name
@@ -28,12 +23,16 @@ function class(name, ...)
     end
     mt.__call = function(class, id, ...)
         local callArgs = {...}
+        print(class, id, callArgs[1])
+        
         local inst
-        if class.__super ~= nil and class.__super.__name ~= "Type" then
-            print(class)
-            inst = setmetatable(class.__super(Instance:new(id, callArgs[1])), class)
+
+        if class.__super.__name ~= "Type" then
+            inst = setmetatable(class.__super.new(Instance:new(id, callArgs[1])), class)
+            print(inst.id)
         else
             inst = setmetatable(Instance:new(id, callArgs[1]), class)
+            print(inst.id)
         end
         return class.new(inst)
     end

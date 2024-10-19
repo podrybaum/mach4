@@ -30,6 +30,7 @@ require("controller")
 -- Global Mach4 instance
 inst = mc.mcGetInstance()
 
+print("Calling Controller with class=Controller and id=xc")
 xc = Controller("xc")
 ---------------------------------
 --- Custom Configuration Here ---
@@ -66,6 +67,7 @@ local root_id = tree:AddRoot(xc.id)
 local treedata = {
     [root_id:GetValue()] = xc
 }
+
 for i = 1, #xc.children do
     local child_id = tree:AppendItem(root_id, xc.children[i].id)
     treedata[child_id:GetValue()] = xc.children[i]
