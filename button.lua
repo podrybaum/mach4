@@ -10,11 +10,8 @@ local slots = require("slot_functions")
 Button = class("Button", Type)
 
 --- Initialize a new Button instance.
----@param parent Controller @A Controller instance
----@param id string @A unique identifier for the input.
 ---@return Button @The new Button instance
-function Button:new(parent, id)
-    self = setmetatable(Instance.new(self, parent, id), Button)
+function Button.new(self)
     self.pressed = false
     self.configValues["Up"] = ""
     self.configValues["Down"] = ""
@@ -122,15 +119,11 @@ end
 ---@field value number
 ---@field pressed boolean
 ---@field configValues table
----@field analog string
 Trigger = class("Trigger", Button)
 
 --- Initialize a new Trigger instance.
----@param parent Controller @A Controller instance
----@param id string @unique identifier for the Trigger object
----@return Trigger @the new Trigger instance
-function Trigger:new(parent, id)
-    self = setmetatable(Button.new(self, parent, id), Trigger)
+---@return Trigger @The new Trigger instance
+function Trigger.new(self)
     self.value = 0
     self.configValues["analog"] = ""
     return self

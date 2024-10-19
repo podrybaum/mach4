@@ -9,10 +9,34 @@ function class(name, ...)
     end
     cls.__index = cls
     cls.__type = name
-    cls.__tostring = function(inst)
-        return inst.id
-    end
     cls.__name = name
+    mt = getmetatable(cls)
+
+    mt.__tostring = function(object)
+        if rawget(object, "id") then
+            return object.id
+        end
+        if rawget(object, "__super") ~= nil then
+            if rawget(object, "__super") == Type then
+                return string.format("Class: %s - Inherits from Type", rawget(object, "__name"))
+            else
+                return string.format("Class: %s - Inherits from %s", rawget(object, "__name"), rawget(object, "__super"))
+            end
+        else
+            return string.format("Class: %s", rawget(object, "__name"))
+        end
+    end
+    mt.__call = function(class, id, ...)
+        local callArgs = {...}
+        local inst
+        if class.__super ~= nil and class.__super.__name ~= "Type" then
+            print(class)
+            inst = setmetatable(class.__super(Instance:new(id, callArgs[1])), class)
+        else
+            inst = setmetatable(Instance:new(id, callArgs[1]), class)
+        end
+        return class.new(inst)
+    end
 
     return cls
 end
@@ -20,30 +44,15 @@ end
 ---@class Type
 ---@field __index Type
 ---@field __type string
+---@field __name string
 ---@field __tostring function
+---@field __call function
 Type = {}
-setmetatable(Type, Type)
+setmetatable(Type, {__index=nil})
 Type.__index = Type
 Type.__type = "Class"
 Type.__name = "Type"
-Type.__tostring = function(object)
-    if rawget(object, "id") then
-        return object.id
-    end
-    if rawget(object, "__super") then
-        if rawget(object, "__super") == Type then
-            return string.format("Class: %s - Inherits from Type", rawget(object, "__type"))
-        else
-            return string.format("Class: %s - Inherits from %s", rawget(object, "__type"), rawget(object, "__super"))
-        end
-    else
-        return string.format("Class: %s", rawget(object, "__type"))
-    end
-end
-Type.__call = function(class, parent, id, ...)
-    local inst = Instance:new(parent, id)
-    return class.new(inst, table.unpack({ ... }))
-end
+
 
 function Type:isInstance(class)
     local mt = getmetatable(self)
@@ -67,9 +76,9 @@ end
 
 Instance = {}
 -- Initialize a new instance of a class.
-function Instance:new(parent, id)
+function Instance:new(id, parent)
     self = {}
-    self.parent = parent
+    self.parent = parent or self
     self.id = id
     self.configValues = {}
     self.children = {}
@@ -81,7 +90,7 @@ function Instance:new(parent, id)
 end
 
 -- Retrieve full path of an object in the hierarchy.
-function Instance:getPath()
+function Instance.getPath(self)
     if self.parent == self then
         return self.id
     else
@@ -96,7 +105,7 @@ Instance.addChild = function(self, child)
 end
 
 -- Serialize the object's attributes and all its children.
-function Instance:serialize()
+function Instance.serialize(self)
     local serial = ""
     for key, value in pairs(self.configValues) do
         if value ~= nil then
@@ -111,7 +120,7 @@ end
 
 require("stringsExtended")
 -- Deserialize the given path-value string into the correct object.
-function Instance:deserialize(path, val)
+function Instance.deserialize(self, path, val)
     if path == "profileName" then
         return
     end
@@ -131,7 +140,7 @@ function Instance:deserialize(path, val)
 end
 
 -- Get the root object of the hierarchy.
-function Instance:getRoot()
+function Instance.getRoot(self)
     if self.parent == self then
         return self
     else

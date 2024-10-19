@@ -12,13 +12,9 @@
 ---@field configValues table
 ThumbstickAxis = class("ThumbstickAxis", Type)
 
-
 --- Initialize a new ThumbstickAxis object.
----@param parent Controller @A Controller instance
----@param id string @A unique identifier for the input
 ---@return ThumbstickAxis @The new ThumbstickAxis instance
-function ThumbstickAxis:new(parent, id)
-    self = setmetatable(Instance.new(self, parent, id), ThumbstickAxis)
+function ThumbstickAxis.new(self)
     table.insert(self.configValues, {"axis", ""})
     table.insert(self.configValues, {"inverted", "false"})
     table.insert(self.configValues, {"deadzone", "10"})

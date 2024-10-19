@@ -30,7 +30,7 @@ require("controller")
 -- Global Mach4 instance
 inst = mc.mcGetInstance()
 
-xc = Controller:new("xc")
+xc = Controller("xc")
 ---------------------------------
 --- Custom Configuration Here ---
 
