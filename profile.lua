@@ -129,7 +129,6 @@ function Profile:load()
     end
     if self.profileData["profileName"] then
         self.name = self.profileData["profileName"]
-        table.remove(self.profileData, 1)
     end
     for k, v in pairs(self.profileData) do
         self.controller:deserialize(k, v)

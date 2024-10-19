@@ -1,5 +1,5 @@
 --- An object representing an analog joystick parent input.
----@class ThumbstickAxis : Object
+---@class ThumbstickAxis : Type
 ---@field id string
 ---@field parent Controller
 ---@field rate number
@@ -10,9 +10,7 @@
 ---@field inverted string
 ---@field axis string
 ---@field configValues table
-ThumbstickAxis = setmetatable({}, Type)
-ThumbstickAxis.__index = ThumbstickAxis
-ThumbstickAxis.__type = "ThumbstickAxis"
+ThumbstickAxis = class("ThumbstickAxis", Type)
 
 
 --- Initialize a new ThumbstickAxis object.
@@ -20,8 +18,7 @@ ThumbstickAxis.__type = "ThumbstickAxis"
 ---@param id string @A unique identifier for the input
 ---@return ThumbstickAxis @The new ThumbstickAxis instance
 function ThumbstickAxis:new(parent, id)
-    self = Type.new(self, parent, id)
-    self.configValues = setmetatable({}, self.configValues)
+    self = setmetatable(Instance.new(self, parent, id), ThumbstickAxis)
     table.insert(self.configValues, {"axis", ""})
     table.insert(self.configValues, {"inverted", "false"})
     table.insert(self.configValues, {"deadzone", "10"})
@@ -34,7 +31,7 @@ end
 
 --- Retrieve the state of the input.
 function ThumbstickAxis:update()
-    if self.axis == nil then
+    if self.configValues.axis == nil then
         return
     end
     local val = self.parent:xcGetRegValue(string.format("mcX360_LUA/%s", self.id))
@@ -46,29 +43,29 @@ function ThumbstickAxis:update()
         return
     end
     if not self.moving and not self.rateReset then
-        if mc.mcJogGetRate(inst, self.axis) ~= self.rate then
-            mc.mcJogSetRate(inst, self.axis, self.rate)
+        if mc.mcJogGetRate(inst, self.configValues.axis) ~= self.rate then
+            mc.mcJogSetRate(inst, self.configValues.axis, self.rate)
             self.rateReset = true
         end
     end
 
-    if math.abs(self.value) > tonumber(self.deadzone) and not self.moving then
+    if math.abs(self.value) > tonumber(self.configValues.deadzone) and not self.moving then
         self.moving = true
         self.rateReset = false
-        mc.mcJogSetRate(inst, self.axis, math.abs(self.value))
+        mc.mcJogSetRate(inst, self.configValues.axis, math.abs(self.value))
         local direction = 1
-        if self.inverted then
+        if self.configValues.inverted then
             direction = (self.value > 0) and mc.MC_JOG_NEG or mc.MC_JOG_POS
         else
             direction = (self.value > 0) and mc.MC_JOG_POS or mc.MC_JOG_NEG
         end
-        mc.mcJogVelocityStart(inst, self.axis, direction)
+        mc.mcJogVelocityStart(inst, self.configValues.axis, direction)
     end
 
-    if math.abs(self.value) < tonumber(self.deadzone) and self.moving then
-        mc.mcJogVelocityStop(inst, self.axis)
+    if math.abs(self.value) < tonumber(self.configValues.deadzone) and self.moving then
+        mc.mcJogVelocityStop(inst, self.configValues.axis)
         self.moving = false
-        mc.mcJogSetRate(inst, self.axis, self.rate)
+        mc.mcJogSetRate(inst, self.configValues.axis, self.rate)
         self.rateReset = true
     end
 end
@@ -83,7 +80,7 @@ function ThumbstickAxis:initUi(propertiesPanel)
     -- deadzone label and control
     local deadzoneLabel = wx.wxStaticText(propertiesPanel, wx.wxID_ANY, "Thumbstick deadzone:")
     propSizer:Add(deadzoneLabel, 0, wx.wxALIGN_CENTER_VERTICAL + wx.wxALL, 5)
-    local deadzoneCtrl = wx.wxTextCtrl(propertiesPanel, wx.wxID_ANY, self.deadzone, wx.wxDefaultPosition,
+    local deadzoneCtrl = wx.wxTextCtrl(propertiesPanel, wx.wxID_ANY, self.configValues.deadzone, wx.wxDefaultPosition,
         wx.wxDefaultSize, wx.wxTE_RIGHT)
     propSizer:Add(deadzoneCtrl, 1, wx.wxEXPAND + wx.wxALL, 5)
 
@@ -93,12 +90,12 @@ function ThumbstickAxis:initUi(propertiesPanel)
     local choices = {"", "mc.X_AXIS", "mc.Y_AXIS", "mc.Z_AXIS", "mc.A_AXIS", "mc.B_AXIS", "mc.C_AXIS"}
     local choice = wx.wxChoice(propertiesPanel, wx.wxID_ANY, wx.wxDefaultPosition, wx.wxDefaultSize, choices)
     propSizer:Add(choice, 1, wx.wxEXPAND + wx.wxALL, 5)
-    choice:SetSelection(self.axis)
+    choice:SetSelection(self.configValues.axis)
 
     propSizer:Add(0, 0)
     local invertCheck = wx.wxCheckBox(propertiesPanel, wx.wxID_ANY, "Invert axis:", wx.wxDefaultPosition,
         wx.wxDefaultSize, wx.wxALIGN_RIGHT)
-    invertCheck:SetValue(self.inverted == "true")
+    invertCheck:SetValue(self.configValues.inverted == "true")
     propSizer:Add(invertCheck, 1, wx.wxEXPAND + wx.wxALL, 5)
 
     -- apply button
@@ -112,10 +109,10 @@ function ThumbstickAxis:initUi(propertiesPanel)
     propertiesPanel:Connect(applyId, wx.wxEVT_COMMAND_BUTTON_CLICKED, function()
         local axes = {mc.X_AXIS, mc.Y_AXIS, mc.Z_AXIS, mc.A_AXIS, mc.B_AXIS, mc.C_AXIS}
         local deadzone = deadzoneCtrl:GetValue()
-        self.deadzone = deadzone
+        self.configValues.deadzone = deadzone
         local selection = choice:GetSelection()
-        self.axis = selection
-        self.inverted = tostring(invertCheck:GetValue())
+        self.configValues.axis = selection
+        self.configValues.inverted = tostring(invertCheck:GetValue())
     end)
 
     -- Refresh and return the new layout

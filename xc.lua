@@ -104,7 +104,7 @@ function Controller.go()
         xc:update()
     end)
     xc:xcCntlLog("Starting X360_timer", 4)
-    X360_timer:Start(1000 / xc.frequency)
+    X360_timer:Start(1000 / xc.configValues.frequency)
 
     mcLuaPanelParent:Connect(wx.wxEVT_CLOSE_WINDOW, function(event)
 
@@ -126,13 +126,10 @@ function Controller.go()
     wx.wxGetApp():MainLoop()
 end
 
-print(xc.logLevel)
-print(xc.configValues["logLevel"])
 if mc.mcInEditor() == 1 then
     xc.go()
 end
 return {
-    Controller = Controller,
-    string = string
+    xc = xc
 }
 

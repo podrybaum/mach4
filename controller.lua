@@ -3,12 +3,12 @@ require("profile")
 require("button")
 require("thumbstickaxis")
 
----@class Controller: Object
+---@class Controller: Type
 ---@field profile Profile
 ---@field configValues table
 ---@field children table
 ---@field id string
----@field parent Object
+---@field parent Controller
 ---@field logLevels table
 ---@field logLevel string
 ---@field shiftButton string
@@ -37,18 +37,16 @@ require("thumbstickaxis")
 ---@field RTH_Y_Val ThumbstickAxis
 ---@field RTH_X_Val ThumbstickAxis
 Controller = class("Controller", Type)
-print(Controller)
 
-function Controller:new(id)
-    self = setmetatable(Type.new(self, self, id), Controller)
+function Controller:new()
+    self = setmetatable(Instance.new(self, self, "xc"), Controller)
     self.configValues["shiftButton"] = ""
     self.configValues["jogIncrement"] = "0"
     self.configValues["logLevel"] = "0"
     self.configValues["xYReversed"] = "false"
     self.configValues["frequency"] = "0"
     self.configValues["simpleJogMapped"] = "false"
-
-    self:addChild(Button:new(self, "DPad_UP"))
+    Button:new(self, "DPad_UP")
     self:addChild(Button:new(self, "DPad_DOWN"))
     self:addChild(Button:new(self, "DPad_LEFT"))
     self:addChild(Button:new(self, "DPad_RIGHT"))
@@ -68,20 +66,21 @@ function Controller:new(id)
     self:addChild(ThumbstickAxis:new(self, "LTH_X_Val"))
     self:addChild(ThumbstickAxis:new(self, "RTH_Y_Val"))
     self:addChild(ThumbstickAxis:new(self, "RTH_X_Val"))
-    self.logLevels = {"ERROR", "WARNING", "INFO", "DEBUG"}
+    self.configValues.logLevels = {"ERROR", "WARNING", "INFO", "DEBUG"}
     local profileId = mc.mcProfileGetString(inst, "XBC4MACH4", "lastProfile", "0")
     self.profile = Profile.new(profileId, Profile.getProfiles()[profileId], self)
+    self.profile:load()
     return self
 end
 
 
 --- Retrieve the state of the xbox controller.
 function Controller:update()
-    if self.shiftButton ~= "" then
-        self[self.shiftButton]:getState()
+    if self.configValues.shiftButton ~= "" then
+        self[self.configValues.shiftButton]:getState()
     end
     for _, input in pairs(self.children) do
-        if input ~= self.shiftButton then
+        if input ~= self.configValues.shiftButton then
             input:getState()
         end
     end
@@ -89,16 +88,16 @@ end
 
 --- Convenience method to map jogging to the DPad, and incremental jogging to the DPad's alternate function.
 function Controller:mapSimpleJog()
-    self:xcCntlLog(string.format("Value of reversed flag for axis orientation: %s", tostring(self.xYReversed)), 4)
-    self.DPad_UP.Down = self.xYReversed == "true" and "Jog Y+" or "Jog X+"
-    self.DPad_UP.Up = self.xYReversed == "true" and "Jog Y Off" or "Jog X Off"
-    self.DPad_DOWN.Down = self.xYReversed == "true" and "Jog Y-" or "Jog X-"
-    self.DPad_DOWN.Up = self.xYReversed == "true" and "Jog Y Off" or "Jog X Off"
-    self.DPad_RIGHT.Down = self.xYReversed == "true" and "Jog X+" or "Jog Y+"
-    self.DPad_RIGHT.Up = self.xYReversed == "true" and "Jog X Off" or "Jog Y Off"
-    self.DPad_LEFT.Down = self.xYReversed == "true" and "Jog X-" or "Jog Y-"
-    self.DPad_LEFT.Up = self.xYReversed == "true" and "Jog X Off" or "Jog Y Off"
-    if self.xYReversed then
+    self:xcCntlLog(string.format("Value of reversed flag for axis orientation: %s", tostring(self.configValues.xYReversed)), 4)
+    self.DPad_UP.Down = self.configValues.xYReversed == "true" and "Jog Y+" or "Jog X+"
+    self.DPad_UP.Up = self.configValues.xYReversed == "true" and "Jog Y Off" or "Jog X Off"
+    self.DPad_DOWN.Down = self.configValues.xYReversed == "true" and "Jog Y-" or "Jog X-"
+    self.DPad_DOWN.Up = self.configValues.xYReversed == "true" and "Jog Y Off" or "Jog X Off"
+    self.DPad_RIGHT.Down = self.configValues.xYReversed == "true" and "Jog X+" or "Jog Y+"
+    self.DPad_RIGHT.Up = self.configValues.xYReversed == "true" and "Jog X Off" or "Jog Y Off"
+    self.DPad_LEFT.Down = self.configValues.xYReversed == "true" and "Jog X-" or "Jog Y-"
+    self.DPad_LEFT.Up = self.configValues.xYReversed == "true" and "Jog X Off" or "Jog Y Off"
+    if self.configValues.xYReversed then
         self:xcCntlLog("Standard velocity jogging with X and Y axis orientation reversed mapped to D-pad", 3)
     else
         self:xcCntlLog("Standard velocity jogging mapped to D-pad", 3)
@@ -107,7 +106,7 @@ function Controller:mapSimpleJog()
     self.DPad_DOWN.AltDown = "xcJogIncDown"
     self.DPad_RIGHT.AltDown = "xcJogIncRight"
     self.DPad_LEFT.AltDown = "xcJogIncLeft"
-    if self.xYReversed then
+    if self.configValues.xYReversed then
         self:xcCntlLog("Incremental jogging with X and Y axis orientation reversed mapped to D-pad alternate function",
             3)
     else
@@ -120,14 +119,14 @@ end
 ---@param msg string @The message to log
 ---@param level number @The logging level to display the message at
 function Controller:xcCntlLog(msg, level)
-    if self.logLevel == "0" then
+    if self.configValues.logLevel == "0" then
         return
     end
-    if level <= tonumber(self.logLevel) then
+    if level <= tonumber(self.configValues.logLevel) then
         if mc.mcInEditor() ~= 1 then
-            mc.mcCntlLog(inst, "[[XBOX CONTROLLER " .. self.logLevels[level] .. "]]: " .. msg, "", -1)
+            mc.mcCntlLog(inst, "[[XBOX CONTROLLER " .. self.configValues.logLevels[level] .. "]]: " .. msg, "", -1)
         else
-            print("[[XBOX CONTROLLER " .. self.logLevels[level] .. "]]: " .. msg)
+            print("[[XBOX CONTROLLER " .. self.configValues.logLevels[level] .. "]]: " .. msg)
         end
     end
 end
@@ -178,11 +177,11 @@ function Controller:initUi(propertiesPanel)
     end
     local choice = wx.wxChoice(propertiesPanel, wx.wxID_ANY, wx.wxDefaultPosition, wx.wxDefaultSize, choices)
     propSizer:Add(choice, 1, wx.wxEXPAND + wx.wxALL, 5)
-    choice:SetSelection(choice:FindString(self.shiftButton))
+    choice:SetSelection(choice:FindString(self.configValues.shiftButton))
 
     local jogIncLabel = wx.wxStaticText(propertiesPanel, wx.wxID_ANY, "Jog Increment:")
     propSizer:Add(jogIncLabel, 0, wx.wxALIGN_CENTER_VERTICAL + wx.wxALL, 5)
-    local jogIncCtrl = wx.wxTextCtrl(propertiesPanel, wx.wxID_ANY, tostring(self.jogIncrement), wx.wxDefaultPosition,
+    local jogIncCtrl = wx.wxTextCtrl(propertiesPanel, wx.wxID_ANY, tostring(self.configValues.jogIncrement), wx.wxDefaultPosition,
         wx.wxDefaultSize, wx.wxTE_RIGHT)
     propSizer:Add(jogIncCtrl, 1, wx.wxEXPAND + wx.wxALL, 5)
 
@@ -191,17 +190,17 @@ function Controller:initUi(propertiesPanel)
     propSizer:Add(logLabel, 0, wx.wxALIGN_CENTER_VERTICAL + wx.wxALL, 5)
     local logChoice = wx.wxChoice(propertiesPanel, wx.wxID_ANY, wx.wxDefaultPosition, wx.wxDefaultSize, logLevels)
     propSizer:Add(logChoice, 1, wx.wxEXPAND + wx.wxALL, 5)
-    logChoice:SetSelection(tonumber(self.logLevel))
+    logChoice:SetSelection(tonumber(self.configValues.logLevel))
 
     local swapLabel = wx.wxStaticText(propertiesPanel, wx.wxID_ANY, "Swap X and Y axes:")
     propSizer:Add(swapLabel, 0, wx.wxALIGN_CENTER_VERTICAL + wx.wxALL, 5)
     local swapCheck = wx.wxCheckBox(propertiesPanel, wx.wxID_ANY, "")
-    swapCheck:SetValue(self.xYReversed == "true")
+    swapCheck:SetValue(self.configValues.xYReversed == "true")
     propSizer:Add(swapCheck, 1, wx.wxALIGN_RIGHT + wx.wxALL, 5)
 
     local frequencyLabel = wx.wxStaticText(propertiesPanel, wx.wxID_ANY, "Update Frequency (Hz):")
     propSizer:Add(frequencyLabel, 0, wx.wxALIGN_CENTER_VERTICAL + wx.wxALL, 5)
-    local frequencyCtrl = wx.wxTextCtrl(propertiesPanel, wx.wxID_ANY, self.frequency, wx.wxDefaultPosition,
+    local frequencyCtrl = wx.wxTextCtrl(propertiesPanel, wx.wxID_ANY, self.configValues.frequency, wx.wxDefaultPosition,
         wx.wxDefaultSize, wx.wxTE_RIGHT)
     propSizer:Add(frequencyCtrl, 1, wx.wxEXPAND + wx.wxALL, 5)
 
@@ -213,25 +212,25 @@ function Controller:initUi(propertiesPanel)
 
     -- event handler for apply button
     ---@diagnostic disable-next-line: undefined-field
-    propertiesPanel = wx.wxPanel(applyId, wx.wxEVT_COMMAND_BUTTON_CLICKED, function()
+    propertiesPanel:Connect(applyId, wx.wxEVT_COMMAND_BUTTON_CLICKED, function()
         local choiceSelection = choice:GetStringSelection()
-        if choiceSelection and choiceSelection ~= self.shiftButton then
-            self.shiftButton = choiceSelection
+        if choiceSelection and choiceSelection ~= self.configValues.shiftButton then
+            self.configValues.shiftButton = choiceSelection
         end
         local jogInc = jogIncCtrl:GetValue()
         if jogInc ~= nil and jogIncCtrl:IsModified() then
-            self.jogIncrement = jogInc
+            self.configValues.jogIncrement = jogInc
         end
         local logChoiceSelection = logChoice:GetSelection()
-        self.logLevel = logChoiceSelection
+        self.configValues.logLevel = logChoiceSelection
         local swapSelection = swapCheck:GetValue()
-        if swapSelection ~= self.xYReversed then
-            self.xYReversed = swapSelection
+        if swapSelection ~= self.configValues.xYReversed then
+            self.configValues.xYReversed = swapSelection
             self:mapSimpleJog()
         end
         local frequencyValue = frequencyCtrl:GetValue()
         if frequencyValue ~= nil then
-            self.frequency = frequencyValue
+            self.configValues.frequency = frequencyValue
         end
     end)
 

@@ -40,15 +40,28 @@ Type.__tostring = function(object)
         return string.format("Class: %s", rawget(object, "__type"))
     end
 end
+Type.__call = function(class, parent, id, ...)
+    local inst = Instance:new(parent, id)
+    return class.new(inst, table.unpack({ ... }))
+end
 
-Object.__newindex = function(object, key, value)
-    local configTable = rawget(object, "configValues")
-    if configTable == nil or rawget(configTable, key) == nil then
-        rawset(object, key, value)
-    elseif rawget(configTable, key) then
-        rawset(configTable, key,value)
+function Type:isInstance(class)
+    local mt = getmetatable(self)
+
+    -- If self has an id, it's an instance
+    if rawget(self, "id") then
+        while true do
+            if mt.__type == class.__name and class ~= Type then
+                return true
+            end
+            mt = rawget(mt, "__super") -- Traverse the chain of superclasses
+            if mt == Type then
+                return false           -- Stop when we hit Type - no instance is an instance of Type
+            end
+        end
     else
-        rawset(object, key, value)
+        -- If self is a class, return true if checking against Type only
+        return class == Type
     end
 end
 
@@ -60,6 +73,10 @@ function Instance:new(parent, id)
     self.id = id
     self.configValues = {}
     self.children = {}
+    self.addChild = Instance.addChild
+    self.serialize = Instance.serialize
+    self.deserialize = Instance.deserialize
+    self.getRoot = Instance.getRoot
     return self
 end
 
@@ -73,7 +90,7 @@ function Instance:getPath()
 end
 
 -- Add a child and store it by both index and ID.
-function Instance:addChild(child)
+Instance.addChild = function(self, child)
     table.insert(self.children, child)
     self[child.id] = child
 end
@@ -95,15 +112,21 @@ end
 require("stringsExtended")
 -- Deserialize the given path-value string into the correct object.
 function Instance:deserialize(path, val)
+    if path == "profileName" then
+        return
+    end
     path = path:lstrip(self.id):lstrip("%.") -- we do it this way to ensure we don't overstrip the path
-    local child = path:match("(^%S+)[%.%s=]")
+    local child = path:match("^(.+)[%.%s=]")
     if child == "configValues" then
         path = path:lstrip("configValues"):lstrip("%.")
-        local attrib, value = path:match("(^%S+)[%s=]+(%S+)$")
-        self.configValues[attrib] = value
+        self.configValues[path] = val
         return
     else    
-        return self[child]:deserialize(path, val)
+        for _, myChild in ipairs(self.children) do
+            if myChild.id == child then
+                return myChild:deserialize(path, val)
+            end
+        end
     end
 end
 
@@ -116,17 +139,5 @@ function Instance:getRoot()
     end
 end
 
-ExampleClass = class("ExampleClass", Type)
-function ExampleClass.new(self)
-    self = setmetatable(self, ExampleClass)
-    return self
-end
 
-inst = ExampleClass("None", "ExampleInstance")
-
-print(ExampleClass, inst)
-print(inst:isInstance(ExampleClass))
-print(inst:isInstance(Type))
-print(ExampleClass:isInstance(Type))
-
-return { Type = Type, class = class, Object = Instance }
+return { Type = Type, class = class, Instance = Instance }

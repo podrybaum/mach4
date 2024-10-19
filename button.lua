@@ -2,22 +2,20 @@
 local slots = require("slot_functions")
 
 --- Object representing a digital pushbutton controller input.
----@class Button: Object
+---@class Button: Type
 ---@field parent Controller
 ---@field id string
 ---@field pressed boolean
 ---@field configValues table
-Button = setmetatable({}, {__index = Object})
-Button.__index = Button
-Button.__type = "Button"
+Button = class("Button", Type)
 
 --- Initialize a new Button instance.
 ---@param parent Controller @A Controller instance
 ---@param id string @A unique identifier for the input.
+---@return Button @The new Button instance
 function Button:new(parent, id)
-    self = setmetatable(Type.new(self, parent, id), Button)
+    self = setmetatable(Instance.new(self, parent, id), Button)
     self.pressed = false
-    --self.configValues = setmetatable({}, self.configValues)
     self.configValues["Up"] = ""
     self.configValues["Down"] = ""
     self.configValues["altUp"] = ""
@@ -34,8 +32,8 @@ function Button:getState()
     end
     if (state == 1) and (not self.pressed) then
         self.pressed = true
-        if self.parent.shiftButton ~= self then
-            if not self.parent.shiftButton or not self.parent[self.parent.shiftButton].pressed then
+        if self.parent.configValues.shiftButton ~= self then
+            if not self.parent.configValues.shiftButton or not self.parent[self.parent.configValues.shiftButton].pressed then
                 if self.configValues["down"] ~= "" then
                     slots[self.configValues["down"]]()
                 end
@@ -47,8 +45,8 @@ function Button:getState()
         end
     elseif (state == 0) and self.pressed then
         self.pressed = false
-        if self.parent.shiftButton ~= self then
-            if not self.parent.shiftButton or not self.parent[self.parent.shiftButton].pressed then
+        if self.parent.configValues.shiftButton ~= self then
+            if not self.parent.configValues.shiftButton or not self.parent[self.parent.configValues.shiftButton].pressed then
                 slots[self.configValues["up"]]()
             else
                 slots[self.configValues["altUp"]]()
@@ -64,7 +62,7 @@ function Button:initUi(propertiesPanel)
 ---@diagnostic disable-next-line: undefined-field
     local propSizer = propertiesPanel:GetSizer()
 
-    if not (self.id == self.parent.shiftButton) then
+    if not (self.id == self.parent.configValues.shiftButton) then
         -- Slot labels and dropdowns
         local options = {""}
         local analogOptions = {""}
@@ -125,17 +123,14 @@ end
 ---@field pressed boolean
 ---@field configValues table
 ---@field analog string
-Trigger = setmetatable({}, Button)
-Trigger.__index = Trigger
-Trigger.__type = "Trigger"
-setmetatable(Trigger, {__index = Button})
+Trigger = class("Trigger", Button)
 
 --- Initialize a new Trigger instance.
 ---@param parent Controller @A Controller instance
 ---@param id string @unique identifier for the Trigger object
 ---@return Trigger @the new Trigger instance
 function Trigger:new(parent, id)
-    self = Button.new(self, parent, id)
+    self = setmetatable(Button.new(self, parent, id), Trigger)
     self.value = 0
     self.configValues["analog"] = ""
     return self
@@ -159,8 +154,8 @@ function Trigger:getState()
 
     if self.value > 0 and (not self.pressed) then
         self.pressed = true
-        if self.parent.shiftButton ~= self then
-            if not self.parent.shiftButton or not self.parent[self.parent.shiftButton].pressed then
+        if self.parent.configValues.shiftButton ~= self then
+            if not self.parent.configValues.shiftButton or not self.parent[self.parent.configValues.shiftButton].pressed then
                 if self.configValues["down"] ~= "" then
                     slots[self.configValues["down"]]()
                 end
@@ -172,8 +167,8 @@ function Trigger:getState()
         end
     elseif self.value == 0 and self.pressed then
         self.pressed = false
-        if self.parent.shiftButton ~= self then
-            if not self.parent.shiftButton or not self.parent[self.parent.shiftButton].pressed then
+        if self.parent.configValues.shiftButton ~= self then
+            if not self.parent.configValues.shiftButton or not self.parent[self.parent.configValues.shiftButton].pressed then
                 slots[self.configValues["up"]]()
             else
                 slots[self.configValues["altUp"]]()
