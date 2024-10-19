@@ -7,11 +7,7 @@ local slots = require("slot_functions")
 ---@field id string
 ---@field pressed boolean
 ---@field configValues table
----@field Up string
----@field Down string
----@field altUp string
----@field altDown string
-Button = setmetatable({}, {__index = Type})
+Button = setmetatable({}, {__index = Object})
 Button.__index = Button
 Button.__type = "Button"
 

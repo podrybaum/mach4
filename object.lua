@@ -40,27 +40,15 @@ Type.__tostring = function(object)
         return string.format("Class: %s", rawget(object, "__type"))
     end
 end
-Type.__call = function(class, parent, id, ...)
-    local inst = Instance:new(parent, id)
-    return class.new(inst, table.unpack({ ... }))
-end
-function Type:isInstance(class)
-    local mt = getmetatable(self)
 
-    -- If self has an id, it's an instance
-    if rawget(self, "id") then
-        while true do
-            if mt.__type == class.__name and class ~= Type then
-                return true
-            end
-            mt = rawget(mt, "__super") -- Traverse the chain of superclasses
-            if mt == Type then
-                return false           -- Stop when we hit Type - no instance is an instance of Type
-            end
-        end
+Object.__newindex = function(object, key, value)
+    local configTable = rawget(object, "configValues")
+    if configTable == nil or rawget(configTable, key) == nil then
+        rawset(object, key, value)
+    elseif rawget(configTable, key) then
+        rawset(configTable, key,value)
     else
-        -- If self is a class, return true if checking against Type only
-        return class == Type
+        rawset(object, key, value)
     end
 end
 
@@ -108,16 +96,15 @@ require("stringsExtended")
 -- Deserialize the given path-value string into the correct object.
 function Instance:deserialize(path, val)
     path = path:lstrip(self.id):lstrip("%.") -- we do it this way to ensure we don't overstrip the path
-    local child = path:match("^(%S+)[%.$]")
-    if #self.configValues > 0 then
-        for k, _ in pairs(self.configValues) do
-            if k == child then
-                self[k] = val
-                return
-            end
-        end
+    local child = path:match("(^%S+)[%.%s=]")
+    if child == "configValues" then
+        path = path:lstrip("configValues"):lstrip("%.")
+        local attrib, value = path:match("(^%S+)[%s=]+(%S+)$")
+        self.configValues[attrib] = value
+        return
+    else    
+        return self[child]:deserialize(path, val)
     end
-    return self[child]:deserialize(path, val)
 end
 
 -- Get the root object of the hierarchy.

@@ -23,6 +23,11 @@ local function runTests(tests)
       end
   end
 
+  if failed > 1 then
+    red = esc.."[1;31m"
+  else
+    red = ""
+  end
   print(string.format("\nTests run: %d | Passed: %s%d%s | Failed: %s%d%s", 
                       passed + failed, green, passed, reset, red, failed, reset))
 end
