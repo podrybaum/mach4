@@ -78,7 +78,7 @@ function Controller:update()
     if self.configValues.shiftButton ~= "" then
         self[self.configValues.shiftButton]:getState()
     end
-    for _, input in pairs(self.children) do
+    for _, input in ipairs(self.children) do
         if input ~= self.configValues.shiftButton then
             input:getState()
         end
@@ -88,23 +88,23 @@ end
 --- Convenience method to map jogging to the DPad, and incremental jogging to the DPad's alternate function.
 function Controller:mapSimpleJog()
     self:xcCntlLog(string.format("Value of reversed flag for axis orientation: %s", tostring(self.configValues.xYReversed)), 4)
-    self.DPad_UP.Down = self.configValues.xYReversed == "true" and "Jog Y+" or "Jog X+"
-    self.DPad_UP.Up = self.configValues.xYReversed == "true" and "Jog Y Off" or "Jog X Off"
-    self.DPad_DOWN.Down = self.configValues.xYReversed == "true" and "Jog Y-" or "Jog X-"
-    self.DPad_DOWN.Up = self.configValues.xYReversed == "true" and "Jog Y Off" or "Jog X Off"
-    self.DPad_RIGHT.Down = self.configValues.xYReversed == "true" and "Jog X+" or "Jog Y+"
-    self.DPad_RIGHT.Up = self.configValues.xYReversed == "true" and "Jog X Off" or "Jog Y Off"
-    self.DPad_LEFT.Down = self.configValues.xYReversed == "true" and "Jog X-" or "Jog Y-"
-    self.DPad_LEFT.Up = self.configValues.xYReversed == "true" and "Jog X Off" or "Jog Y Off"
+    self.DPad_UP.configValues.Down = self.configValues.xYReversed == "true" and "Jog Y+" or "Jog X+"
+    self.DPad_UP.configValues.Up = self.configValues.xYReversed == "true" and "Jog Y Off" or "Jog X Off"
+    self.DPad_DOWN.configValues.Down = self.configValues.xYReversed == "true" and "Jog Y-" or "Jog X-"
+    self.DPad_DOWN.configValues.Up = self.configValues.xYReversed == "true" and "Jog Y Off" or "Jog X Off"
+    self.DPad_RIGHT.configValues.Down = self.configValues.xYReversed == "true" and "Jog X+" or "Jog Y+"
+    self.DPad_RIGHT.configValues.Up = self.configValues.xYReversed == "true" and "Jog X Off" or "Jog Y Off"
+    self.DPad_LEFT.configValues.Down = self.configValues.xYReversed == "true" and "Jog X-" or "Jog Y-"
+    self.DPad_LEFT.configValues.Up = self.configValues.xYReversed == "true" and "Jog X Off" or "Jog Y Off"
     if self.configValues.xYReversed then
         self:xcCntlLog("Standard velocity jogging with X and Y axis orientation reversed mapped to D-pad", 3)
     else
         self:xcCntlLog("Standard velocity jogging mapped to D-pad", 3)
     end
-    self.DPad_UP.AltDown = "xcJogIncUp"
-    self.DPad_DOWN.AltDown = "xcJogIncDown"
-    self.DPad_RIGHT.AltDown = "xcJogIncRight"
-    self.DPad_LEFT.AltDown = "xcJogIncLeft"
+    self.DPad_UP.configValues.altDown = "xcJogIncUp"
+    self.DPad_DOWN.configValues.altDown = "xcJogIncDown"
+    self.DPad_RIGHT.configValues.altDown = "xcJogIncRight"
+    self.DPad_LEFT.configValues.altDown = "xcJogIncLeft"
     if self.configValues.xYReversed then
         self:xcCntlLog("Incremental jogging with X and Y axis orientation reversed mapped to D-pad alternate function",
             3)
@@ -196,6 +196,12 @@ function Controller:initUi(propertiesPanel)
     local swapCheck = wx.wxCheckBox(propertiesPanel, wx.wxID_ANY, "")
     swapCheck:SetValue(self.configValues.xYReversed == "true")
     propSizer:Add(swapCheck, 1, wx.wxALIGN_RIGHT + wx.wxALL, 5)
+
+    local simpleJoglabel = wx.wxStaticText(propertiesPanel, wx.wxID_ANY, "Map Simple Jogging:")
+    propSizer:Add(simpleJoglabel, 0, wx.wxALIGN_CENTER_VERTICAL + wx.wxALL, 5)
+    local simpleJogCheck = wx.wxCheckBox(propertiesPanel, wx.wxID_ANY, "")
+    swapCheck:SetValue(self.configValues.simpleJogMapped == "true")
+    propSizer:Add(simpleJogCheck, 1, wx.wxALIGN_RIGHT + wx.wxALL, 5)
 
     local frequencyLabel = wx.wxStaticText(propertiesPanel, wx.wxID_ANY, "Update Frequency (Hz):")
     propSizer:Add(frequencyLabel, 0, wx.wxALIGN_CENTER_VERTICAL + wx.wxALL, 5)

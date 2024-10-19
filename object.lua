@@ -1,5 +1,10 @@
+--- Create a new class
+---@param name string @The name of the new class
+---@param super table @Class to inherit from, defaults to Type
+---@return table @The new class, which is an instance of Type
 function class(name, super)
     local cls = {}
+    
     cls.__super = super or Type
     setmetatable(cls, cls.__super)
     cls.__index = cls
@@ -22,21 +27,18 @@ function class(name, super)
         end
     end
     mt.__call = function(class, id, ...)
+        if class.id ~= nil then
+           error("Attempt to call an instance object.")
+        end
         local callArgs = {...}
-        print(class, id, callArgs[1])
-        
         local inst
-
         if class.__super.__name ~= "Type" then
             inst = setmetatable(class.__super.new(Instance:new(id, callArgs[1])), class)
-            print(inst.id)
         else
             inst = setmetatable(Instance:new(id, callArgs[1]), class)
-            print(inst.id)
         end
         return class.new(inst)
     end
-
     return cls
 end
 
@@ -120,16 +122,17 @@ end
 require("stringsExtended")
 -- Deserialize the given path-value string into the correct object.
 function Instance.deserialize(self, path, val)
+    print(path, val)
     if path == "profileName" then
         return
     end
     path = path:lstrip(self.id):lstrip("%.") -- we do it this way to ensure we don't overstrip the path
-    local child = path:match("^(.+)[%.%s=]")
+    local child = path:match("^(.-)[%.%s%=]")
     if child == "configValues" then
         path = path:lstrip("configValues"):lstrip("%.")
         self.configValues[path] = val
         return
-    else    
+    else
         for _, myChild in ipairs(self.children) do
             if myChild.id == child then
                 return myChild:deserialize(path, val)

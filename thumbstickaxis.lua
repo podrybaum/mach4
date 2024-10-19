@@ -6,9 +6,6 @@
 ---@field value number
 ---@field moving boolean
 ---@field rateSet boolean
----@field deadzone string
----@field inverted string
----@field axis string
 ---@field configValues table
 ThumbstickAxis = class("ThumbstickAxis", Type)
 
@@ -26,7 +23,7 @@ function ThumbstickAxis.new(self)
 end
 
 --- Retrieve the state of the input.
-function ThumbstickAxis:update()
+function ThumbstickAxis:getState()
     if self.configValues.axis == nil then
         return
     end

@@ -120,7 +120,7 @@ function Profile:load()
             if not inProfile and line == string.format("[ControllerProfile-%s]", self.id) then
                 inProfile = true
             elseif inProfile and not line:match("^%s*$") then
-                local key, value = line:match("^(.-)=(.*)$")
+                local key, value = line:match("^(.-)=(.+)$")
                 if key and value then
                     self.profileData[key] = value
                 end

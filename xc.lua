@@ -30,7 +30,6 @@ require("controller")
 -- Global Mach4 instance
 inst = mc.mcGetInstance()
 
-print("Calling Controller with class=Controller and id=xc")
 xc = Controller("xc")
 ---------------------------------
 --- Custom Configuration Here ---
@@ -129,7 +128,7 @@ function Controller.go()
 end
 
 if mc.mcInEditor() == 1 then
-    xc.go()
+   xc.go()
 end
 return {
     xc = xc

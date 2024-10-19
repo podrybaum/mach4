@@ -17,6 +17,7 @@ function Button.new(self)
     self.configValues["Down"] = ""
     self.configValues["altUp"] = ""
     self.configValues["altDown"] = ""
+    print(self.configValues[1])
     return self
 end
 
@@ -58,20 +59,26 @@ end
 function Button:initUi(propertiesPanel)
 ---@diagnostic disable-next-line: undefined-field
     local propSizer = propertiesPanel:GetSizer()
-
     if not (self.id == self.parent.configValues.shiftButton) then
         -- Slot labels and dropdowns
+        print(self.configValues["Up"], self.configValues["Down"], self.configValues["altUp"], self.configValues["altDown"])
         local options = {""}
         local analogOptions = {""}
-        for _, slot in ipairs(slots) do
-            options[#options + 1] = slot.id
+        for name, slot in pairs(slots) do
+            options[#options + 1] = name
         end
         local idMapping = {}
         for state, _ in pairs(self.configValues) do
             local label = wx.wxStaticText(propertiesPanel, wx.wxID_ANY, string.format("%s Action:", state))
             propSizer:Add(label, 0, wx.wxALIGN_LEFT + wx.wxALL, 5)
+            local choices
+            if self:isInstance(Trigger) then
+                choices = analogOptions
+            else
+                choices = options
+            end
             local choice = wx.wxChoice(propertiesPanel, wx.wxID_ANY, wx.wxDefaultPosition, wx.wxDefaultSize,
-                self.__type == "Trigger" and analogOptions or options)
+                choices)
             idMapping[state] = choice
             if self.configValues[state] ~= "" then
                 choice:SetSelection(choice:FindString(self.configValues[state]))
