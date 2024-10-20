@@ -62,7 +62,7 @@ local treeBox = wx.wxStaticBox(mcLuaPanelParent, wx.wxID_ANY, "Controller Tree M
 local treeSizer = wx.wxStaticBoxSizer(treeBox, wx.wxVERTICAL)
 local tree = wx.wxTreeCtrl.new(mcLuaPanelParent, wx.wxID_ANY, wx.wxDefaultPosition, wx.wxSize(100, -1),
     wx.wxTR_HAS_BUTTONS, wx.wxDefaultValidator, "tree")
-local root_id = tree:AddRoot(xc.id)
+local root_id = tree:AddRoot("Controller")
 local treedata = {
     [root_id:GetValue()] = xc
 }

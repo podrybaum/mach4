@@ -122,7 +122,6 @@ end
 require("stringsExtended")
 -- Deserialize the given path-value string into the correct object.
 function Instance.deserialize(self, path, val)
-    print(path, val)
     if path == "profileName" then
         return
     end

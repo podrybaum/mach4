@@ -219,16 +219,16 @@ function Controller:initUi(propertiesPanel)
     ---@diagnostic disable-next-line: undefined-field
     propertiesPanel:Connect(applyId, wx.wxEVT_COMMAND_BUTTON_CLICKED, function()
         local choiceSelection = choice:GetStringSelection()
-        if choiceSelection and choiceSelection ~= self.configValues.shiftButton then
+        if choiceSelection then
             self.configValues.shiftButton = choiceSelection
         end
         local jogInc = jogIncCtrl:GetValue()
-        if jogInc ~= nil and jogIncCtrl:IsModified() then
+        if jogIncCtrl:IsModified() then
             self.configValues.jogIncrement = jogInc
         end
         local logChoiceSelection = logChoice:GetSelection()
         self.configValues.logLevel = logChoiceSelection
-        local swapSelection = swapCheck:GetValue()
+        local swapSelection = tostring(swapCheck:GetValue())
         if swapSelection ~= self.configValues.xYReversed then
             self.configValues.xYReversed = swapSelection
             self:mapSimpleJog()

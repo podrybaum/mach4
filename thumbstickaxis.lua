@@ -75,15 +75,16 @@ function ThumbstickAxis:initUi(propertiesPanel)
     propSizer:Add(deadzoneLabel, 0, wx.wxALIGN_CENTER_VERTICAL + wx.wxALL, 5)
     local deadzoneCtrl = wx.wxTextCtrl(propertiesPanel, wx.wxID_ANY, self.configValues.deadzone, wx.wxDefaultPosition,
         wx.wxDefaultSize, wx.wxTE_RIGHT)
+    deadzoneCtrl:SetValue(self.configValues.deadzone)
     propSizer:Add(deadzoneCtrl, 1, wx.wxEXPAND + wx.wxALL, 5)
 
     -- axis label and control
     local label = wx.wxStaticText(propertiesPanel, wx.wxID_ANY, "Connect to axis:")
     propSizer:Add(label, 0, wx.wxALIGN_CENTER_VERTICAL + wx.wxALL, 5)
-    local choices = {"", "mc.X_AXIS", "mc.Y_AXIS", "mc.Z_AXIS", "mc.A_AXIS", "mc.B_AXIS", "mc.C_AXIS"}
+    local choices = {"mc.X_AXIS", "mc.Y_AXIS", "mc.Z_AXIS", "mc.A_AXIS", "mc.B_AXIS", "mc.C_AXIS", ""}
     local choice = wx.wxChoice(propertiesPanel, wx.wxID_ANY, wx.wxDefaultPosition, wx.wxDefaultSize, choices)
     propSizer:Add(choice, 1, wx.wxEXPAND + wx.wxALL, 5)
-    choice:SetSelection(self.configValues.axis)
+    choice:SetSelection(tonumber(self.configValues.axis) or 7)
 
     propSizer:Add(0, 0)
     local invertCheck = wx.wxCheckBox(propertiesPanel, wx.wxID_ANY, "Invert axis:", wx.wxDefaultPosition,
