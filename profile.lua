@@ -15,6 +15,7 @@ end
 ---@field name string
 ---@field controller Controller
 ---@field profileData table
+---@field iniFile string
 Profile = {}
 Profile.__index = Profile
 Profile.__type = "Profile"
@@ -32,6 +33,12 @@ function Profile.new(id, name, controller)
     self.name = name
     self.controller = controller
     self.iniFile = iniFile
+    file = io.open(self.iniFile, "r+")
+    if not file then
+        self.writeDefault(self.iniFile)
+    else
+        file:close()
+    end
     self.profileData = {}
     self.profileData["profileName"] = self.name
     return self
@@ -39,13 +46,18 @@ end
 
 function Profile:exists()
     local file = io.open(self.iniFile, "r+")
-    if file ~= nil then
+    if not file then
+        error("ini file is missing or corrupted!")
+    else
         for line in file:lines() do
             if line == string.format("[ControllerProfile-%s]", self.id) then
+                file:close()
                 return true
             end
         end
     end
+    file:close()
+    return false
 end
 
 function Profile:write()
@@ -53,8 +65,10 @@ function Profile:write()
         self:delete()
         self:write()
     else
-        local file = io.open(self.iniFile, "a")
-        if file then
+        local file = io.open(self.iniFile, "r+")
+        if not file then
+            error("ini file is missing or corrupted!")
+        else
             file:seek("end")
             file:write(string.format("\n[ControllerProfile-%s]\nprofileName=%s\n", self.id, self.name))
             for k, v in pairsByKeys(self.profileData, sortConfig) do
@@ -68,7 +82,9 @@ end
 
 function Profile:delete()
     local file = io.open(self.iniFile, "r+")
-    if file then
+    if not file then
+        error("ini file is missing or corrupted!")
+    else
         local iniLines = {}
         local inProfile = false
         for line in file:lines() do
@@ -76,7 +92,6 @@ function Profile:delete()
                 table.insert(iniLines, line)
             elseif line:startswith(string.format("[ControllerProfile-%s]", self.id)) then
                 inProfile = true
-                print(string.format("matching line: %s to id: %s", line, self.id))
             elseif inProfile and line:startswith(" ") or line == "" then
                 inProfile = false
             end
@@ -96,7 +111,9 @@ function Profile:load()
     self.controller:xcCntlLog("Loading profile: " .. self.name, 4)
     local file = io.open(self.iniFile, "r+")
     local iniLines = {}
-    if file then
+    if not file then
+        error("ini file is missing or corrupted!")
+    else
         local inProfile = false
         for line in file:lines() do
             if line:startswith("lastProfile=") then
@@ -130,12 +147,65 @@ end
 function Profile.getLast(filePath)
     filePath = filePath or iniFile
     local file = io.open(filePath, "r")
-    if file then
+    if not file then
+        error("ini file is missing or corrupted!")
+    else
         for line in file:lines() do
             if line:match("^lastProfile=.*$") then
+                file:close()
                 return line:match("^lastProfile=(.*)$")
             end
         end
+    end
+    file:close()
+end
+
+function Profile.writeDefault(filePath)
+    filePath = filePath or iniFile
+    local file = io.open(filePath, "w")
+    local defaultProfile = [[[XBC4MACH4]
+lastProfile=0
+
+[ControllerProfile-0]
+profileName=default
+xc.Btn_B.configValues.Down=E Stop Toggle
+xc.Btn_BACK.configValues.altDown=Home Z
+xc.Btn_RS.configValues.Down=Enable Toggle
+xc.Btn_START.configValues.altDown=Home All
+xc.Btn_X.configValues.Down=Cycle Start/Stop
+xc.DPad_DOWN.configValues.Down=Jog Y-
+xc.DPad_DOWN.configValues.Up=Jog Y Off
+xc.DPad_DOWN.configValues.altDown=xcJogIncDown
+xc.DPad_LEFT.configValues.Down=Jog X-
+xc.DPad_LEFT.configValues.Up=Jog X Off
+xc.DPad_LEFT.configValues.altDown=xcJogIncLeft
+xc.DPad_RIGHT.configValues.Down=Jog X+
+xc.DPad_RIGHT.configValues.Up=Jog X Off
+xc.DPad_RIGHT.configValues.altDown=xcJogIncRight
+xc.DPad_UP.configValues.Down=Jog Y+
+xc.DPad_UP.configValues.Up=Jog Y Off
+xc.DPad_UP.configValues.altDown=xcJogIncUp
+xc.LTH_X_Val.configValues.deadzone=10
+xc.LTH_X_Val.configValues.inverted=false
+xc.LTH_Y_Val.configValues.deadzone=10
+xc.LTH_Y_Val.configValues.inverted=false
+xc.RTH_X_Val.configValues.deadzone=10
+xc.RTH_X_Val.configValues.inverted=false
+xc.RTH_Y_Val.configValues.axis=2
+xc.RTH_Y_Val.configValues.deadzone=10
+xc.RTH_Y_Val.configValues.inverted=false
+xc.configValues.frequency=4
+xc.configValues.jogIncrement=0.1
+xc.configValues.logLevel=2.0
+xc.configValues.shiftButton=Btn_Y
+xc.configValues.simpleJogMapped=true
+xc.configValues.xYReversed=true]]
+
+    if file then
+        file:write(defaultProfile)
+        file:close()
+    else
+        error("Could not write default profile")
     end
 end
 
@@ -149,7 +219,9 @@ function Profile.getProfiles(filePath)
     local file = io.open(filePath, "r")
     local profiles = {}
     local id, name
-    if file then
+    if not file then
+        error("ini file is missing or corrupted!")
+    else
         for line in file:lines() do
             if line:match("^%[ControllerProfile-.*%]$") then
                 id = line:match("^%[ControllerProfile%-(%d+)%]$")
@@ -159,6 +231,7 @@ function Profile.getProfiles(filePath)
                 profiles[id] = name
             end
         end
+        file:close()
         return profiles
     end
 end
