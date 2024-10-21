@@ -1,4 +1,3 @@
-
 local slots = require("slot_functions")
 
 --- Object representing a digital pushbutton controller input.
@@ -17,7 +16,6 @@ function Button.new(self)
     self.configValues["Down"] = ""
     self.configValues["altUp"] = ""
     self.configValues["altDown"] = ""
-    print(self.configValues[1])
     return self
 end
 
@@ -32,8 +30,8 @@ function Button:getState()
         self.pressed = true
         if self.parent.configValues.shiftButton ~= self then
             if not self.parent.configValues.shiftButton or not self.parent[self.parent.configValues.shiftButton].pressed then
-                if self.configValues["down"] ~= "" then
-                    slots[self.configValues["down"]]()
+                if self.configValues["Down"] ~= "" then
+                    slots[self.configValues["Down"]]()
                 end
             else
                 if self.configValues["altDown"] ~= "" then
@@ -45,7 +43,7 @@ function Button:getState()
         self.pressed = false
         if self.parent.configValues.shiftButton ~= self then
             if not self.parent.configValues.shiftButton or not self.parent[self.parent.configValues.shiftButton].pressed then
-                slots[self.configValues["up"]]()
+                slots[self.configValues["Up"]]()
             else
                 slots[self.configValues["altUp"]]()
             end
@@ -61,14 +59,13 @@ function Button:initUi(propertiesPanel)
     local propSizer = propertiesPanel:GetSizer()
     if not (self.id == self.parent.configValues.shiftButton) then
         -- Slot labels and dropdowns
-        print(self.configValues["Up"], self.configValues["Down"], self.configValues["altUp"], self.configValues["altDown"])
         local options = {""}
         local analogOptions = {""}
-        for name, slot in pairs(slots) do
+        for name, slot in pairsByKeys(slots) do
             options[#options + 1] = name
         end
         local idMapping = {}
-        for state, _ in pairs(self.configValues) do
+        for state, _ in pairsByKeys(self.configValues, sortConfig) do
             local label = wx.wxStaticText(propertiesPanel, wx.wxID_ANY, string.format("%s Action:", state))
             propSizer:Add(label, 0, wx.wxALIGN_LEFT + wx.wxALL, 5)
             local choices
@@ -95,7 +92,7 @@ function Button:initUi(propertiesPanel)
         -- Event handler
     ---@diagnostic disable-next-line: undefined-field
         propertiesPanel:Connect(applyId, wx.wxEVT_COMMAND_BUTTON_CLICKED, function()
-            for state, _ in pairs(self.configValues) do
+            for state, _ in pairsByKeys(self.configValues, sortConfig) do
                 local choice = idMapping[state]
                 local selection = choice:GetStringSelection()
                 self.configValues[state] = selection
@@ -105,8 +102,6 @@ function Button:initUi(propertiesPanel)
         -- Refresh and return the layout
     ---@diagnostic disable-next-line: undefined-field
         propertiesPanel:Layout()
-    ---@diagnostic disable-next-line: undefined-field
-        propertiesPanel:Fit()
     ---@diagnostic disable-next-line: undefined-field
         propertiesPanel:Refresh()
         return propSizer
@@ -156,8 +151,8 @@ function Trigger:getState()
         self.pressed = true
         if self.parent.configValues.shiftButton ~= self then
             if not self.parent.configValues.shiftButton or not self.parent[self.parent.configValues.shiftButton].pressed then
-                if self.configValues["down"] ~= "" then
-                    slots[self.configValues["down"]]()
+                if self.configValues["Down"] ~= "" then
+                    slots[self.configValues["Down"]]()
                 end
             else
                 if self.configValues["altDown"] ~= "" then
@@ -169,9 +164,13 @@ function Trigger:getState()
         self.pressed = false
         if self.parent.configValues.shiftButton ~= self then
             if not self.parent.configValues.shiftButton or not self.parent[self.parent.configValues.shiftButton].pressed then
-                slots[self.configValues["up"]]()
+                if self.configValues["Up"] ~= "" then
+                    slots[self.configValues["Up"]]()
+                end
             else
-                slots[self.configValues["altUp"]]()
+                if self.configValues["altUp"] ~= "" then
+                    slots[self.configValues["altUp"]]()
+                end
             end
         end
     end

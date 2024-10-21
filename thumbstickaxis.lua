@@ -12,9 +12,9 @@ ThumbstickAxis = class("ThumbstickAxis", Type)
 --- Initialize a new ThumbstickAxis object.
 ---@return ThumbstickAxis @The new ThumbstickAxis instance
 function ThumbstickAxis.new(self)
-    table.insert(self.configValues, {"axis", ""})
-    table.insert(self.configValues, {"inverted", "false"})
-    table.insert(self.configValues, {"deadzone", "10"})
+    self.configValues["axis"] = ""
+    self.configValues["inverted"] = "false"
+    self.configValues["deadzone"] = "10"
     self.rate = 0
     self.value = 0
     self.moving = false
@@ -111,8 +111,6 @@ function ThumbstickAxis:initUi(propertiesPanel)
 
     -- Refresh and return the new layout
     propSizer:Layout()
-    ---@diagnostic disable-next-line: undefined-field
-    propertiesPanel:Layout(); propertiesPanel:Fit(); propertiesPanel:Refresh()
     return propSizer
 end
 

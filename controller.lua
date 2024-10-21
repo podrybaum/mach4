@@ -66,8 +66,9 @@ function Controller:new()
     self:addChild(ThumbstickAxis("RTH_Y_Val", self))
     self:addChild(ThumbstickAxis("RTH_X_Val", self))
     self.logLevels = {"ERROR", "WARNING", "INFO", "DEBUG"}
-    local profileId = mc.mcProfileGetString(inst, "XBC4MACH4", "lastProfile", "0")
-    self.profile = Profile.new(profileId, Profile.getProfiles()[profileId], self)
+    local profileId = Profile.getLast()
+    local profileName = Profile.getProfiles()[profileId]
+    self.profile = Profile.new(profileId, profileName, self)
     self.profile:load()
     return self
 end
@@ -214,6 +215,85 @@ function Controller:initUi(propertiesPanel)
     local applyId = wx.wxNewId()
     local apply = wx.wxButton(propertiesPanel, applyId, "Apply")
     propSizer:Add(apply, 0, wx.wxALIGN_RIGHT + wx.wxALL, 5)
+
+    -- fill up growable row 8 to push save buttons down
+    propSizer:Add(0, 0, 1, wx.wxEXPAND)
+    propSizer:Add(0, 0, 1, wx.wxEXPAND)
+
+    local saveProfileAsId = wx.wxNewId()
+    local saveProfileAs = wx.wxButton(propertiesPanel, saveProfileAsId, "Save Profile As...")
+    propSizer:Add(saveProfileAs, 0, wx.wxALIGN_RIGHT + wx.wxALL, 5)
+
+    local saveProfileId = wx.wxNewId()
+    local saveProfile = wx.wxButton(propertiesPanel, saveProfileId, "Save Profile")
+    propSizer:Add(saveProfile, 0, wx.wxALIGN_RIGHT + wx.wxALL, 5)
+
+    propertiesPanel:Connect(saveProfileId, wx.wxEVT_COMMAND_BUTTON_CLICKED, function() self.profile:save() end)
+
+    propertiesPanel:Connect(saveProfileAsId, wx.wxEVT_COMMAND_BUTTON_CLICKED, function()
+        local dialog = wx.wxDialog(propertiesPanel, wx.wxID_ANY, "Save Profile As", wx.wxDefaultPosition, wx.wxSize(300, 300), wx.wxDEFAULT_DIALOG_STYLE)
+        local vSizer = wx.wxBoxSizer(wx.wxVERTICAL)
+        local profileCtlLabel = wx.wxStaticText(dialog, wx.wxID_ANY, "Select an existing profile:")
+        vSizer:Add(profileCtlLabel, 0, wx.wxALL, 5)
+        local profileListBox = wx.wxListBox(dialog, wx.wxID_ANY, wx.wxDefaultPosition, wx.wxSize(280, 120), profiles, wx.wxLB_SINGLE)
+        profileListBox:SetSelection(profileListBox:FindString(self.profile.name))
+        vSizer:Add(profileListBox, 0, wx.wxEXPAND + wx.wxALL, 5)
+
+        local newProfileLabel = wx.wxStaticText(dialog, wx.wxID_ANY, "Or enter a new profile name:")
+        vSizer:Add(newProfileLabel, 0, wx.wxALL, 5)
+        local newProfileTextCtrl = wx.wxTextCtrl(dialog, wx.wxID_ANY, "", wx.wxDefaultPosition, wx.wxSize(280, 30))
+        vSizer:Add(newProfileTextCtrl, 0, wx.wxEXPAND + wx.wxALL, 5)
+
+        local buttonSizer = wx.wxBoxSizer(wx.wxHORIZONTAL)
+        local saveButton = wx.wxButton(dialog, wx.wxID_SAVE, "Save")
+        local cancelButton = wx.wxButton(dialog, wx.wxID_CANCEL, "Cancel")
+        buttonSizer:Add(saveButton, 1, wx.wxALL, 5)
+        buttonSizer:Add(cancelButton, 1, wx.wxALL, 5)
+        vSizer:Add(buttonSizer, 0, wx.wxALIGN_RIGHT + wx.wxALL, 5)
+
+        dialog:SetSizer(vSizer)
+        vSizer:Fit(dialog)
+
+        dialog:Connect(saveButton:GetId(), wx.wxEVT_COMMAND_BUTTON_CLICKED, function()
+            local selectedProfile = profileListBox:GetStringSelection()
+            local newProfileName = newProfileTextCtrl:GetValue()
+            local tmpProfileName, tmpProfileId
+
+            if newProfileName ~= "" then
+                tmpProfileName = newProfileName
+                tmpProfileId = #profiles
+                self:xcCntlLog(string.format("Saving as new profile: %s", newProfileName), 3)
+            elseif selectedProfile ~= "" then
+                for id, profileName in pairs(Profile.getProfiles()) do
+                    if profileName == selectedProfile then
+                        tmpProfileName = selectedProfile
+                        tmpProfileId = id
+                        break
+                    end
+                end
+                self:xcCntlLog(string.format("Saving over existing profile: %s", selectedProfile), 3)
+            else
+                wx.wxMessageBox("Please select a profile or enter a new name", "Error", wx.wxOK + wx.wxICON_ERROR)
+            end
+            if tmpProfileId and tmpProfileName then
+                local tmpProfile = Profile.new(tmpProfileId, tmpProfileName, self)
+                tmpProfile:save()
+                for k, v in pairs(tmpProfile.profileData) do
+                    print(k,v)
+                end
+            end
+            dialog:EndModal(wx.wxID_SAVE)
+        end)
+
+        dialog:Connect(cancelButton:GetId(), wx.wxEVT_COMMAND_BUTTON_CLICKED, function()
+            dialog:EndModal(wx.wxID_CANCEL)
+        end)
+
+        -- Show the dialog
+        dialog:ShowModal()
+        dialog:Destroy()
+    end)
+
 
     -- event handler for apply button
     ---@diagnostic disable-next-line: undefined-field

@@ -1,3 +1,47 @@
+function pairsByKeys (t, f)
+    local a = {}
+    for n in pairs(t) do 
+        table.insert(a, n) 
+    end
+    
+    -- Sort alphabetically first to ensure a known state
+    table.sort(a)
+    
+    -- Now apply the custom sorting function if needed
+    if f then
+        table.sort(a, f)
+    end
+    
+    local i = 0     
+    local iter = function ()
+        i = i + 1
+        if a[i] == nil then 
+            return nil
+        else 
+            return a[i], t[a[i]]
+        end
+    end
+    return iter
+end
+
+-- Custom sort logic that ensures deterministic behavior
+function sortConfig(a, b)
+    if a == b then
+        return false 
+    end
+    if a == "Down" then
+        return true
+    elseif a == "altDown" then
+        return (b == "Up" or b == "altUp")
+    elseif a == "Up" then
+        return not (b == "Down" or b == "altDown")
+    elseif a == "altUp" then
+        return false
+    end
+    return a < b
+end
+
+
 --- Create a new class
 ---@param name string @The name of the new class
 ---@param super table @Class to inherit from, defaults to Type
@@ -12,7 +56,7 @@ function class(name, super)
     cls.__name = name
     mt = getmetatable(cls)
 
-    mt.__tostring = function(object)
+    cls.__tostring = function(object)
         if rawget(object, "id") then
             return object.id
         end
@@ -61,7 +105,7 @@ function Type:isInstance(class)
     -- If self has an id, it's an instance
     if rawget(self, "id") then
         while true do
-            if mt.__type == class.__name and class ~= Type then
+            if mt.__type == class.__name then
                 return true
             end
             mt = rawget(mt, "__super") -- Traverse the chain of superclasses
@@ -87,6 +131,7 @@ function Instance:new(id, parent)
     self.serialize = Instance.serialize
     self.deserialize = Instance.deserialize
     self.getRoot = Instance.getRoot
+    self.getPath = Instance.getPath
     return self
 end
 
@@ -108,15 +153,24 @@ end
 -- Serialize the object's attributes and all its children.
 function Instance.serialize(self)
     local serial = ""
-    for key, value in pairs(self.configValues) do
-        if value ~= nil then
-            self:getRoot().profile.profileData[self:getPath() .. "." .. key] = value
+    for key, value in pairsByKeys(self.configValues, sortConfig) do
+        if value ~= "" then
+            serial = serial .. self:getPath() .. ".configValues." .. key .. "=" .. value .. "\n"
         end
     end
     for _, child in ipairs(self.children) do
-        serial = serial .. child:serialize()
+        for k, v in pairs(child:serialize()) do
+            serial = serial..k.."="..v.."\n"
+        end
     end
-    return serial
+    local parsed = {}
+    for line in serial:gmatch("[^\n]+") do
+        local key, value = line:match("^(.-)%s*=%s*(.-)%s*$")
+        if key and value then
+            parsed[key] = value
+        end
+    end
+    return parsed
 end
 
 require("stringsExtended")
@@ -150,4 +204,4 @@ function Instance.getRoot(self)
 end
 
 
-return { Type = Type, class = class, Instance = Instance }
+return { Type = Type, class = class, Instance = Instance, pairsByKeys = pairsByKeys, sortConfig = sortConfig }

@@ -23,36 +23,13 @@ end
 -- TODO: update docs 
 
 -- DEV_ONLY_END
--- Import needed modules.
+
 require("controller")
 
-
--- Global Mach4 instance
 inst = mc.mcGetInstance()
 
 xc = Controller("xc")
----------------------------------
---- Custom Configuration Here ---
 
---[[   xc.logLevel = 4
-    xc:assignShift(xc.LTR)
-    xc.RTH_Y:connect(mc.Z_AXIS)
-    xc.xYReversed = true
-    print(xc.profileName, xc.simpleJogMapped)
-    if xc.profileName == 'default' and not xc.simpleJogMapped then
-
-        xc:mapSimpleJog()
-    end
-    xc.B.Down:connect(xc:xcGetSlotById('E Stop Toggle'))
-    --xc.Y.down:connect(xc.xcCntlTorchToggle)
-    xc.RSB.Down:connect(xc:xcGetSlotById('Enable Toggle'))
-    xc.X.Down:connect(xc:xcGetSlotById('XC Run Cycle Toggle'))
-    xc.BACK.AltDown:connect(xc:xcGetSlotById('Home All'))
-    --xc.START.altDown:connect(xc:xcGetSlotById('Home Z'))
-
-   ]] -- xc:createProfile("default")
--- End of custom configuration ---
-----------------------------------
 local mcLuaPanelParent = mcLuaPanelParent
 local mainSizer = wx.wxBoxSizer(wx.wxHORIZONTAL)
 mcLuaPanelParent:SetMinSize(wx.wxSize(450, 500))
@@ -78,6 +55,7 @@ local propSizer = wx.wxStaticBoxSizer(propBox, wx.wxVERTICAL)
 propertiesPanel = wx.wxPanel(mcLuaPanelParent, wx.wxID_ANY, wx.wxDefaultPosition, wx.wxDefaultSize)
 local sizer = wx.wxFlexGridSizer(0, 2, 0, 0) -- 2 columns, auto-adjust rows
 sizer:AddGrowableCol(1, 1)
+--sizer:AddGrowableRow(8, 1)
 propertiesPanel:SetSizer(sizer)
 propertiesPanel:Layout()
 local font = wx.wxFont(8, wx.wxFONTFAMILY_DEFAULT, wx.wxFONTSTYLE_NORMAL, wx.wxFONTWEIGHT_NORMAL)
@@ -88,9 +66,18 @@ tree:SetFont(font)
 propSizer:Add(propertiesPanel, 1, wx.wxEXPAND + wx.wxALL, 5)
 tree:Connect(wx.wxEVT_COMMAND_TREE_SEL_CHANGED, function(event)
     propertiesPanel:GetSizer():Clear(true)
+
     local item = treedata[event:GetItem():GetValue()]
+    local newSizer =  wx.wxFlexGridSizer(0, 2, 0, 0)
+    newSizer:AddGrowableCol(1, 1)
+
+    if item == xc then
+        newSizer:AddGrowableRow(8,1)
+    end
+    propertiesPanel:SetSizer(newSizer)
+
     propertiesPanel:SetSizer(item:initUi(propertiesPanel))
-    propertiesPanel:Fit()
+
     propertiesPanel:Layout()
 end)
 mainSizer:Add(treeSizer, 0, wx.wxEXPAND + wx.wxALL, 5)

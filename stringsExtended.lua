@@ -60,6 +60,23 @@ function string.strip(str, ...)
     return str:lstrip(args[1] or "%s"):rstrip(args[1] or "%s")
 end
 
+--- Extends Lua's builtin string library to include Python's .startswith method.<br>
+--- If the given string begins with the given start string, returns true.
+---@param str string @The string to check
+---@param start string @The string to check for
+---@return boolean @True if the given string begins with the given start string
+function string.startswith(str, start)
+    return str:sub(1, #start) == start
+end
+
+--- Extends Lua's builtin string library to include Python's .endswith method.<br>
+--- If the given string ends with the given end string, returns true.
+---@param str string @The string to check
+---@param strEnd string @The string to check for
+---@return boolean @True if the given string ends with the given end string
+function string.endswith(str, strEnd)
+    return str:sub(-#strEnd) == strEnd
+end
+
 return {string = string}
 
-    

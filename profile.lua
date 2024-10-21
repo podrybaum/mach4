@@ -1,15 +1,13 @@
-local iniFile = "xbcontroller.ini"
-
 if not mc then
     require("mocks")
 end
 
-
+local iniFile
 if not mc.mcInEditor() == 1 then
     local path = "C:\\Mach4Hobby\\Profiles\\" .. mc.mcProfileGetName(inst)
-    iniFile = path .. "\\" .. iniFile
+    iniFile = path .. "\\" .. "xbcontroller.ini"
 else
-    iniFile = os.getenv("USERPROFILE") .. "\\mach4\\" .. iniFile
+    iniFile = os.getenv("USERPROFILE") .. "\\mach4\\xbcontroller.ini"
 end
 
 ---@class Profile
@@ -33,13 +31,14 @@ function Profile.new(id, name, controller)
     self.id = id
     self.name = name
     self.controller = controller
+    self.iniFile = iniFile
     self.profileData = {}
     self.profileData["profileName"] = self.name
     return self
 end
 
 function Profile:exists()
-    local file = io.open(iniFile, "r+")
+    local file = io.open(self.iniFile, "r+")
     if file ~= nil then
         for line in file:lines() do
             if line == string.format("[ControllerProfile-%s]", self.id) then
@@ -51,61 +50,42 @@ end
 
 function Profile:write()
     if self:exists() then
-        local iniLines = {}
-        local file = io.open(iniFile, "r+")
+        self:delete()
+        self:write()
+    else
+        local file = io.open(self.iniFile, "a")
         if file then
-            for line in file:lines() do
-                table.insert(iniLines, line)
+            file:seek("end")
+            file:write(string.format("\n[ControllerProfile-%s]\nprofileName=%s\n", self.id, self.name))
+            for k, v in pairsByKeys(self.profileData, sortConfig) do
+                file:write(string.format("%s=%s\n", k, v))
             end
+            file:write("\n")
             file:close()
-            local sectionStart = 0
-            for i, line in ipairs(iniLines) do
-                if line == string.format("[ControllerProfile-%s]", self.id) then
-                    sectionStart = i + 1
-                end
-                if sectionStart > 0 and not line:match("^%s*$") then
-                    table.remove(iniLines, i)
-                end
-            end
-            if sectionStart > 0 then
-                local lineNo = sectionStart + 1
-                table.insert(iniLines, sectionStart, string.format("profileName=%s", self.name))
-                for k, v in pairs(self.profileData) do
-                    table.insert(iniLines, lineNo, string.format("%s=%s", k, v))
-                    lineNo = lineNo + 1
-                end
-                table.insert(iniLines, lineNo, "")
-            end
-            file = io.open(iniFile, "w")
-            if file then
-                for _, line in ipairs(iniLines) do
-                    file:write(line, "\n")
-                end
-                file:close()
-            end
         end
     end
 end
 
 function Profile:delete()
-    local file = io.open(iniFile, "r+")
+    local file = io.open(self.iniFile, "r+")
     if file then
         local iniLines = {}
         local inProfile = false
         for line in file:lines() do
-            if not inProfile and not line == string.format("[ControllerProfile-%s]", self.id) then
+            if not inProfile and not line:startswith(string.format("[ControllerProfile-%s]", self.id)) then
                 table.insert(iniLines, line)
-            elseif line == string.format("[ControllerProfile-%s]", self.id) then
+            elseif line:startswith(string.format("[ControllerProfile-%s]", self.id)) then
                 inProfile = true
-            elseif inProfile and line:match("^%s*$") then
+                print(string.format("matching line: %s to id: %s", line, self.id))
+            elseif inProfile and line:startswith(" ") or line == "" then
                 inProfile = false
             end
         end
         file:close()
-        file = io.open(iniFile, "w")
+        file = io.open(self.iniFile, "w")
         if file then
             for _, line in ipairs(iniLines) do
-                file:write(line, "\n")
+                file:write(line.."\n")
             end
             file:close()
         end
@@ -113,27 +93,50 @@ function Profile:delete()
 end
 
 function Profile:load()
-    local file = io.open(iniFile, "r+")
+    self.controller:xcCntlLog("Loading profile: " .. self.name, 4)
+    local file = io.open(self.iniFile, "r+")
+    local iniLines = {}
     if file then
         local inProfile = false
         for line in file:lines() do
-            if not inProfile and line == string.format("[ControllerProfile-%s]", self.id) then
-                inProfile = true
-            elseif inProfile and not line:match("^%s*$") then
-                local key, value = line:match("^(.-)=(.+)$")
-                if key and value then
-                    self.profileData[key] = value
+            if line:startswith("lastProfile=") then
+                table.insert(iniLines, "lastProfile=" .. self.id)
+            else
+                table.insert(iniLines, line)
+                if not inProfile and line:startswith(string.format("[ControllerProfile-%s]", self.id)) then
+                    inProfile = true
+                elseif inProfile and not line:match("^%s*$") then
+                    local key, value = line:match("^(.-)=(.+)$")
+                    if key and value then
+                        self.profileData[key] = value
+                    end
                 end
             end
         end
-    end
-    if self.profileData["profileName"] then
-        self.name = self.profileData["profileName"]
+        file:close()
+        file = io.open(self.iniFile, "w")
+        if file then
+            for _, line in ipairs(iniLines) do
+                file:write(line.."\n")
+            end
+            file:close()
+        end
     end
     for k, v in pairs(self.profileData) do
         self.controller:deserialize(k, v)
     end
-    mc.mcProfileWriteString(inst, "XBC4MACH4", "lastProfile", tostring(self.id))
+end
+
+function Profile.getLast(filePath)
+    filePath = filePath or iniFile
+    local file = io.open(filePath, "r")
+    if file then
+        for line in file:lines() do
+            if line:match("^lastProfile=.*$") then
+                return line:match("^lastProfile=(.*)$")
+            end
+        end
+    end
 end
 
 function Profile:save()
@@ -141,15 +144,15 @@ function Profile:save()
     self:write()
 end
 
-function Profile.getProfiles()
-    local file = io.open(iniFile, "r")
+function Profile.getProfiles(filePath)
+    filePath = filePath or iniFile
+    local file = io.open(filePath, "r")
     local profiles = {}
     local id, name
     if file then
         for line in file:lines() do
             if line:match("^%[ControllerProfile-.*%]$") then
                 id = line:match("^%[ControllerProfile%-(%d+)%]$")
-                print(line, id)
             end
             if line:match("^profileName=.*$") then
                 name = line:match("^profileName=(.*)$")
