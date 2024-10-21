@@ -16,6 +16,7 @@ if mc.mcInEditor() == 1 then
 end
 
 -- TODO: implement more user-friendly names for inputs to use in the GUI
+-- TODO: make ui controls for profiles update dynamically 
 -- TODO: test slot functions provided by scr.DoFunctionName.
 -- TODO: unit tests
 -- TODO: installer script

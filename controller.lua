@@ -167,6 +167,20 @@ function Controller:initUi(propertiesPanel)
     propSizer:Add(profileChoice, 1, wx.wxEXPAND + wx.wxALL, 5)
     profileChoice:SetSelection(profileChoice:FindString(self.profile.name))
 
+    propertiesPanel:Connect(profileChoice:GetId(), wx.wxEVT_COMMAND_CHOICE_SELECTED, function()
+        -- TODO: check if config is "dirty" and prompt the user to save changes
+        local choice = profileChoice:GetSelection()
+        local newId
+        for id, name in pairs(profiles) do
+            if name == choice then
+                newId = id
+                break
+            end
+        end
+        self.profile = Profile.new(newId, choice, self)
+        self.profile:load()
+    end)
+
     local label = wx.wxStaticText(propertiesPanel, wx.wxID_ANY, "Assign shift button:")
     propSizer:Add(label, 0, wx.wxALIGN_CENTER_VERTICAL + wx.wxALL, 5)
     local choices = {""}
@@ -216,21 +230,68 @@ function Controller:initUi(propertiesPanel)
     local apply = wx.wxButton(propertiesPanel, applyId, "Apply")
     propSizer:Add(apply, 0, wx.wxALIGN_RIGHT + wx.wxALL, 5)
 
-    -- fill up growable row 8 to push save buttons down
+    -- fill up growable row 8 to push profile management buttons down
     propSizer:Add(0, 0, 1, wx.wxEXPAND)
     propSizer:Add(0, 0, 1, wx.wxEXPAND)
 
-    local saveProfileAsId = wx.wxNewId()
-    local saveProfileAs = wx.wxButton(propertiesPanel, saveProfileAsId, "Save Profile As...")
+    propSizer:Add(0,0)
+    
+    local deleteProfile = wx.wxButton(propertiesPanel, wx.wxID_ANY, "Delete A Profile...")
+    propSizer:Add(deleteProfile, 0, wx.wxALIGN_RIGHT + wx.wxALL, 5)
+
+    local saveProfileAs = wx.wxButton(propertiesPanel, wx.wxID_ANY, "Save Profile As...")
     propSizer:Add(saveProfileAs, 0, wx.wxALIGN_RIGHT + wx.wxALL, 5)
 
-    local saveProfileId = wx.wxNewId()
-    local saveProfile = wx.wxButton(propertiesPanel, saveProfileId, "Save Profile")
+    local saveProfile = wx.wxButton(propertiesPanel, wx.wxID_ANY, "Save Current Profile")
     propSizer:Add(saveProfile, 0, wx.wxALIGN_RIGHT + wx.wxALL, 5)
 
-    propertiesPanel:Connect(saveProfileId, wx.wxEVT_COMMAND_BUTTON_CLICKED, function() self.profile:save() end)
+    propertiesPanel:Connect(saveProfile:GetId(), wx.wxEVT_COMMAND_BUTTON_CLICKED, function() 
+        local saveDialog = wx.wxMessageBox(string.format("Save changes to profile: %s?", profileChoice:GetStringSelection()), "Confirm", wx.wxOK + wx.wxCANCEL)
+        if saveDialog == wx.wxOK then
+            self.profile:save()
+            wx.wxMessageBox(string.format("Changes saved to profile: %s", profileChoice:GetStringSelection()), "Confirmation")
+        end
+    end)
 
-    propertiesPanel:Connect(saveProfileAsId, wx.wxEVT_COMMAND_BUTTON_CLICKED, function()
+    propertiesPanel:Connect(deleteProfile:GetId(), wx.wxEVT_COMMAND_BUTTON_CLICKED, function()
+        local dialog = wx.wxDialog(propertiesPanel, wx.wxID_ANY, "Delete Profile", wx.wxDefaultPosition, wx.wxSize(300, 300), wx.wxDEFAULT_DIALOG_STYLE)
+        local vSizer = wx.wxBoxSizer(wx.wxVERTICAL)
+        local profileCtlLabel = wx.wxStaticText(dialog, wx.wxID_ANY, "Select a profile:")
+        vSizer:Add(profileCtlLabel, 0, wx.wxALL, 5)
+        local profileListBox = wx.wxListBox(dialog, wx.wxID_ANY, wx.wxDefaultPosition, wx.wxSize(280, 120), profiles, wx.wxLB_SINGLE)
+        vSizer:Add(profileListBox, 0, wx.wxEXPAND + wx.wxALL, 5)
+
+        local buttonSizer = wx.wxBoxSizer(wx.wxHORIZONTAL)
+        local deleteButton = wx.wxButton(dialog, wx.wxID_ANY, "Delete")
+        local cancelButton = wx.wxButton(dialog, wx.wxID_CANCEL, "Cancel")
+        buttonSizer:Add(deleteButton, 1, wx.wxALL, 5)
+        buttonSizer:Add(cancelButton, 1, wx.wxALL, 5)
+        vSizer:Add(buttonSizer, 0, wx.wxALIGN_RIGHT + wx.wxALL, 5)
+
+        dialog:SetSizer(vSizer)
+        vSizer:Fit(dialog)
+
+        dialog:Connect(deleteButton:GetId(), wx.wxEVT_COMMAND_BUTTON_CLICKED, function()
+            local profileName = profileListBox:GetStringSelection()
+            local deleteDialog = wx.wxMessageBox(string.format("Delete profile: %s?", profileName), "Confirm", wx.wxOK + wx.wxCANCEL)        
+            if deleteDialog == wx.wxOK then
+                local profile = Profile.new(Profile:getId(profileName), profileName, self)
+                profile:delete()
+                wx.wxMessageBox(string.format("Deleted profile: %s", profileName), "Confirmation")
+            end
+            dialog:EndModal(wx.wxOK)
+        end)
+
+        dialog:Connect(cancelButton:GetId(), wx.wxEVT_COMMAND_BUTTON_CLICKED, function()
+            dialog:EndModal(wx.wxCANCEL)
+        end)
+
+        dialog:ShowModal()
+        dialog:Destroy()
+
+    end)
+
+    propertiesPanel:Connect(saveProfileAs:GetId(), wx.wxEVT_COMMAND_BUTTON_CLICKED, function()
         local dialog = wx.wxDialog(propertiesPanel, wx.wxID_ANY, "Save Profile As", wx.wxDefaultPosition, wx.wxSize(300, 300), wx.wxDEFAULT_DIALOG_STYLE)
         local vSizer = wx.wxBoxSizer(wx.wxVERTICAL)
         local profileCtlLabel = wx.wxStaticText(dialog, wx.wxID_ANY, "Select an existing profile:")
@@ -254,6 +315,7 @@ function Controller:initUi(propertiesPanel)
         dialog:SetSizer(vSizer)
         vSizer:Fit(dialog)
 
+        
         dialog:Connect(saveButton:GetId(), wx.wxEVT_COMMAND_BUTTON_CLICKED, function()
             local selectedProfile = profileListBox:GetStringSelection()
             local newProfileName = newProfileTextCtrl:GetValue()
@@ -275,11 +337,15 @@ function Controller:initUi(propertiesPanel)
             else
                 wx.wxMessageBox("Please select a profile or enter a new name", "Error", wx.wxOK + wx.wxICON_ERROR)
             end
+            
             if tmpProfileId and tmpProfileName then
-                local tmpProfile = Profile.new(tmpProfileId, tmpProfileName, self)
-                tmpProfile:save()
-                for k, v in pairs(tmpProfile.profileData) do
-                    print(k,v)
+                local saveDialog = wx.wxMessageBox(string.format("Save changes to profile: %s?", tmpProfileName), "Confirm", wx.wxOK + wx.wxCANCEL)
+                if saveDialog == wx.wxOK then
+                    local tmpProfile = Profile.new(tmpProfileId, tmpProfileName, self)
+                    tmpProfile:save()
+                    wx.wxMessageBox(string.format("Configuration saved to profile: %s", tmpProfileName), "Confirmation")
+                else
+                    do end
                 end
             end
             dialog:EndModal(wx.wxID_SAVE)

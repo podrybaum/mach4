@@ -44,6 +44,14 @@ function Profile.new(id, name, controller)
     return self
 end
 
+function Profile:getId(name)
+    for k, v in pairs(self.getProfiles()) do
+        if v == name then
+            return k
+        end
+    end
+end
+
 function Profile:exists()
     local file = io.open(self.iniFile, "r+")
     if not file then
