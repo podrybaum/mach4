@@ -2,7 +2,6 @@ require("stringsExtended")
 require("object")
 require("button")
 require("controller")
-require("os")
 
 local esc = string.char(27)
 local red = esc .. "[1;31m"
@@ -11,7 +10,9 @@ local reset = esc .. "[0m"
 local passed, failed = 0, 0
 
 -- setup some objects
-local xc = Controller("xc")
+local panel = wx.wxFrame(wx.NULL, wx.wxID_ANY, "Mock Panel")
+local xc = Controller("xc", nil, panel)
+
 ---@diagnostic disable-next-line: missing-parameter
 local base = class("BaseClass")
 local derived = class("DerivedClass", base)
@@ -26,7 +27,8 @@ end
 local tmpIni = "test.ini"
 
 local function beforeEach()
-  xc = Controller("xc")
+  panel = wx.wxFrame(wx.NULL, wx.wxID_ANY, "Mock Panel")
+  xc = Controller("xc", nil, panel)
   Profile.writeDefault(tmpIni)
 end
 

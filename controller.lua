@@ -38,7 +38,13 @@ require("thumbstickaxis")
 ---@field RTH_X_Val ThumbstickAxis
 Controller = class("Controller", Type)
 
-function Controller:new()
+
+--- Initialize a new Controller instance.
+---@param panel userdata @The parent wxWindow(or derived class) object
+---@return Controller @The new Controller instance
+function Controller:new(panel)
+    self.panel = panel
+    self.timer = wx.wxTimer(self.panel)
     self.configValues["shiftButton"] = ""
     self.configValues["jogIncrement"] = "0"
     self.configValues["logLevel"] = "0"
@@ -70,6 +76,9 @@ function Controller:new()
     local profileName = Profile.getProfiles()[profileId]
     self.profile = Profile.new(profileId, profileName, self)
     self.profile:load()
+    self.panel:Connect(wx.wxEVT_TIMER, function() self:update() end)
+    self:xcCntlLog("Starting X360_timer", 4)
+    self.timer:Start(1000 / tonumber(self.configValues.frequency))
     return self
 end
 
@@ -390,6 +399,86 @@ function Controller:initUi(propertiesPanel)
     ---@diagnostic disable-next-line: undefined-field
     propertiesPanel:Layout()
     return propSizer
+end
+
+
+function Controller:initPanel(panel)
+    local mcLuaPanelParent = panel or wx.wxFrame(wx.NULL, wx.wxID_ANY, "Configure Xbox Controller Settings")
+    local mainSizer = wx.wxBoxSizer(wx.wxHORIZONTAL)
+    mcLuaPanelParent:SetMinSize(wx.wxSize(450, 500))
+    mcLuaPanelParent:SetMaxSize(wx.wxSize(450, 500))
+
+    local treeBox = wx.wxStaticBox(mcLuaPanelParent, wx.wxID_ANY, "Controller Tree Manager")
+    local treeSizer = wx.wxStaticBoxSizer(treeBox, wx.wxVERTICAL)
+    local tree = wx.wxTreeCtrl.new(mcLuaPanelParent, wx.wxID_ANY, wx.wxDefaultPosition, wx.wxSize(100, -1),
+        wx.wxTR_HAS_BUTTONS, wx.wxDefaultValidator, "tree")
+    local root_id = tree:AddRoot("Controller")
+    local treedata = {
+        [root_id:GetValue()] = self
+    }
+
+    for i = 1, #self.children do
+        local child_id = tree:AppendItem(root_id, self.children[i].id)
+        treedata[child_id:GetValue()] = self.children[i]
+    end
+    tree:ExpandAll()
+    treeSizer:Add(tree, 1, wx.wxEXPAND + wx.wxALL, 5)
+    local propBox = wx.wxStaticBox(mcLuaPanelParent, wx.wxID_ANY, "Properties")
+    local propSizer = wx.wxStaticBoxSizer(propBox, wx.wxVERTICAL)
+    local propertiesPanel = wx.wxPanel(mcLuaPanelParent, wx.wxID_ANY, wx.wxDefaultPosition, wx.wxDefaultSize)
+    local sizer = wx.wxFlexGridSizer(0, 2, 0, 0) -- 2 columns, auto-adjust rows
+    sizer:AddGrowableCol(1, 1)
+    propertiesPanel:SetSizer(sizer)
+    propertiesPanel:Layout()
+    local font = wx.wxFont(8, wx.wxFONTFAMILY_DEFAULT, wx.wxFONTSTYLE_NORMAL, wx.wxFONTWEIGHT_NORMAL)
+    propertiesPanel:SetFont(font)
+    propBox:SetFont(font)
+    treeBox:SetFont(font)
+    tree:SetFont(font)
+    propSizer:Add(propertiesPanel, 1, wx.wxEXPAND + wx.wxALL, 5)
+    tree:Connect(wx.wxEVT_COMMAND_TREE_SEL_CHANGED, function(event)
+        --propertiesPanel:GetSizer():Clear(true)
+
+        local item = treedata[event:GetItem():GetValue()]
+        local newSizer =  wx.wxFlexGridSizer(0, 2, 0, 0)
+        newSizer:AddGrowableCol(1, 1)
+
+        if item == self then
+            newSizer:AddGrowableRow(8,1)
+        end
+        propertiesPanel:SetSizer(newSizer)
+
+        propertiesPanel:SetSizer(item:initUi(propertiesPanel))
+
+        propertiesPanel:Layout()
+    end)
+    mainSizer:Add(treeSizer, 0, wx.wxEXPAND + wx.wxALL, 5)
+    mainSizer:Add(propSizer, 1, wx.wxEXPAND + wx.wxALL, 5)
+    mcLuaPanelParent:SetSizer(mainSizer)
+    mainSizer:Layout()
+
+    function Controller.go()
+        mcLuaPanelParent:Connect(wx.wxEVT_CLOSE_WINDOW, function()
+            mcLuaPanelParent:Destroy()
+            wx.wxGetApp():ExitMainLoop()
+            self.go = function() end
+        end)
+
+        local app = wx.wxApp(false)
+        wx.wxGetApp():SetTopWindow(mcLuaPanelParent)
+        mcLuaPanelParent:Show(true)
+        wx.wxGetApp():MainLoop()
+    end
+
+    self:go()
+end
+
+
+function Controller:destroy()
+    if self.timer then
+        self.timer:Stop()
+        self.timer = nil
+    end
 end
 
 return {Controller = Controller}

@@ -81,7 +81,12 @@ function class(name, super)
         else
             inst = setmetatable(Instance:new(id, callArgs[1]), class)
         end
-        return class.new(inst)
+        table.remove(callArgs, 1)
+        if #callArgs > 0 then
+            return class.new(inst, table.unpack(callArgs))
+        else
+            return class.new(inst)
+        end
     end
     return cls
 end
