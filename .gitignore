@@ -1,6 +1,5 @@
 combined*
 min_*
-machine.ini
 Dockerfile
 mach4.code-workspace
 .vscode/

@@ -1,3 +1,5 @@
+package.cpath = string.format("%s;C:\\Mach4Hobby\\ZeroBraneStudio\\bin\\clibs53\\?.dll", package.cpath)
+
 wx = require("wx")
 
 -- Make profileData global to access it across modules
@@ -210,4 +212,4 @@ end
 
 mcLuaPanelParent = wx.wxFrame(wx.NULL, wx.wxID_ANY, "Mock Panel")
 
-return {mc, wx, mcLuaPanelParent, trim, loadIniFile, saveIniFile}
+return {mc, wx, scr, mcLuaPanelParent, trim, loadIniFile, saveIniFile}

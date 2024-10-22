@@ -1,60 +1,56 @@
-
---- Object representing a digital pushbutton controller input.
----@class Button
----@field controller Controller
----@field id string
----@field pressed boolean
----@field Up Signal
----@field Down Signal
----@field AltUp Signal
----@field AltDown Signal
----@field signals table
-Button = {}
-Button.__index = Button
-Button.__type = "Button"
-Button.__tostring = function(self)
-    return string.format("Button: %s", self.id)
+local file = io.open("slot_functions.lua", "r")
+local slots
+if file then
+    slots = require("slot_functions")
+    file:close()
 end
 
+--- Object representing a digital pushbutton controller input.
+---@class Button: Type
+---@field parent Controller
+---@field id string
+---@field pressed boolean
+---@field configValues table
+Button = class("Button", Type)
+
 --- Initialize a new Button instance.
----@param controller Controller @A Controller instance.
----@param id string @A unique identifier for the input.
-function Button.new(controller, id)
-    local self = setmetatable({}, Button)
-    self.controller = controller
-    self.id = id
+---@return Button @The new Button instance
+function Button.new(self)
     self.pressed = false
-    self.Up = self.controller:newSignal(self, "Up")
-    self.Down = self.controller:newSignal(self, "Down")
-    self.AltUp = self.controller:newSignal(self, "AltUp")
-    self.AltDown = self.controller:newSignal(self, "AltDown")
-    self.signals = {self.Up, self.Down, self.AltUp, self.AltDown}
+    self.configValues["Up"] = ""
+    self.configValues["Down"] = ""
+    self.configValues["altUp"] = ""
+    self.configValues["altDown"] = ""
     return self
 end
 
 --- Retrieves the state of the input.
 function Button:getState()
-    local state = self.controller:xcGetRegValue(string.format("mcX360_LUA/%s", self.id))
+    local state = self.parent:xcGetRegValue(string.format("mcX360_LUA/%s", self.id))
     if type(state) ~= "number" then
-        self.controller:xcCntlLog(string.format("Invalid state for %s", self.id), 1)
+        self.parent:xcCntlLog(string.format("Invalid state for %s", self.id), 1)
         return
     end
     if (state == 1) and (not self.pressed) then
         self.pressed = true
-        if self.controller.shiftButton ~= self then
-            if not self.controller.shiftButton or not self.controller.shiftButton.pressed then
-                self.Down:emit()
+        if self.parent.configValues.shiftButton ~= self then
+            if not self.parent.configValues.shiftButton or not self.parent[self.parent.configValues.shiftButton].pressed then
+                if self.configValues["Down"] ~= "" then
+                    slots[self.configValues["Down"]]()
+                end
             else
-                self.AltDown:emit()
+                if self.configValues["altDown"] ~= "" then
+                    slots[self.configValues["altDown"]]()
+                end
             end
         end
     elseif (state == 0) and self.pressed then
         self.pressed = false
-        if self.controller.shiftButton ~= self then
-            if not self.controller.shiftButton or not self.controller.shiftButton.pressed then
-                self.Up:emit()
+        if self.parent.configValues.shiftButton ~= self then
+            if not self.parent.configValues.shiftButton or not self.parent[self.parent.configValues.shiftButton].pressed then
+                slots[self.configValues["Up"]]()
             else
-                self.AltUp:emit()
+                slots[self.configValues["altUp"]]()
             end
         end
     end
@@ -64,24 +60,30 @@ end
 ---@param propertiesPanel userdata @A wxPanel Object
 ---@return userdata @A wxSizer object containing the UI layout
 function Button:initUi(propertiesPanel)
+---@diagnostic disable-next-line: undefined-field
     local propSizer = propertiesPanel:GetSizer()
-
-    if not (self == self.controller.shiftButton) then
+    if not (self.id == self.parent.configValues.shiftButton) then
         -- Slot labels and dropdowns
         local options = {""}
         local analogOptions = {""}
-        for _, slot in ipairs(self.controller.slots) do
-            options[#options + 1] = slot.id
+        for name, slot in pairsByKeys(slots) do
+            options[#options + 1] = name
         end
         local idMapping = {}
-        for i, signal in ipairs(self.signals) do
-            local label = wx.wxStaticText(propertiesPanel, wx.wxID_ANY, string.format("%s Action:", signal.id))
+        for state, _ in pairsByKeys(self.configValues, sortConfig) do
+            local label = wx.wxStaticText(propertiesPanel, wx.wxID_ANY, string.format("%s Action:", state))
             propSizer:Add(label, 0, wx.wxALIGN_LEFT + wx.wxALL, 5)
+            local choices
+            if self:isInstance(Trigger) then
+                choices = analogOptions
+            else
+                choices = options
+            end
             local choice = wx.wxChoice(propertiesPanel, wx.wxID_ANY, wx.wxDefaultPosition, wx.wxDefaultSize,
-                self.__type == "Trigger" and analogOptions or options)
-            idMapping[self.signals[i]] = choice
-            if self.signals[i].slot ~= nil then
-                choice:SetSelection(choice:FindString(self.signals[i].slot.id))
+                choices)
+            idMapping[state] = choice
+            if self.configValues[state] ~= "" then
+                choice:SetSelection(choice:FindString(self.configValues[state]))
             end
             propSizer:Add(choice, 1, wx.wxEXPAND + wx.wxALL, 5)
         end
@@ -93,21 +95,19 @@ function Button:initUi(propertiesPanel)
         propSizer:Add(apply, 0, wx.wxALIGN_RIGHT + wx.wxALL, 5)
 
         -- Event handler
+    ---@diagnostic disable-next-line: undefined-field
         propertiesPanel:Connect(applyId, wx.wxEVT_COMMAND_BUTTON_CLICKED, function()
-            for i, signal in ipairs(self.signals) do
-                local choice = idMapping[signal]
+            for state, _ in pairsByKeys(self.configValues, sortConfig) do
+                local choice = idMapping[state]
                 local selection = choice:GetStringSelection()
-                if (signal.slot == nil and selection ~= "") or (signal.slot and signal.slot.id ~= selection) then
-                    signal:connect(self.controller:xcGetSlotById(selection))
-                elseif signal.slot and selection == "" then
-                    signal.slot = nil
-                end
+                self.configValues[state] = selection
             end
         end)
 
         -- Refresh and return the layout
+    ---@diagnostic disable-next-line: undefined-field
         propertiesPanel:Layout()
-        propertiesPanel:Fit()
+    ---@diagnostic disable-next-line: undefined-field
         propertiesPanel:Refresh()
         return propSizer
     else
@@ -121,59 +121,64 @@ end
 
 --- Object representing an analog pushbutton controller input.
 ---@class Trigger: Button 
----@field new function
----@field value number|nil
----@field analog Signal
----@field getState function
----@field connect function
-Trigger = {}
-Trigger.__index = Button
-Trigger.__type = "Trigger"
-Trigger.__tostring = function(self)
-    return string.format("Trigger: %s", self.id)
-end
+---@field parent Controller
+---@field id string
+---@field value number
+---@field pressed boolean
+---@field configValues table
+Trigger = class("Trigger", Button)
 
 --- Initialize a new Trigger instance.
----@param controller Controller @A Controller instance
----@param id string @unique identifier for the Trigger object
----@return Trigger @the new Trigger instance
-function Trigger.new(controller, id)
-    ---@class Trigger
-    local self --[[@as Trigger]] = Button.new(controller, id)
-    setmetatable(self, Trigger)
-    self.__type = "Trigger"
+---@return Trigger @The new Trigger instance
+function Trigger.new(self)
     self.value = 0
-    self.analog = self.controller:newSignal(self, "Analog")
-    table.insert(self.signals, self.analog)
+    self.configValues["analog"] = ""
     return self
 end
 
 --- Retrieve the state of the input.
 function Trigger:getState()
-    self.value = self.controller:xcGetRegValue(string.format("mcX360_LUA/%s", self.id))
+    local val = self.parent:xcGetRegValue(string.format("mcX360_LUA/%s", self.id))
+    if val ~= nil then
+        self.value = val
+    end
     if type(self.value) ~= "number" then
-        self.controller:xcCntlLog("Invalid state for " .. self.id, 1)
+        self.parent:xcCntlLog("Invalid state for " .. self.id, 1)
         return
     end
 
-    if self.value > 0 and self.analog.slot then
-        self.analog:emit()
+    if self.value > 0 and self.configValues["analog"] ~= "" then
+        slots[self.configValues["analog"]](self.value)
         return
     end
 
-    if math.abs(self.value) > 125 and not self.pressed then
-        self.Down:emit()
+    if self.value > 0 and (not self.pressed) then
         self.pressed = true
-    elseif math.abs(self.value) < 5 and self.pressed then
-        self.Up:emit()
+        if self.parent.configValues.shiftButton ~= self then
+            if not self.parent.configValues.shiftButton or not self.parent[self.parent.configValues.shiftButton].pressed then
+                if self.configValues["Down"] ~= "" then
+                    slots[self.configValues["Down"]]()
+                end
+            else
+                if self.configValues["altDown"] ~= "" then
+                    slots[self.configValues["altDown"]]()
+                end
+            end
+        end
+    elseif self.value == 0 and self.pressed then
         self.pressed = false
+        if self.parent.configValues.shiftButton ~= self then
+            if not self.parent.configValues.shiftButton or not self.parent[self.parent.configValues.shiftButton].pressed then
+                if self.configValues["Up"] ~= "" then
+                    slots[self.configValues["Up"]]()
+                end
+            else
+                if self.configValues["altUp"] ~= "" then
+                    slots[self.configValues["altUp"]]()
+                end
+            end
+        end
     end
 end
 
---- Connect a Trigger's analog output to a function.
----@param func function @The function to connect.
-function Trigger:connect(func)
-    self.controller.isCorrectSelf(self) -- should raise an error if method has been called with dot notation
-    self.controller.typeCheck({func}, {"function"}) -- should raise an error if any param is of the wrong type
-    self.func = func
-end
+return {Button=Button, Trigger=Trigger}

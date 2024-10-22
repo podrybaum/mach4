@@ -1,105 +1,247 @@
+if not mc then
+    require("mocks")
+end
+
+local iniFile
+if not mc.mcInEditor() == 1 then
+    local path = "C:\\Mach4Hobby\\Profiles\\" .. mc.mcProfileGetName(inst)
+    iniFile = path .. "\\" .. "xbcontroller.ini"
+else
+    iniFile = os.getenv("USERPROFILE") .. "\\mach4\\xbcontroller.ini"
+end
+
+---@class Profile
+---@field id string
+---@field name string
+---@field controller Controller
+---@field profileData table
+---@field iniFile string
 Profile = {}
 Profile.__index = Profile
 Profile.__type = "Profile"
 Profile.__tostring = function(self)
-    return string.format("Profile: %s", self.name)
+    local str = "[ControllerProfile-" .. self.id .. "]\n"
+    for k, v in pairs(self.profileData) do
+        str = str .. string.format("%s=%s\n", k, v)
+    end
+    return str
 end
 
-function Profile.new(controller, name, id)
+function Profile.new(id, name, controller)
     local self = setmetatable({}, Profile)
-    self.controller = controller
     self.id = id
     self.name = name
-    -- Replace the global descriptorStorage table
-    self.descriptors = setmetatable({}, { __mode = "k" })
+    self.controller = controller
+    self.iniFile = iniFile
+    file = io.open(self.iniFile, "r+")
+    if not file then
+        self.writeDefault(self.iniFile)
+    else
+        file:close()
+    end
+    self.profileData = {}
+    self.profileData["profileName"] = self.name
     return self
 end
 
-
---- Load profile data from the machine.ini file.
----@param id number the id number of the profile (0 for default)
-function Profile:read(id)
-    local section = string.format("ControllerProfile-%s", id)
-    self.id = id
-    if mc.mcProfileExists(inst, section, "xc.profileName") == mc.MC_TRUE then
-        local numAttribs = {"jogIncrement", "logLevel", "frequency"}
-        local stringAttribs = {"shiftButton", "xYReversed", "simpleJogMapped", "profileName"}
-        for _, attrib in ipairs(numAttribs) do
-            if mc.mcProfileExists(inst, section, string.format("xc.%s", attrib)) == mc.MC_TRUE then
-                local val = self.controller:xcProfileGetDouble(section, string.format("xc.%s", attrib))
-                if type(val) == "number" then
-                    self.controller[attrib] = val
-                    self.controller:newDescriptor(self.controller, attrib, "number")
-                    self.controller:xcCntlLog(string.format("returning a descriptor for %s.%s = %s", self.controller.id, attrib, val), 4)
-                end
-            end
+function Profile:getId(name)
+    for k, v in pairs(self.getProfiles()) do
+        if v == name then
+            return k
         end
-        for _, attrib in ipairs(stringAttribs) do
-            if mc.mcProfileExists(inst, section, string.format("xc.%s", attrib)) == mc.MC_TRUE then
-                local val = self:xcProfileGetString(section, string.format("xc.%s", attrib))
-                if type(val) == "string" then
-                    if attrib == "shiftButton" then
-                        self.controller.shiftButton = self.controller:xcGetInputById(val)
-                        self.controller:newDescriptor( self.controller, "shiftButton", "object")
-                        self.controller:xcCntlLog(string.format("returning a descriptor for Controller.shiftButton = %s", val), 4)
-                    elseif attrib == "xYReversed" then
-                        self.controller.xYReversed = val == true
-                        self.controller:newDescriptor( self.controller, "xYReversed", "boolean")
-                        self.controller:xcCntlLog(string.format("returning a descriptor for Controller.xYReversed = %s", val), 4)
-                    elseif attrib == "simpleJogMapped" then
-                        self.controller.simpleJogMapped = val == true
-                        self.controller:newDescriptor( self.controller, "simpleJogMapped", "boolean")
-                        self.controller:xcCntlLog(string.format("returning a descriptor for Controller.simpleJogMapped = %s", val), 4)
-                        if  self.controller.simpleJogMapped then
-                            self.controller:mapSimpleJog()
-                        end
-                    else
-                        self.controller[attrib] = val
-                        self.controller:newDescriptor( self.controller, attrib, "string")
-                        self.controller:xcCntlLog(string.format("returning a descriptor for %s = %s", attrib, val), 4)
-                    end
-                end
-            end
-        end
-        for _, input in ipairs( self.controller.inputs) do
-            for i, signal in ipairs(input.signals) do
-                local lookup = string.format("xc.%s.%s.slot", input.id, signal.id)
-                if mc.mcProfileExists(inst, section, lookup) == mc.MC_TRUE then
-                    local val = string.strip( self.controller:xcProfileGetString(section, lookup))
-                    if type(val) == "string" then
-                        input[signal.id].slot =  self.controller:xcGetSlotById(val)
-                        self.controller:newDescriptor(signal, "slot", "object")
-                        self.controller:xcCntlLog(
-                            string.format("returning a descriptor for %s.%s = %s", input.id, input.signals[i], val), 4)
-                    end
-                end
-            end
-        end
-        for _, axis in ipairs( self.controller.axes) do
-            if mc.mcProfileExists(inst, section, string.format("xc.%s.axis", axis)) == mc.MC_TRUE then
-                -- deadzone, axis, inverted
-                local val =  self.controller:xcProfileGetDouble(section, string.format("xc.%s.axis", axis))
-                if type(val) == "number" then
-                    self.controller[axis.id][axis] = val
-                    self.controller:newDescriptor(axis, "axis", "number")
-                    self.controller:xcCntlLog(string.format("returning a descriptor for xc.%s.axis = %s", axis.id, val), 4)
-                end
-                local val =  self.controller:xcProfileGetDouble(section, string.format("xc.%s.deadzone = %s", axis.id, val), 4)
-                if type(val) == "number" then
-                    self.controller[axis.id]["deadzone"] = val
-                    self.controller:newDescriptor(axis, "deadzone", "number")
-                    self.controller:xcCntlLog(string.format("returning a descriptor for %s.deadzone = %s", axis.id, val), 4)
-                end
-                local val =  self.controller:xcProfileGetString(section, string.format("xc.%s.inverted", axis))
-                if type(val) == "string" then
-                    self.controller[axis.id]["inverted"] = val == true
-                    self.controller:newDescriptor(axis, "inverted", "boolean")
-                    self.controller:xcCntlLog(string.format("returning a descriptor for xc.%s.inverted = %s", axis.id, val), 4)
-                end
-            end
-        end
-        self.controller:xcProfileWriteDouble("XBC4MACH4", "profileId", self.profileId)
-    else
-        self.controller:xcCntlLog(string.format("No profile found for name: %s", id), 1)
     end
 end
+
+function Profile:exists()
+    local file = io.open(self.iniFile, "r+")
+    if not file then
+        error("ini file is missing or corrupted!")
+    else
+        for line in file:lines() do
+            if line == string.format("[ControllerProfile-%s]", self.id) then
+                file:close()
+                return true
+            end
+        end
+    end
+    file:close()
+    return false
+end
+
+function Profile:write()
+    if self:exists() then
+        self:delete()
+        self:write()
+    else
+        local file = io.open(self.iniFile, "r+")
+        if not file then
+            error("ini file is missing or corrupted!")
+        else
+            file:seek("end")
+            file:write(string.format("\n[ControllerProfile-%s]\nprofileName=%s\n", self.id, self.name))
+            for k, v in pairsByKeys(self.profileData, sortConfig) do
+                file:write(string.format("%s=%s\n", k, v))
+            end
+            file:write("\n")
+            file:close()
+        end
+    end
+end
+
+function Profile:delete()
+    local file = io.open(self.iniFile, "r+")
+    if not file then
+        error("ini file is missing or corrupted!")
+    else
+        local iniLines = {}
+        local inProfile = false
+        for line in file:lines() do
+            if not inProfile and not line:startswith(string.format("[ControllerProfile-%s]", self.id)) then
+                table.insert(iniLines, line)
+            elseif line:startswith(string.format("[ControllerProfile-%s]", self.id)) then
+                inProfile = true
+            elseif inProfile and line:startswith(" ") or line == "" then
+                inProfile = false
+            end
+        end
+        file:close()
+        file = io.open(self.iniFile, "w")
+        if file then
+            for _, line in ipairs(iniLines) do
+                file:write(line.."\n")
+            end
+            file:close()
+        end
+    end
+end
+
+function Profile:load()
+    self.controller:xcCntlLog("Loading profile: " .. self.name, 4)
+    local file = io.open(self.iniFile, "r+")
+    local iniLines = {}
+    if not file then
+        error("ini file is missing or corrupted!")
+    else
+        local inProfile = false
+        for line in file:lines() do
+            if line:startswith("lastProfile=") then
+                table.insert(iniLines, "lastProfile=" .. self.id)
+            else
+                table.insert(iniLines, line)
+                if not inProfile and line:startswith(string.format("[ControllerProfile-%s]", self.id)) then
+                    inProfile = true
+                elseif inProfile and not line:match("^%s*$") then
+                    local key, value = line:match("^(.-)=(.+)$")
+                    if key and value then
+                        self.profileData[key] = value
+                    end
+                end
+            end
+        end
+        file:close()
+        file = io.open(self.iniFile, "w")
+        if file then
+            for _, line in ipairs(iniLines) do
+                file:write(line.."\n")
+            end
+            file:close()
+        end
+    end
+    for k, v in pairs(self.profileData) do
+        self.controller:deserialize(k, v)
+    end
+end
+
+function Profile.getLast(filePath)
+    filePath = filePath or iniFile
+    local file = io.open(filePath, "r")
+    if not file then
+        error("ini file is missing or corrupted!")
+    else
+        for line in file:lines() do
+            if line:match("^lastProfile=.*$") then
+                file:close()
+                return line:match("^lastProfile=(.*)$")
+            end
+        end
+    end
+    file:close()
+end
+
+function Profile.writeDefault(filePath)
+    filePath = filePath or iniFile
+    local file = io.open(filePath, "w")
+    local defaultProfile = [[[XBC4MACH4]
+lastProfile=0
+
+[ControllerProfile-0]
+profileName=default
+xc.Btn_B.configValues.Down=E Stop Toggle
+xc.Btn_BACK.configValues.altDown=Home Z
+xc.Btn_RS.configValues.Down=Enable Toggle
+xc.Btn_START.configValues.altDown=Home All
+xc.Btn_X.configValues.Down=Cycle Start/Stop
+xc.DPad_DOWN.configValues.Down=Jog Y-
+xc.DPad_DOWN.configValues.Up=Jog Y Off
+xc.DPad_DOWN.configValues.altDown=xcJogIncDown
+xc.DPad_LEFT.configValues.Down=Jog X-
+xc.DPad_LEFT.configValues.Up=Jog X Off
+xc.DPad_LEFT.configValues.altDown=xcJogIncLeft
+xc.DPad_RIGHT.configValues.Down=Jog X+
+xc.DPad_RIGHT.configValues.Up=Jog X Off
+xc.DPad_RIGHT.configValues.altDown=xcJogIncRight
+xc.DPad_UP.configValues.Down=Jog Y+
+xc.DPad_UP.configValues.Up=Jog Y Off
+xc.DPad_UP.configValues.altDown=xcJogIncUp
+xc.LTH_X_Val.configValues.deadzone=10
+xc.LTH_X_Val.configValues.inverted=false
+xc.LTH_Y_Val.configValues.deadzone=10
+xc.LTH_Y_Val.configValues.inverted=false
+xc.RTH_X_Val.configValues.deadzone=10
+xc.RTH_X_Val.configValues.inverted=false
+xc.RTH_Y_Val.configValues.axis=2
+xc.RTH_Y_Val.configValues.deadzone=10
+xc.RTH_Y_Val.configValues.inverted=false
+xc.configValues.frequency=4
+xc.configValues.jogIncrement=0.1
+xc.configValues.logLevel=2.0
+xc.configValues.shiftButton=Btn_Y
+xc.configValues.simpleJogMapped=true
+xc.configValues.xYReversed=true]]
+
+    if file then
+        file:write(defaultProfile)
+        file:close()
+    else
+        error("Could not write default profile")
+    end
+end
+
+function Profile:save()
+    self.profileData = self.controller:serialize()
+    self:write()
+end
+
+function Profile.getProfiles(filePath)
+    filePath = filePath or iniFile
+    local file = io.open(filePath, "r")
+    local profiles = {}
+    local id, name
+    if not file then
+        error("ini file is missing or corrupted!")
+    else
+        for line in file:lines() do
+            if line:match("^%[ControllerProfile-.*%]$") then
+                id = line:match("^%[ControllerProfile%-(%d+)%]$")
+            end
+            if line:match("^profileName=.*$") then
+                name = line:match("^profileName=(.*)$")
+                profiles[id] = name
+            end
+        end
+        file:close()
+        return profiles
+    end
+end
+
+return {Profile = Profile}
