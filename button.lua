@@ -1,4 +1,9 @@
-local slots = require("slot_functions")
+local file = io.open("slot_functions.lua", "r")
+local slots
+if file then
+    slots = require("slot_functions")
+    file:close()
+end
 
 --- Object representing a digital pushbutton controller input.
 ---@class Button: Type
