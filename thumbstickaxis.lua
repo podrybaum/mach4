@@ -114,4 +114,6 @@ function ThumbstickAxis:initUi(propertiesPanel)
     return propSizer
 end
 
+-- DEV_ONLY_START
 return {ThumbstickAxis = ThumbstickAxis}
+-- DEV_ONLY_END

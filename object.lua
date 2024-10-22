@@ -1,33 +1,28 @@
-function pairsByKeys (t, f)
+require("stringsExtended")
+
+local function pairsByKeys(t, f)
     local a = {}
-    for n in pairs(t) do 
-        table.insert(a, n) 
+    for n in pairs(t) do
+        a[#a+1] = n
     end
-    
-    -- Sort alphabetically first to ensure a known state
-    table.sort(a)
-    
-    -- Now apply the custom sorting function if needed
-    if f then
-        table.sort(a, f)
-    end
-    
-    local i = 0     
-    local iter = function ()
+    table.sort(a, f)
+    local i = 0
+    local n = #a
+    local iter = function()
         i = i + 1
-        if a[i] == nil then 
+        if i > n then
             return nil
-        else 
+        else
             return a[i], t[a[i]]
         end
     end
     return iter
 end
 
--- Custom sort logic that ensures deterministic behavior
-function sortConfig(a, b)
+
+local function sortConfig(a, b)
     if a == b then
-        return false 
+        return false
     end
     if a == "Down" then
         return true
@@ -41,14 +36,13 @@ function sortConfig(a, b)
     return a < b
 end
 
-
 --- Create a new class
 ---@param name string @The name of the new class
 ---@param super table @Class to inherit from, defaults to Type
 ---@return table @The new class, which is an instance of Type
 function class(name, super)
     local cls = {}
-    
+
     cls.__super = super or Type
     setmetatable(cls, cls.__super)
     cls.__index = cls
@@ -72,9 +66,9 @@ function class(name, super)
     end
     mt.__call = function(class, id, ...)
         if class.id ~= nil then
-           error("Attempt to call an instance object.")
+            error("Attempt to call an instance object.")
         end
-        local callArgs = {...}
+        local callArgs = { ... }
         local inst
         if class.__super.__name ~= "Type" then
             inst = setmetatable(class.__super.new(Instance:new(id, callArgs[1])), class)
@@ -98,7 +92,7 @@ end
 ---@field __tostring function
 ---@field __call function
 Type = {}
-setmetatable(Type, {__index=nil})
+setmetatable(Type, { __index = nil })
 Type.__index = Type
 Type.__type = "Class"
 Type.__name = "Type"
@@ -106,20 +100,17 @@ Type.__name = "Type"
 
 function Type:isInstance(class)
     local mt = getmetatable(self)
-
-    -- If self has an id, it's an instance
     if rawget(self, "id") then
         while true do
             if mt.__type == class.__name then
                 return true
             end
-            mt = rawget(mt, "__super") -- Traverse the chain of superclasses
+            mt = rawget(mt, "__super") 
             if mt == Type then
-                return false           -- Stop when we hit Type - no instance is an instance of Type
+                return false         
             end
         end
     else
-        -- If self is a class, return true if checking against Type only
         return class == Type
     end
 end
@@ -165,7 +156,7 @@ function Instance.serialize(self)
     end
     for _, child in ipairs(self.children) do
         for k, v in pairs(child:serialize()) do
-            serial = serial..k.."="..v.."\n"
+            serial = serial .. k .. "=" .. v .. "\n"
         end
     end
     local parsed = {}
@@ -178,7 +169,7 @@ function Instance.serialize(self)
     return parsed
 end
 
-require("stringsExtended")
+
 -- Deserialize the given path-value string into the correct object.
 function Instance.deserialize(self, path, val)
     if path == "profileName" then
@@ -208,5 +199,9 @@ function Instance.getRoot(self)
     end
 end
 
-
+-- DEV_ONLY_START
 return { Type = Type, class = class, Instance = Instance, pairsByKeys = pairsByKeys, sortConfig = sortConfig }
+-- DEV_ONLY_END
+
+
+

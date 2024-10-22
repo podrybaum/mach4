@@ -1,90 +1,86 @@
+-- List of files to be concatenated, in the correct order based on dependencies.
+local home = os.getenv("USERPROFILE")
 local inputFiles = {
-	"C:\\Mach4Hobby\\Modules\\button.lua",
-    "C:\\Mach4Hobby\\Modules\\signal_slot.lua",
-    "C:\\Mach4Hobby\\Modules\\thumbstickaxis.lua",
-    "C:\\Mach4Hobby\\Modules\\descriptor.lua",
-	    "C:\\Mach4Hobby\\Modules\\xc.lua",
-
+    "object.lua",          -- Base class definitions (needs to come first)
+    "profile.lua",         -- Profile class, dependent on base classes
+    "slot_functions.lua",  -- Slot functions definitions
+    "button.lua",          -- Button class
+    "thumbstickaxis.lua",  -- Thumbstick Axis class
+    "controller.lua",      -- Controller class, depends on the above modules
+    "xc.lua",              -- Main controller instantiation
 }
 
-local outputFile = "C:\\Users\\Michael\\mach4\\combined.lua"
-local precompiledOutput = "C:\\Users\\Michael\\mach4\\combined.luac"
-local removeDevSections = false  -- Toggle this to strip dev-specific code
+local function mkdir(dirname)
+  os.execute(string.format("if not exist %s mkdir %s", dirname, dirname))
+end
 
--- Function to remove dev-specific sections
-local function stripDevSections(contents)
-    local devOnlyStart = "-- DEV_ONLY_START"
-    local devOnlyEnd = "-- DEV_ONLY_END"
-    
+mkdir(string.format("%s\\mach4\\build", home))
+
+for idx, file in ipairs(inputFiles) do
+  inputFiles[idx] = string.format("%s\\mach4\\%s", home, file)
+end
+
+local outputFile = string.format("%s\\mach4\\build\\combined.lua", home)
+local precompiledOutput = string.format("%s\\mach4\\build\\combined.luac", home)
+local removeDevSections = true  -- Toggle to strip dev-specific code
+
+require("stringsExtended")
+
+-- Function to remove tagged sections based on start and end markers
+local function stripTaggedSections(contents, startTag, endTag)
     local result = {}
     local skipping = false
     
     for line in contents:gmatch("[^\r\n]+") do
-        if line:find(devOnlyStart) then
+        
+        if line:find(startTag) then
             skipping = true
-        elseif line:find(devOnlyEnd) then
+        elseif line:find(endTag) then
             skipping = false
+        elseif line:match("^%s*%-%-") then
+            -- skip comments
         elseif not skipping then
             table.insert(result, line)
         end
     end
-    print("returning stripped output")
     return table.concat(result, "\n")
 end
 
--- Function to combine all modules into one
-local function combineModules(inputFiles, outputFile, removeDevSections)
-    local outfile = io.open(outputFile, "w")
-    if outfile ~= nil then
-        for _, filename in ipairs(inputFiles) do
-            local infile = io.open(filename, "r")
-            if infile then
-                local content = infile:read("*all")
-                infile:close()
+-- Function to concatenate files and handle preprocessing
+local function concatenateFiles()
+    local combinedContent = ""
+    for _, filePath in ipairs(inputFiles) do
+        local file = io.open(filePath, "r")
+        if file then
+            local content = file:read("*a")
+            file:close()
 
-                if removeDevSections then
-                    content = stripDevSections(content)
-                end
-
-                outfile:write("-- Start of ", filename, "\n")
-                outfile:write(content, "\n")
-                outfile:write("-- End of ", filename, "\n\n")
-            else
-                print("Warning: Could not open file " .. filename)
+            -- Remove dev-specific sections if required
+            if removeDevSections then
+                content = stripTaggedSections(content, "-- DEV_ONLY_START", "-- DEV_ONLY_END")
             end
+            
+            combinedContent = combinedContent .. content .. "\n"
+        else
+            print("Warning: Could not open file " .. filePath)
         end
-
-        outfile:close()
-        print("Combined modules written to " .. outputFile)
     end
-end
 
-local function minify()
-    local command = string.format("lua C:\\users\\michael\\mach4\\luasrcdiet --maximum %s -o C:\\users\\michael\\mach4\\min_combined.lua --noopt-binequiv", outputFile)
-    print("Minifying source")
-    local result = os.execute(command)
-
-    if result == 0 then
-        print("Successfully minified source")
+    -- Write combined content to output file
+    local outputFileHandle = io.open(outputFile, "w+")
+    if outputFileHandle then
+        outputFileHandle:write(combinedContent)
+        outputFileHandle:close()
     else
-        print("Error during source minification.")
+        error("Failed to open output file for writing: " .. outputFile)
+    end
+
+    -- Precompile the Lua script if needed
+    local success, err = os.execute("luac -o " .. precompiledOutput .. " " .. outputFile)
+    if not success then
+        print("Error during precompilation: " .. (err or "unknown error"))
     end
 end
 
--- Function to call the Lua compiler
-local function compileToBytecode(inputFile, outputFile)
-    local command = string.format("luac -o %s %s", outputFile, inputFile)
-    print("Running command: " .. command)
-    local result = os.execute(command)
-
-    if result == 0 then
-        print("Successfully compiled " .. inputFile .. " to " .. outputFile)
-    else
-        print("Error compiling " .. inputFile)
-    end
-end
-
--- Combine the modules and precompile them
-combineModules(inputFiles, outputFile, removeDevSections)
-minify()
-compileToBytecode(outputFile, precompiledOutput)
+-- Run the build process
+concatenateFiles()

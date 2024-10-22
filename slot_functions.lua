@@ -1,6 +1,8 @@
+-- DEV_ONLY_START
 if not mc then
     require("mocks")
 end
+-- DEV_ONLY_END
 
 local inst = mc.mcGetInstance()
 --- Check Mach4 signal state in a single call
@@ -107,8 +109,8 @@ slots["Go To Work Zero"] = function()
     mc.mcCntlGotoZero(inst)
 end
 
---- Below this line, slot functions depend on modules that may not be present in all Mach4 deployments ---
---- These should go in some kind of custom code section ---
+
+-- DEV_ONLY_START
 slots["Torch/THC Toggle"] = function()
     local hreg = mc.mcRegGetHandle(inst, string.format("ESS/HC/Command"))
     mc.mcRegSetValueString(hreg, "(ESS_TORCH_TOGGLE=1)")
@@ -123,4 +125,5 @@ slots["Cycle Start/Stop"] = function()
     end
 end
 
-return slots
+return { slots = slots }
+-- DEV_ONLY_END

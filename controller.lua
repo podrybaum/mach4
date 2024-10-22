@@ -1,7 +1,9 @@
+-- DEV_ONLY_START
 require("object")
 require("profile")
 require("button")
 require("thumbstickaxis")
+-- DEV_ONLY_END
 
 ---@class Controller: Type
 ---@field profile Profile
@@ -244,7 +246,7 @@ function Controller:initUi(propertiesPanel)
     propSizer:Add(0, 0, 1, wx.wxEXPAND)
 
     propSizer:Add(0,0)
-    
+
     local deleteProfile = wx.wxButton(propertiesPanel, wx.wxID_ANY, "Delete A Profile...")
     propSizer:Add(deleteProfile, 0, wx.wxALIGN_RIGHT + wx.wxALL, 5)
 
@@ -254,7 +256,7 @@ function Controller:initUi(propertiesPanel)
     local saveProfile = wx.wxButton(propertiesPanel, wx.wxID_ANY, "Save Current Profile")
     propSizer:Add(saveProfile, 0, wx.wxALIGN_RIGHT + wx.wxALL, 5)
 
-    propertiesPanel:Connect(saveProfile:GetId(), wx.wxEVT_COMMAND_BUTTON_CLICKED, function() 
+    propertiesPanel:Connect(saveProfile:GetId(), wx.wxEVT_COMMAND_BUTTON_CLICKED, function()
         local saveDialog = wx.wxMessageBox(string.format("Save changes to profile: %s?", profileChoice:GetStringSelection()), "Confirm", wx.wxOK + wx.wxCANCEL)
         if saveDialog == wx.wxOK then
             self.profile:save()
@@ -282,7 +284,7 @@ function Controller:initUi(propertiesPanel)
 
         dialog:Connect(deleteButton:GetId(), wx.wxEVT_COMMAND_BUTTON_CLICKED, function()
             local profileName = profileListBox:GetStringSelection()
-            local deleteDialog = wx.wxMessageBox(string.format("Delete profile: %s?", profileName), "Confirm", wx.wxOK + wx.wxCANCEL)        
+            local deleteDialog = wx.wxMessageBox(string.format("Delete profile: %s?", profileName), "Confirm", wx.wxOK + wx.wxCANCEL)
             if deleteDialog == wx.wxOK then
                 local profile = Profile.new(Profile:getId(profileName), profileName, self)
                 profile:delete()
@@ -324,7 +326,7 @@ function Controller:initUi(propertiesPanel)
         dialog:SetSizer(vSizer)
         vSizer:Fit(dialog)
 
-        
+
         dialog:Connect(saveButton:GetId(), wx.wxEVT_COMMAND_BUTTON_CLICKED, function()
             local selectedProfile = profileListBox:GetStringSelection()
             local newProfileName = newProfileTextCtrl:GetValue()
@@ -346,7 +348,7 @@ function Controller:initUi(propertiesPanel)
             else
                 wx.wxMessageBox("Please select a profile or enter a new name", "Error", wx.wxOK + wx.wxICON_ERROR)
             end
-            
+
             if tmpProfileId and tmpProfileName then
                 local saveDialog = wx.wxMessageBox(string.format("Save changes to profile: %s?", tmpProfileName), "Confirm", wx.wxOK + wx.wxCANCEL)
                 if saveDialog == wx.wxOK then
@@ -481,4 +483,6 @@ function Controller:destroy()
     end
 end
 
+-- DEV_ONLY_START
 return {Controller = Controller}
+-- DEV_ONLY_END

@@ -1,9 +1,17 @@
-local file = io.open("slot_functions.lua", "r")
-local slots
-if file then
-    slots = require("slot_functions")
-    file:close()
+-- DEV_ONLY_START
+local slots = {}
+-- DEV_ONLY_END
+
+local success, customSlots = pcall(require, "slot_functions")
+if success then
+    for k, v in pairs(customSlots) do
+        slots[k] = v
+    end
+else
+    error("There is a problem with your slot_functions module:" .. customSlots)
 end
+
+
 
 --- Object representing a digital pushbutton controller input.
 ---@class Button: Type
@@ -181,4 +189,6 @@ function Trigger:getState()
     end
 end
 
+-- DEV_ONLY_START
 return {Button=Button, Trigger=Trigger}
+-- DEV_ONLY_END

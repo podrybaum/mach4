@@ -51,7 +51,10 @@ function saveIniFile()
     end
 end
 
-mc = {
+mc = { --TODO: mcProfileGetName needs a test and a proper implementation
+    mcProfileGetName = function(inst)
+        return "default"
+    end,
     mcCntlLog = function(inst, message, style, level)
         print("[MOCK LOG]: " .. message)
     end,
