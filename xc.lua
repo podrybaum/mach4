@@ -12,8 +12,6 @@ end
 
 -- TODO: implement more user-friendly names for inputs to use in the GUI
 -- TODO: make ui controls for profiles update dynamically 
--- TODO: test slot functions provided by scr.DoFunctionName.
--- TODO: review and decide on final version of default profile.
 -- TODO: installer script
 -- TODO: Something seems to be not working entirely as intended with ThumbstickAxis:connect method. The Jog rate doesn't seem to always update appropriately.
 -- TODO: update docs 

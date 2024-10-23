@@ -2,9 +2,10 @@
 if not mc then
     require("mocks")
 end
+local inst = mc.mcGetInstance()
 -- DEV_ONLY_END
 
-local inst = mc.mcGetInstance()
+
 --- Check Mach4 signal state in a single call
 ---@param signal number the Mach4 signal to check
 ---@return boolean|nil true if signal is 1 false in the case of 0 or nil if not found

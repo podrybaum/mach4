@@ -3,6 +3,11 @@ require("object")
 require("profile")
 require("button")
 require("thumbstickaxis")
+
+if not mc then
+    require("mocks")
+    inst = mc.mcGetInstance()
+end
 -- DEV_ONLY_END
 
 ---@class Controller: Type
@@ -53,25 +58,45 @@ function Controller:new(panel)
     self.configValues["xYReversed"] = "false"
     self.configValues["frequency"] = "0"
     self.configValues["simpleJogMapped"] = "false"
+---@diagnostic disable-next-line: undefined-field
     self:addChild(Button("DPad_UP", self))
+    ---@diagnostic disable-next-line: undefined-field
     self:addChild(Button("DPad_DOWN", self))
+    ---@diagnostic disable-next-line: undefined-field
     self:addChild(Button("DPad_LEFT", self))
+    ---@diagnostic disable-next-line: undefined-field
     self:addChild(Button("DPad_RIGHT", self))
+    ---@diagnostic disable-next-line: undefined-field
     self:addChild(Button("Btn_START", self))
+    ---@diagnostic disable-next-line: undefined-field
     self:addChild(Button("Btn_BACK", self))
+    ---@diagnostic disable-next-line: undefined-field
     self:addChild(Button("Btn_LS", self))
+    ---@diagnostic disable-next-line: undefined-field
     self:addChild(Button("Btn_RS", self))
+    ---@diagnostic disable-next-line: undefined-field
     self:addChild(Button("Btn_LTH", self))
+    ---@diagnostic disable-next-line: undefined-field
     self:addChild(Button("Btn_RTH", self))
+    ---@diagnostic disable-next-line: undefined-field
     self:addChild(Button("Btn_A", self))
+    ---@diagnostic disable-next-line: undefined-field
     self:addChild(Button("Btn_B", self))
+    ---@diagnostic disable-next-line: undefined-field
     self:addChild(Button("Btn_X", self))
+    ---@diagnostic disable-next-line: undefined-field
     self:addChild(Button("Btn_Y", self))
+    ---@diagnostic disable-next-line: undefined-field
     self:addChild(Trigger("LTR_Val", self))
+    ---@diagnostic disable-next-line: undefined-field
     self:addChild(Trigger("RTR_Val", self))
+    ---@diagnostic disable-next-line: undefined-field
     self:addChild(ThumbstickAxis("LTH_Y_Val", self))
+    ---@diagnostic disable-next-line: undefined-field
     self:addChild(ThumbstickAxis("LTH_X_Val", self))
+    ---@diagnostic disable-next-line: undefined-field
     self:addChild(ThumbstickAxis("RTH_Y_Val", self))
+    ---@diagnostic disable-next-line: undefined-field
     self:addChild(ThumbstickAxis("RTH_X_Val", self))
     self.logLevels = {"ERROR", "WARNING", "INFO", "DEBUG"}
     local profileId = Profile.getLast()
@@ -113,10 +138,10 @@ function Controller:mapSimpleJog()
     else
         self:xcCntlLog("Standard velocity jogging mapped to D-pad", 3)
     end
-    self.DPad_UP.configValues.altDown = "xcJogIncUp"
-    self.DPad_DOWN.configValues.altDown = "xcJogIncDown"
-    self.DPad_RIGHT.configValues.altDown = "xcJogIncRight"
-    self.DPad_LEFT.configValues.altDown = "xcJogIncLeft"
+    self.DPad_UP.configValues.altDown = self.configValues.xYReversed == "true" and "Incremental Jog Y+" or "Incremental Jog X+"
+    self.DPad_DOWN.configValues.altDown = self.configValues.xYReversed == "true" and "Incremental Jog Y-" or "Incremental Jog X-"
+    self.DPad_RIGHT.configValues.altDown = self.configValues.xYReversed == "true" and "Incremental Jog X+" or "Incremental Jog Y+"
+    self.DPad_LEFT.configValues.altDown = self.configValues.xYReversed == "true" and "Incremental Jog X-" or "Incremental Jog Y-"
     if self.configValues.xYReversed then
         self:xcCntlLog("Incremental jogging with X and Y axis orientation reversed mapped to D-pad alternate function",
             3)
@@ -178,6 +203,7 @@ function Controller:initUi(propertiesPanel)
     propSizer:Add(profileChoice, 1, wx.wxEXPAND + wx.wxALL, 5)
     profileChoice:SetSelection(profileChoice:FindString(self.profile.name))
 
+    ---@diagnostic disable-next-line: undefined-field
     propertiesPanel:Connect(profileChoice:GetId(), wx.wxEVT_COMMAND_CHOICE_SELECTED, function()
         -- TODO: check if config is "dirty" and prompt the user to save changes
         local choice = profileChoice:GetSelection()
@@ -255,7 +281,7 @@ function Controller:initUi(propertiesPanel)
 
     local saveProfile = wx.wxButton(propertiesPanel, wx.wxID_ANY, "Save Current Profile")
     propSizer:Add(saveProfile, 0, wx.wxALIGN_RIGHT + wx.wxALL, 5)
-
+---@diagnostic disable-next-line: undefined-field
     propertiesPanel:Connect(saveProfile:GetId(), wx.wxEVT_COMMAND_BUTTON_CLICKED, function()
         local saveDialog = wx.wxMessageBox(string.format("Save changes to profile: %s?", profileChoice:GetStringSelection()), "Confirm", wx.wxOK + wx.wxCANCEL)
         if saveDialog == wx.wxOK then
@@ -263,7 +289,7 @@ function Controller:initUi(propertiesPanel)
             wx.wxMessageBox(string.format("Changes saved to profile: %s", profileChoice:GetStringSelection()), "Confirmation")
         end
     end)
-
+---@diagnostic disable-next-line: undefined-field
     propertiesPanel:Connect(deleteProfile:GetId(), wx.wxEVT_COMMAND_BUTTON_CLICKED, function()
         local dialog = wx.wxDialog(propertiesPanel, wx.wxID_ANY, "Delete Profile", wx.wxDefaultPosition, wx.wxSize(300, 300), wx.wxDEFAULT_DIALOG_STYLE)
         local vSizer = wx.wxBoxSizer(wx.wxVERTICAL)
@@ -301,7 +327,7 @@ function Controller:initUi(propertiesPanel)
         dialog:Destroy()
 
     end)
-
+---@diagnostic disable-next-line: undefined-field
     propertiesPanel:Connect(saveProfileAs:GetId(), wx.wxEVT_COMMAND_BUTTON_CLICKED, function()
         local dialog = wx.wxDialog(propertiesPanel, wx.wxID_ANY, "Save Profile As", wx.wxDefaultPosition, wx.wxSize(300, 300), wx.wxDEFAULT_DIALOG_STYLE)
         local vSizer = wx.wxBoxSizer(wx.wxVERTICAL)
