@@ -9,12 +9,12 @@ set PATH=%PATH%;C:\ProgramData\chocolatey\lib\lua53\tools
 refreshenv
 
 REM Confirm Lua is in the PATH
-lua -v
+lua53 -v
 
 REM Update the package path for the Windows environment
 setlocal enabledelayedexpansion
 
-lua -e "package.cpath = package.cpath .. ';%CD%\\build\\?.dll'; require('mocks'); print('Lua environment set up')"
+lua53 -e "package.cpath = package.cpath .. ';%CD%\\build\\?.dll'; require('mocks'); print('Lua environment set up')"
 
 REM Change directory to the mach4 directory (adjust this path if needed)
 cd mach4
@@ -24,4 +24,4 @@ curl -L https://github.com/seaofvoices/darklua/releases/download/v0.14.0/darklua
 powershell -command "Expand-Archive -Path darklua.zip -DestinationPath ."
 
 REM Run the build script
-lua buildScript.lua
+lua53 buildScript.lua
