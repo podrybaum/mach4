@@ -10,26 +10,11 @@ if not exist lua.zip (
 
 REM Unzip Lua binaries
 echo Unzipping Lua binaries...
-powershell.exe -Command "Expand-Archive -Path lua.zip -DestinationPath ."
+powershell.exe -Command "Expand-Archive -Path lua.zip -DestinationPath C:\Lua53"
 
 REM Check if lua53.exe was extracted
-if not exist lua53.exe (
-    echo ERROR: Failed to unzip Lua binaries!
-    exit /b 1
-)
-
-REM Move Lua binaries to C:\Lua53 (create the directory if it doesn't exist)
-echo Moving Lua binaries...
-mkdir C:\Lua53
-foreach ($file in Get-ChildItem -Path ". " -File) {
-
-    if ($file -match "w*luac*53\...."){
-        move $file C:\Lua53}
-}
-
-REM Verify the move was successful
 if not exist C:\Lua53\lua53.exe (
-    echo ERROR: Failed to move Lua binaries to C:\Lua53!
+    echo ERROR: Failed to unzip Lua binaries!
     exit /b 1
 )
 
