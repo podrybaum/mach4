@@ -1,6 +1,6 @@
 REM Download Lua 5.3 Windows 32-bit binaries
 echo Downloading Lua 5.3 Windows 32-bit binaries...
-curl.exe -L https://sourceforge.net/projects/luabinaries/files/5.3.6/Tools%20Executables/lua-5.3.6_Win32_bin.zip/download -o lua.zip
+powershell.exe -Command curl.exe -L https://sourceforge.net/projects/luabinaries/files/5.3.6/Tools%20Executables/lua-5.3.6_Win32_bin.zip/download -o lua.zip
 
 REM Verify that the file was downloaded
 if not exist lua.zip (
