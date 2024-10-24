@@ -236,6 +236,7 @@ function Controller:initUi(propertiesPanel)
         end
         self.profile = Profile.new(newId, choice, self)
         self.profile:load()
+        self:updateUi()
         self:statusMessage("Profile switched to: " .. choice)
     end)
 
