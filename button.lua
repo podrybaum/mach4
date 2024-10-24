@@ -97,23 +97,14 @@ function Button:initUi(propertiesPanel)
                 choice:SetSelection(choice:FindString(self.configValues[state]))
             end
             propSizer:Add(choice, 1, wx.wxEXPAND + wx.wxALL, 5)
+            propertiesPanel:Connect(choice:GetId(), wx.wxEVT_COMMAND_CHOICE_SELECTED, function()
+                self:getRoot().dirtyConfig = true
+                self.configValues[state] = choice:GetString(choice:GetSelection())
+                self:getRoot():statusMessage(string.format("%s set to: %s", state, self.configValues[state]))
+            end)
         end
 
-        -- Add the apply button and the event handler 
-        propSizer:Add(0, 0)
-        local applyId = wx.wxNewId()
-        local apply = wx.wxButton(propertiesPanel, applyId, "Apply", wx.wxDefaultPosition, wx.wxDefaultSize)
-        propSizer:Add(apply, 0, wx.wxALIGN_RIGHT + wx.wxALL, 5)
-
-        -- Event handler
-    ---@diagnostic disable-next-line: undefined-field
-        propertiesPanel:Connect(applyId, wx.wxEVT_COMMAND_BUTTON_CLICKED, function()
-            for state, _ in pairsByKeys(self.configValues, sortConfig) do
-                local choice = idMapping[state]
-                local selection = choice:GetStringSelection()
-                self.configValues[state] = selection
-            end
-        end)
+       
 
         -- Refresh and return the layout
     ---@diagnostic disable-next-line: undefined-field

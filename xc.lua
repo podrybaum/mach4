@@ -6,15 +6,16 @@ if not mc then
     require("mocks")
 end
 
-if mc.mcInEditor() == 1 then
+if mc.mcInEditor() == 1 then -- needed for ZeroBraneStudio in Mach4, where mocks won't be loaded.
     mcLuaPanelParent = wx.wxFrame(wx.NULL, wx.wxID_ANY, "Mock Panel")
 end
 
 -- TODO: implement more user-friendly names for inputs to use in the GUI
--- TODO: make ui controls for profiles update dynamically 
 -- TODO: installer script
 -- TODO: Something seems to be not working entirely as intended with ThumbstickAxis:connect method. The Jog rate doesn't seem to always update appropriately.
 -- TODO: update docs 
+-- TODO: prompt for saving unsaved changes on exiting mach4
+
 require("object")
 require("profile")
 require("button")
@@ -22,12 +23,11 @@ require("thumbstickaxis")
 require("controller")
 -- DEV_ONLY_END
 
-xc=Controller("xc",nil,mcLuaPanelParent)
+xc=Controller("xc",nil)
 
 -- DEV_ONLY_START
 if mc.mcInEditor() == 1 then
-    xc:initPanel()
-    xc:go()
+    xc:initPanel('standalone')
 end
 -- DEV_ONLY_END
 

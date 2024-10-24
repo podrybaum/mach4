@@ -51,12 +51,15 @@ function saveIniFile()
     end
 end
 
-mc = { --TODO: mcProfileGetName needs a test and a proper implementation
+mc = { --TODO: mcProfileGetName and mcCntlSetLastError need tests and mc ProfileGetName needs a proper implementation
     mcProfileGetName = function(inst)
         return "default"
     end,
     mcCntlLog = function(inst, message, style, level)
         print("[MOCK LOG]: " .. message)
+    end,
+    mcCntlSetLastError = function(inst, message)
+        print("[MOCK LAST_ERROR]: " .. message)
     end,
     mcSignalGetHandle = function(inst, signal)
         print("[MOCK]: mcSignalGetHandle called for signal: " .. tostring(signal))
@@ -213,6 +216,6 @@ scr.DoFunctionName = (function(name)
     return name
 end)
 
-mcLuaPanelParent = wx.wxFrame(wx.NULL, wx.wxID_ANY, "Mock Panel")
+mcLuaPanelParent = wx.wxFrame(wx.NULL, wx.wxID_ANY, "Configure Xbox Controller Settings")
 
 return {mc, wx, scr, mcLuaPanelParent, trim, loadIniFile, saveIniFile}
