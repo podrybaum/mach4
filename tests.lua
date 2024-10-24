@@ -264,6 +264,7 @@ local tests = {
       assert(type(slot) == "function")
     end
   end,
+
 }
 
 -- Run the tests
@@ -278,5 +279,7 @@ if failed == 0 then
       print("Failed to remove temporary ini file: " .. err)
     end
   end
+  os.exit(0)
 else
+  os.exit(1)
 end
