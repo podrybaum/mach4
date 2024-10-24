@@ -10,7 +10,7 @@ if not exist lua.zip (
 
 REM Unzip Lua binaries
 echo Unzipping Lua binaries...
-powershell -command "Expand-Archive -Path lua.zip -DestinationPath ."
+Expand-Archive -Path lua.zip -DestinationPath .
 
 REM Check if lua53.exe was extracted
 if not exist lua53.exe (
