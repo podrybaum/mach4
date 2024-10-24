@@ -1,4 +1,4 @@
-package.cpath = string.format("%s;C:\\Mach4Hobby\\ZeroBraneStudio\\bin\\clibs53\\?.dll", package.cpath)
+package.cpath = string.format("%s;.\\build\\?.dll", package.cpath)
 
 wx = require("wx")
 
