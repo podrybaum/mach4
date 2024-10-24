@@ -111,6 +111,20 @@ slots["Go To Work Zero"] = function()
 end
 
 
+rememberedPoint = {}
+slots["Remember Point"] = function()    
+    rememberedPoint.x = mc.mcAxisGetPos(inst, mc.X_AXIS)
+    rememberedPoint.y = mc.mcAxisGetPos(inst, mc.Y_AXIS)
+    rememberedPoint.z = mc.mcAxisGetPos(inst, mc.Z_AXIS)
+end
+
+slots["Return to Point"] = function()
+    if rememberedPoint.x and rememberedPoint.y and rememberedPoint.z then
+        mc.mcCntlGcodeExecute(inst, string.format("G0 X%.4f Y%.4f Z%.4f", rememberedPoint.x, rememberedPoint.y, rememberedPoint.z))
+    end
+end
+
+
 -- DEV_ONLY_START
 slots["Torch/THC Toggle"] = function()
     local hreg = mc.mcRegGetHandle(inst, string.format("ESS/HC/Command"))
