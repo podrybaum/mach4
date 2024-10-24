@@ -1,26 +1,10 @@
-REM Download Lua 5.3 Windows 32-bit binaries
-echo Downloading Lua 5.3 Windows 32-bit binaries...
-powershell.exe -Command curl.exe -L https://sourceforge.net/projects/luabinaries/files/5.3.6/Tools%20Executables/lua-5.3.6_Win32_bin.zip/download -o lua.zip
 
-REM Verify that the file was downloaded
-if not exist lua.zip (
-    echo ERROR: Failed to download Lua!
-    exit /b 1
-)
-
-REM Unzip Lua binaries
-echo Unzipping Lua binaries...
-powershell.exe -Command "Expand-Archive -Path 'lua.zip' -DestinationPath 'C:\Lua53'"
-
-REM Check if lua53.exe was extracted
-if not exist C:\Lua53\lua53.exe (
-    echo ERROR: Failed to unzip Lua binaries!
-    exit /b 1
-)
+REM Set the path to the Lua binaries in the repo
+set LUA_PATH=%CD%\Lua53
 
 REM Add Lua to the PATH
 echo Adding Lua to the PATH...
-set PATH=%PATH%;C:\Lua53
+set PATH=%PATH%;%LUA_PATH%
 
 REM Confirm Lua is in the PATH
 lua53 -v
@@ -39,7 +23,7 @@ cd mach4
 REM Download and unzip darklua
 echo Downloading and unzipping DarkLua...
 curl -L https://github.com/seaofvoices/darklua/releases/download/v0.14.0/darklua-windows-x86_64.zip -o darklua.zip
-powershell -command "Expand-Archive -Path darklua.zip -DestinationPath ."
+powershell.exe -Command "Expand-Archive -Path 'darklua.zip' -DestinationPath ."
 
 REM Run the build script
 echo Running the build script...
