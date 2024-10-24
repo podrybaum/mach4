@@ -1,5 +1,9 @@
+if mc then
+    inst = mc.mcGetInstance()
+end
+-- DEV_ONLY_START
 require("stringsExtended")
-
+-- DEV_ONLY_END
 function pairsByKeys(t, f)
     local a = {}
     for n in pairs(t) do

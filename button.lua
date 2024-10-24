@@ -3,9 +3,10 @@
 local object = require("object")
 local pairsByKeys = object.pairsByKeys
 local sortConfig = object.sortConfig
+local slots = {}
 -- DEV_ONLY_END
 
-local slots = {}
+
 
 local success, customSlots = pcall(require, "slot_functions")
 if success then

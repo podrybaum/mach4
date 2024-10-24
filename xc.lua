@@ -24,7 +24,9 @@ require("controller")
 -- DEV_ONLY_END
 
 xc=Controller("xc",nil)
-
+--[[
+xc:initPanel('embedded')
+--]]
 -- DEV_ONLY_START
 if mc.mcInEditor() == 1 then
     xc:initPanel('standalone')

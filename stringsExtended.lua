@@ -78,5 +78,6 @@ function string.endswith(str, strEnd)
     return str:sub(-#strEnd) == strEnd
 end
 
+-- DEV_ONLY_START
 return {string = string}
-
+-- DEV_ONLY_END

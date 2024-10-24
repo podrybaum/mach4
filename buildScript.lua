@@ -1,6 +1,7 @@
 -- List of files to be concatenated, in the correct order based on dependencies.
 local home = os.getenv("USERPROFILE")
 local inputFiles = {
+    "stringsExtended.lua", -- dependency
     "object.lua",          -- Base class definitions (needs to come first)
     "profile.lua",         -- Profile class, dependent on base classes
     "slot_functions.lua",  -- Slot functions definitions
@@ -20,11 +21,10 @@ for idx, file in ipairs(inputFiles) do
   inputFiles[idx] = string.format("%s\\mach4\\%s", home, file)
 end
 
-local outputFile = string.format("%s\\mach4\\build\\combined.lua", home)
+local outputFile = string.format("%s\\mach4\\build\\xc.lua", home)
 local precompiledOutput = string.format("%s\\mach4\\build\\combined.luac", home)
 local removeDevSections = true  -- Toggle to strip dev-specific code
 
-require("stringsExtended")
 
 -- Function to remove tagged sections based on start and end markers
 local function stripTaggedSections(contents, startTag, endTag)
@@ -75,11 +75,11 @@ local function concatenateFiles()
         error("Failed to open output file for writing: " .. outputFile)
     end
 
-    -- Precompile the Lua script if needed
+    --[[ Precompile the Lua script if needed
     local success, err = os.execute("luac -o " .. precompiledOutput .. " " .. outputFile)
     if not success then
         print("Error during precompilation: " .. (err or "unknown error"))
-    end
+    end]]
 end
 
 -- Run the build process
