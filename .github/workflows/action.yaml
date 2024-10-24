@@ -10,12 +10,6 @@ jobs:
     - name: Checkout the repo
       uses: actions/checkout@v3
 
-    - name: Set up Lua
-      run: |
-        # Install Lua 5.3 on Windows
-        choco install lua53
-
-
 
     - name: Run the shell script
       run: .github/workflows/action.bat  # Call the Windows batch script instead of a .sh file
