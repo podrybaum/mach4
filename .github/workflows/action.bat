@@ -4,7 +4,7 @@ REM Install Lua 5.3 using Chocolatey
 choco install lua53 -y
 
 REM Add Lua to the PATH
-set PATH=%PATH%;C:\tools\lua53
+set PATH=%PATH%;C:\ProgramData\chocolatey\lib\lua53\tools
 
 refreshenv
 
