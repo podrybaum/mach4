@@ -14,6 +14,9 @@ jobs:
       run: |
         # Install Lua 5.3 on Windows
         choco install lua53
+
+        set PATH=%PATH%;C:\ProgramData\chocolatey\lib\lua53\tools
+        refreshenv
         
         # Confirm Lua is installed
         lua -v

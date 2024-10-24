@@ -1,20 +1,15 @@
 @echo off
 
-REM Download Lua 5.3 Windows binaries
-curl -L https://sourceforge.net/projects/luabinaries/files/5.3.5/Windows%20x64%20DLL/lua-5.3.5_Win64_bin.zip/download -o lua.zip
-
-REM Unzip Lua binaries
-powershell -command "Expand-Archive -Path lua.zip -DestinationPath ."
-
-REM Move Lua binaries to C:\Lua53 (create the directory if it doesn't exist)
-mkdir C:\Lua53
-move lua-5.3.5_Win64_bin\* C:\Lua53\
+REM Install Lua 5.3 using Chocolatey
+REM choco install lua53 -y
 
 REM Add Lua to the PATH
-set PATH=%PATH%;C:\Lua53
+REM set PATH=%PATH%;C:\ProgramData\chocolatey\lib\lua53\tools
+
+refreshenv
 
 REM Confirm Lua is in the PATH
-lua -v
+REM lua53 -v
 
 REM Update the package path for the Windows environment
 setlocal enabledelayedexpansion
