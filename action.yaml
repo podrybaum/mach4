@@ -1,0 +1,14 @@
+name: Run My Shell Script
+
+on: [push]
+
+jobs:
+  run-my-shell-script:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout the repo
+      uses: actions/checkout@v4@dev
+
+    - name: Run the shell script
+      run: action.sh
