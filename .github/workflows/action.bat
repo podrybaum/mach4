@@ -6,6 +6,8 @@ choco install lua53 -y
 REM Add Lua to the PATH
 set PATH=%PATH%;C:\tools\lua53
 
+refreshenv
+
 REM Confirm Lua is in the PATH
 lua -v
 
