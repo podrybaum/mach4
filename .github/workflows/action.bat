@@ -1,7 +1,13 @@
 @echo off
 
-REM Set environment variables for the build
-set USERPROFILE=%USERPROFILE%
+REM Install Lua 5.3 using Chocolatey
+choco install lua53 -y
+
+REM Add Lua to the PATH
+set PATH=%PATH%;C:\tools\lua53
+
+REM Confirm Lua is in the PATH
+lua -v
 
 REM Update the package path for the Windows environment
 setlocal enabledelayedexpansion
