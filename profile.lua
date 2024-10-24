@@ -1,14 +1,19 @@
-
+local iniFile
+if mc then
+    iniFile = "C:\\Mach4Hobby\\Profiles\\" .. mc.mcProfileGetName(inst).. "\\xbcontroller.ini"
+end
 -- DEV_ONLY_START
 if not mc then
     require("mocks")
 end
-local iniFile = "C:\\Mach4Hobby\\Profiles\\" .. mc.mcProfileGetName(inst).. "\\xbcontroller.ini"
+
+
 
 if mc.mcInEditor() == 1 then
     iniFile = os.getenv("USERPROFILE") .. "\\mach4\\xbcontroller.ini"
 end
 -- DEV_ONLY_END
+
 
 ---@class Profile
 ---@field id string

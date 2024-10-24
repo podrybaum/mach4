@@ -1,15 +1,19 @@
+
 -- DEV_ONLY_START
-local slots = {}
+local object = require("object")
+local pairsByKeys = object.pairsByKeys
+local sortConfig = object.sortConfig
 -- DEV_ONLY_END
+
+local slots = {}
 
 local success, customSlots = pcall(require, "slot_functions")
 if success then
     for k, v in pairs(customSlots) do
         slots[k] = v
     end
-else
-    error("There is a problem with your slot_functions module:" .. customSlots)
 end
+
 
 
 
@@ -74,7 +78,7 @@ function Button:initUi(propertiesPanel)
         -- Slot labels and dropdowns
         local options = {""}
         local analogOptions = {""}
-        for name, slot in pairsByKeys(slots) do
+        for name, _ in pairsByKeys(slots) do
             options[#options + 1] = name
         end
         local idMapping = {}
@@ -87,8 +91,7 @@ function Button:initUi(propertiesPanel)
             else
                 choices = options
             end
-            local choice = wx.wxChoice(propertiesPanel, wx.wxID_ANY, wx.wxDefaultPosition, wx.wxDefaultSize,
-                choices)
+            local choice = wx.wxChoice(propertiesPanel, wx.wxID_ANY, wx.wxDefaultPosition, wx.wxDefaultSize,choices)
             idMapping[state] = choice
             if self.configValues[state] ~= "" then
                 choice:SetSelection(choice:FindString(self.configValues[state]))
@@ -190,5 +193,5 @@ function Trigger:getState()
 end
 
 -- DEV_ONLY_START
-return {Button=Button, Trigger=Trigger}
+return {Button=Button, Trigger=Trigger, slots=slots}
 -- DEV_ONLY_END

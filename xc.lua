@@ -15,6 +15,10 @@ end
 -- TODO: installer script
 -- TODO: Something seems to be not working entirely as intended with ThumbstickAxis:connect method. The Jog rate doesn't seem to always update appropriately.
 -- TODO: update docs 
+require("object")
+require("profile")
+require("button")
+require("thumbstickaxis")
 require("controller")
 -- DEV_ONLY_END
 

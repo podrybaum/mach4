@@ -37,7 +37,7 @@ local names = {"Cycle Start", "Cycle Stop", "Feed Hold", "Enable On", "Soft Limi
 
 local slots = {}
 for _, name in ipairs(names) do
-    slots[name] = scr.DoFunctionName(name)
+    slots[name] = function()scr.DoFunctionName(name) end
 end
 
 slots["Incremental Jog X+"] = function(inc)
@@ -126,5 +126,5 @@ slots["Cycle Start/Stop"] = function()
     end
 end
 
-return { slots = slots }
+return slots
 -- DEV_ONLY_END

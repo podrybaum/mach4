@@ -465,7 +465,7 @@ function Controller:initPanel(panel)
     tree:SetFont(font)
     propSizer:Add(propertiesPanel, 1, wx.wxEXPAND + wx.wxALL, 5)
     tree:Connect(wx.wxEVT_COMMAND_TREE_SEL_CHANGED, function(event)
-        --propertiesPanel:GetSizer():Clear(true)
+        propertiesPanel:GetSizer():Clear(true)
 
         local item = treedata[event:GetItem():GetValue()]
         local newSizer =  wx.wxFlexGridSizer(0, 2, 0, 0)

@@ -209,9 +209,9 @@ mc = { --TODO: mcProfileGetName needs a test and a proper implementation
 }
 
 scr = {}
-scr.DoFunctionName = function(name)
+scr.DoFunctionName = (function(name)
     return name
-end
+end)
 
 mcLuaPanelParent = wx.wxFrame(wx.NULL, wx.wxID_ANY, "Mock Panel")
 
