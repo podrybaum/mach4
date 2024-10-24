@@ -1,17 +1,22 @@
-name: Run My Shell Script
+name: Run My Shell Script on Windows
 
 on: [push]
 
 jobs:
   run-my-shell-script:
-    runs-on: ubuntu-latest
+    runs-on: windows-latest  # Switch to Windows container
 
     steps:
     - name: Checkout the repo
-      uses: actions/checkout@v3 
+      uses: actions/checkout@v3
 
-    - name: Make the shell script executable
-      run: chmod +x .github/workflows/action.sh
+    - name: Set up Lua
+      run: |
+        # Install Lua 5.3 on Windows
+        choco install lua53
+        
+        # Confirm Lua is installed
+        lua -v
 
     - name: Run the shell script
-      run: .github/workflows/action.sh
+      run: .github/workflows/action.bat  # Call the Windows batch script instead of a .sh file
