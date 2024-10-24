@@ -1,6 +1,6 @@
 require("stringsExtended")
-require("object")
-require("button")
+local object=require("object")
+local button = require("button")
 require("controller")
 
 local esc = string.char(27)
@@ -41,7 +41,7 @@ local function afterEach()
 end
 
 local function runTests(tests)
-  for name, test in pairsByKeys(tests) do
+  for name, test in object.pairsByKeys(tests) do
     beforeEach()
     local ok, err = xpcall(test, debug.traceback)
     if ok then
@@ -54,7 +54,7 @@ local function runTests(tests)
     afterEach()
   end
 
-  if failed > 1 then
+  if failed > 0 then
     red = esc .. "[1;31m"
   else
     red = ""
@@ -177,7 +177,7 @@ local tests = {
     }
     local sortedKeys = { "a", "b", "c" }
     local keys = {}
-    for key in pairsByKeys(t, sortConfig) do
+    for key in object.pairsByKeys(t, object.sortConfig) do
       table.insert(keys, key)
     end
     for i, key in ipairs(sortedKeys) do
@@ -194,7 +194,7 @@ local tests = {
     }
     local sortedKeys = { "Down", "altDown", "Up", "altUp" }
     local keys = {}
-    for key in pairsByKeys(t, sortConfig) do
+    for key in object.pairsByKeys(t, object.sortConfig) do
       table.insert(keys, key)
     end
     for i, key in ipairs(sortedKeys) do
@@ -258,6 +258,13 @@ local tests = {
     assert(content:match("lastProfile=0"), "save: unexpected output")
     assert(content:match(string.format("logLevel=%s", ovalue)), "save: unexpected output")
   end,
+
+  ["button.lua - all keys in the slots table return functions"] = function()
+    for _, slot in pairs(button.slots) do
+      assert(type(slot) == "function")
+    end
+  end,
+
 }
 
 -- Run the tests
@@ -272,5 +279,7 @@ if failed == 0 then
       print("Failed to remove temporary ini file: " .. err)
     end
   end
+  os.exit(0)
 else
+  os.exit(1)
 end

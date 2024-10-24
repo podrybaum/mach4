@@ -22,7 +22,6 @@ end
 ---@field jogIncrement string
 ---@field xYReversed string
 ---@field frequency string
----@field simpleJogMapped string
 ---@field DPad_UP Button
 ---@field DPad_DOWN Button
 ---@field DPad_LEFT Button
@@ -43,21 +42,24 @@ end
 ---@field LTH_X_Val ThumbstickAxis
 ---@field RTH_Y_Val ThumbstickAxis
 ---@field RTH_X_Val ThumbstickAxis
+---@field guiMode string
+---@field dirtyConfig boolean
 Controller = class("Controller", Type)
 
 
 --- Initialize a new Controller instance.
----@param panel userdata @The parent wxWindow(or derived class) object
 ---@return Controller @The new Controller instance
-function Controller:new(panel)
-    self.panel = panel
-    self.timer = wx.wxTimer(self.panel)
+function Controller:new()
+    --self.panel = nil
+    self.guiMode = ''
+    self.dirtyConfig = false
+    self.timer = wx.wxTimer(mcLuaPanelParent, wx.wxID_ANY)
+    self.timer:Connect(wx.wxEVT_TIMER, function() self:update() end)
     self.configValues["shiftButton"] = ""
     self.configValues["jogIncrement"] = "0"
     self.configValues["logLevel"] = "0"
     self.configValues["xYReversed"] = "false"
     self.configValues["frequency"] = "0"
-    self.configValues["simpleJogMapped"] = "false"
 ---@diagnostic disable-next-line: undefined-field
     self:addChild(Button("DPad_UP", self))
     ---@diagnostic disable-next-line: undefined-field
@@ -103,8 +105,7 @@ function Controller:new(panel)
     local profileName = Profile.getProfiles()[profileId]
     self.profile = Profile.new(profileId, profileName, self)
     self.profile:load()
-    self.panel:Connect(wx.wxEVT_TIMER, function() self:update() end)
-    self:xcCntlLog("Starting X360_timer", 4)
+    self:xcCntlLog("Starting Controller loop", 4)
     self.timer:Start(1000 / tonumber(self.configValues.frequency))
     return self
 end
@@ -120,6 +121,11 @@ function Controller:update()
             input:getState()
         end
     end
+end
+
+function Controller:updateUi()
+    self.propertiesPanel:GetSizer():Clear(true)
+    self:initUi(self.propertiesPanel)
 end
 
 --- Convenience method to map jogging to the DPad, and incremental jogging to the DPad's alternate function.
@@ -148,7 +154,6 @@ function Controller:mapSimpleJog()
     else
         self:xcCntlLog("Incremental jogging mapped to D-pad alternate function", 3)
     end
-    self.simpleJogMapped = "true"
 end
 
 --- Logging method for the Controller library
@@ -205,7 +210,22 @@ function Controller:initUi(propertiesPanel)
 
     ---@diagnostic disable-next-line: undefined-field
     propertiesPanel:Connect(profileChoice:GetId(), wx.wxEVT_COMMAND_CHOICE_SELECTED, function()
-        -- TODO: check if config is "dirty" and prompt the user to save changes
+        if self.dirtyConfig then
+            local answer = wx.wxMessageBox(
+                "You have unsaved changes. Do you want to save before switching profiles?",
+                "Unsaved Changes",
+                wx.wxYES_NO + wx.wxCANCEL + wx.wxICON_QUESTION
+            )
+
+            if answer == wx.wxYES then
+                -- Save the current profile before switching
+                self.profile:save()
+
+            elseif answer == wx.wxCANCEL then
+                return false  -- Cancel profile swap
+            end
+        end
+
         local choice = profileChoice:GetSelection()
         local newId
         for id, name in pairs(profiles) do
@@ -216,6 +236,8 @@ function Controller:initUi(propertiesPanel)
         end
         self.profile = Profile.new(newId, choice, self)
         self.profile:load()
+        self:updateUi()
+        self:statusMessage("Profile switched to: " .. choice)
     end)
 
     local label = wx.wxStaticText(propertiesPanel, wx.wxID_ANY, "Assign shift button:")
@@ -230,11 +252,23 @@ function Controller:initUi(propertiesPanel)
     propSizer:Add(choice, 1, wx.wxEXPAND + wx.wxALL, 5)
     choice:SetSelection(choice:FindString(self.configValues.shiftButton))
 
+    propertiesPanel:Connect(choice:GetId(), wx.wxEVT_COMMAND_CHOICE_SELECTED, function()
+        self.dirtyConfig = true
+        self.configValues.shiftButton = choice:GetString(choice:GetSelection())
+        self:statusMessage("Shift button set to: " .. choice:GetString(choice:GetSelection()))
+    end)
+
     local jogIncLabel = wx.wxStaticText(propertiesPanel, wx.wxID_ANY, "Jog Increment:")
     propSizer:Add(jogIncLabel, 0, wx.wxALIGN_CENTER_VERTICAL + wx.wxALL, 5)
     local jogIncCtrl = wx.wxTextCtrl(propertiesPanel, wx.wxID_ANY, tostring(self.configValues.jogIncrement), wx.wxDefaultPosition,
         wx.wxDefaultSize, wx.wxTE_RIGHT)
     propSizer:Add(jogIncCtrl, 1, wx.wxEXPAND + wx.wxALL, 5)
+
+    propertiesPanel:Connect(jogIncCtrl:GetId(), wx.wxEVT_COMMAND_TEXT_UPDATED, function()
+        self.dirtyConfig = true
+        self.configValues.jogIncrement = tonumber(jogIncCtrl:GetValue())
+        self:statusMessage("Jog increment set to: " .. self.configValues.jogIncrement)
+    end)
 
     local logLevels = {"0 - Disabled", "1 - Error", "2 - Warning", "3 - Info", "4 - Debug"}
     local logLabel = wx.wxStaticText(propertiesPanel, wx.wxID_ANY, "Logging level:")
@@ -243,17 +277,23 @@ function Controller:initUi(propertiesPanel)
     propSizer:Add(logChoice, 1, wx.wxEXPAND + wx.wxALL, 5)
     logChoice:SetSelection(tonumber(self.configValues.logLevel))
 
+    propertiesPanel:Connect(logChoice:GetId(), wx.wxEVT_COMMAND_CHOICE_SELECTED, function()
+        self.dirtyConfig = true
+        self.configValues.logLevel = logChoice:GetString(logChoice:GetSelection())
+        self:statusMessage("Log level set to: " .. self.configValues.logLevel)
+    end)
+
     local swapLabel = wx.wxStaticText(propertiesPanel, wx.wxID_ANY, "Swap X and Y axes:")
     propSizer:Add(swapLabel, 0, wx.wxALIGN_CENTER_VERTICAL + wx.wxALL, 5)
     local swapCheck = wx.wxCheckBox(propertiesPanel, wx.wxID_ANY, "")
     swapCheck:SetValue(self.configValues.xYReversed == "true")
     propSizer:Add(swapCheck, 1, wx.wxALIGN_RIGHT + wx.wxALL, 5)
 
-    local simpleJoglabel = wx.wxStaticText(propertiesPanel, wx.wxID_ANY, "Map Simple Jogging:")
-    propSizer:Add(simpleJoglabel, 0, wx.wxALIGN_CENTER_VERTICAL + wx.wxALL, 5)
-    local simpleJogCheck = wx.wxCheckBox(propertiesPanel, wx.wxID_ANY, "")
-    swapCheck:SetValue(self.configValues.simpleJogMapped == "true")
-    propSizer:Add(simpleJogCheck, 1, wx.wxALIGN_RIGHT + wx.wxALL, 5)
+    propertiesPanel:Connect(swapCheck:GetId(), wx.wxEVT_COMMAND_CHECKBOX_CLICKED, function()
+        self.dirtyConfig = true
+        self.configValues.xYReversed = swapCheck:GetValue() and "true" or "false"
+        self:statusMessage("X and Y axes swapped: " .. self.configValues.xYReversed)
+    end)
 
     local frequencyLabel = wx.wxStaticText(propertiesPanel, wx.wxID_ANY, "Update Frequency (Hz):")
     propSizer:Add(frequencyLabel, 0, wx.wxALIGN_CENTER_VERTICAL + wx.wxALL, 5)
@@ -261,32 +301,74 @@ function Controller:initUi(propertiesPanel)
         wx.wxDefaultSize, wx.wxTE_RIGHT)
     propSizer:Add(frequencyCtrl, 1, wx.wxEXPAND + wx.wxALL, 5)
 
-    -- apply button
-    propSizer:Add(0, 0)
-    local applyId = wx.wxNewId()
-    local apply = wx.wxButton(propertiesPanel, applyId, "Apply")
-    propSizer:Add(apply, 0, wx.wxALIGN_RIGHT + wx.wxALL, 5)
+    propertiesPanel:Connect(frequencyCtrl:GetId(), wx.wxEVT_COMMAND_TEXT_UPDATED, function()
+        self.dirtyConfig = true
+        self.configValues.frequency = tonumber(frequencyCtrl:GetValue())
+        self:statusMessage("Update frequency set to: " .. self.configValues.frequency.. "Hz")
+    end)
 
-    -- fill up growable row 8 to push profile management buttons down
+    propSizer:Add(0, 0, 1, wx.wxEXPAND)
+    local mapSimpleJog = wx.wxButton(propertiesPanel, wx.wxID_ANY, "Map Basic Jogging")
+    propSizer:Add(mapSimpleJog, 1, wx.wxEXPAND + wx.wxALL, 5)
+
+    propertiesPanel:Connect(mapSimpleJog:GetId(), wx.wxEVT_COMMAND_BUTTON_CLICKED, function()
+        self:mapSimpleJog()
+        self:statusMessage("Basic jogging mapped to the DPad.")
+    end)
+
+
+    -- fill up growable row 7 to push profile management buttons down
     propSizer:Add(0, 0, 1, wx.wxEXPAND)
     propSizer:Add(0, 0, 1, wx.wxEXPAND)
 
-    propSizer:Add(0,0)
+    local undo = wx.wxButton(propertiesPanel, wx.wxID_ANY, "Undo Unsaved Changes")
+    propSizer:Add(undo, 1, wx.wxEXPAND + wx.wxALL, 5)
 
     local deleteProfile = wx.wxButton(propertiesPanel, wx.wxID_ANY, "Delete A Profile...")
-    propSizer:Add(deleteProfile, 0, wx.wxALIGN_RIGHT + wx.wxALL, 5)
+    propSizer:Add(deleteProfile, 1, wx.wxEXPAND + wx.wxALL, 5)
 
     local saveProfileAs = wx.wxButton(propertiesPanel, wx.wxID_ANY, "Save Profile As...")
-    propSizer:Add(saveProfileAs, 0, wx.wxALIGN_RIGHT + wx.wxALL, 5)
+    propSizer:Add(saveProfileAs, 1, wx.wxEXPAND + wx.wxALL, 5)
 
     local saveProfile = wx.wxButton(propertiesPanel, wx.wxID_ANY, "Save Current Profile")
-    propSizer:Add(saveProfile, 0, wx.wxALIGN_RIGHT + wx.wxALL, 5)
+    propSizer:Add(saveProfile, 1, wx.wxEXPAND + wx.wxALL, 5)
+
+    local buttons = {undo, deleteProfile, saveProfileAs, saveProfile}
+    local maxWidth = 0
+    for _, button in pairs(buttons) do
+        local size = button:GetSize()
+        maxWidth = math.max(maxWidth, size:GetHeight())
+    end
+    for _, button in pairs(buttons) do
+        button:SetMinSize(wx.wxSize(-1, maxWidth))
+        button:SetSize(wx.wxSize(-1, maxWidth))
+    end
+
+    propSizer:Layout()
+    propertiesPanel:Layout()
+
+    propertiesPanel:Connect(undo:GetId(), wx.wxEVT_COMMAND_BUTTON_CLICKED, function()
+        local answer = wx.wxMessageBox(
+            "Are you sure you want to undo any unsaved changes?",
+            "Confirm",
+            wx.wxYES_NO + wx.wxICON_QUESTION
+        )
+        if answer == wx.wxYES then
+            self.dirtyConfig = false
+            self.profile:load()
+            self:updateUi()
+            self:statusMessage("Restored profile: " .. self.profile.name)
+        else
+            return false
+        end
+    end)
+
 ---@diagnostic disable-next-line: undefined-field
     propertiesPanel:Connect(saveProfile:GetId(), wx.wxEVT_COMMAND_BUTTON_CLICKED, function()
         local saveDialog = wx.wxMessageBox(string.format("Save changes to profile: %s?", profileChoice:GetStringSelection()), "Confirm", wx.wxOK + wx.wxCANCEL)
         if saveDialog == wx.wxOK then
             self.profile:save()
-            wx.wxMessageBox(string.format("Changes saved to profile: %s", profileChoice:GetStringSelection()), "Confirmation")
+            self:statusMessage(string.format("Changes saved to profile: %s", profileChoice:GetStringSelection()))
         end
     end)
 ---@diagnostic disable-next-line: undefined-field
@@ -314,7 +396,7 @@ function Controller:initUi(propertiesPanel)
             if deleteDialog == wx.wxOK then
                 local profile = Profile.new(Profile:getId(profileName), profileName, self)
                 profile:delete()
-                wx.wxMessageBox(string.format("Deleted profile: %s", profileName), "Confirmation")
+                self:statusMessage(string.format("Deleted profile: %s", profileName))
             end
             dialog:EndModal(wx.wxOK)
         end)
@@ -380,7 +462,7 @@ function Controller:initUi(propertiesPanel)
                 if saveDialog == wx.wxOK then
                     local tmpProfile = Profile.new(tmpProfileId, tmpProfileName, self)
                     tmpProfile:save()
-                    wx.wxMessageBox(string.format("Configuration saved to profile: %s", tmpProfileName), "Confirmation")
+                    self:statusMessage(string.format("Configuration saved to profile: %s", tmpProfileName))
                 else
                     do end
                 end
@@ -397,31 +479,6 @@ function Controller:initUi(propertiesPanel)
         dialog:Destroy()
     end)
 
-
-    -- event handler for apply button
-    ---@diagnostic disable-next-line: undefined-field
-    propertiesPanel:Connect(applyId, wx.wxEVT_COMMAND_BUTTON_CLICKED, function()
-        local choiceSelection = choice:GetStringSelection()
-        if choiceSelection then
-            self.configValues.shiftButton = choiceSelection
-        end
-        local jogInc = jogIncCtrl:GetValue()
-        if jogIncCtrl:IsModified() then
-            self.configValues.jogIncrement = jogInc
-        end
-        local logChoiceSelection = logChoice:GetSelection()
-        self.configValues.logLevel = logChoiceSelection
-        local swapSelection = tostring(swapCheck:GetValue())
-        if swapSelection ~= self.configValues.xYReversed then
-            self.configValues.xYReversed = swapSelection
-            self:mapSimpleJog()
-        end
-        local frequencyValue = frequencyCtrl:GetValue()
-        if frequencyValue ~= nil then
-            self.configValues.frequency = frequencyValue
-        end
-    end)
-
     -- Trigger the layout update and return the new sizer
     propSizer:Layout()
     ---@diagnostic disable-next-line: undefined-field
@@ -429,16 +486,27 @@ function Controller:initUi(propertiesPanel)
     return propSizer
 end
 
-
-function Controller:initPanel(panel)
-    local mcLuaPanelParent = panel or wx.wxFrame(wx.NULL, wx.wxID_ANY, "Configure Xbox Controller Settings")
+--- Initialize the configuration GUI.
+---@param mode string @One of 'embedded', 'wizard', or 'standalone' - the mode to run the GUI in.
+function Controller:initPanel(mode)
+    self.guiMode = mode
+    local guiPanel
+    if mode == "embedded" or mode == "wizard" then
+        guiPanel = mcLuaPanelParent
+    else
+        guiPanel = wx.wxFrame(wx.NULL, wx.wxID_ANY, "Configure Xbox Controller Settings")
+    end
+    self.panel = guiPanel
+    if self.guiMode ~= "embedded" then
+        guiPanel:CreateStatusBar(1)
+    end
     local mainSizer = wx.wxBoxSizer(wx.wxHORIZONTAL)
-    mcLuaPanelParent:SetMinSize(wx.wxSize(450, 500))
-    mcLuaPanelParent:SetMaxSize(wx.wxSize(450, 500))
+    guiPanel:SetMinSize(wx.wxSize(450, 500))
+    guiPanel:SetMaxSize(wx.wxSize(450, 500))
 
-    local treeBox = wx.wxStaticBox(mcLuaPanelParent, wx.wxID_ANY, "Controller Tree Manager")
+    local treeBox = wx.wxStaticBox(guiPanel, wx.wxID_ANY, "Controller Tree Manager")
     local treeSizer = wx.wxStaticBoxSizer(treeBox, wx.wxVERTICAL)
-    local tree = wx.wxTreeCtrl.new(mcLuaPanelParent, wx.wxID_ANY, wx.wxDefaultPosition, wx.wxSize(100, -1),
+    local tree = wx.wxTreeCtrl.new(guiPanel, wx.wxID_ANY, wx.wxDefaultPosition, wx.wxSize(100, -1),
         wx.wxTR_HAS_BUTTONS, wx.wxDefaultValidator, "tree")
     local root_id = tree:AddRoot("Controller")
     local treedata = {
@@ -451,61 +519,97 @@ function Controller:initPanel(panel)
     end
     tree:ExpandAll()
     treeSizer:Add(tree, 1, wx.wxEXPAND + wx.wxALL, 5)
-    local propBox = wx.wxStaticBox(mcLuaPanelParent, wx.wxID_ANY, "Properties")
+    local propBox = wx.wxStaticBox(guiPanel, wx.wxID_ANY, "Properties")
     local propSizer = wx.wxStaticBoxSizer(propBox, wx.wxVERTICAL)
-    local propertiesPanel = wx.wxPanel(mcLuaPanelParent, wx.wxID_ANY, wx.wxDefaultPosition, wx.wxDefaultSize)
+    self.propertiesPanel = wx.wxPanel(guiPanel, wx.wxID_ANY, wx.wxDefaultPosition, wx.wxDefaultSize)
     local sizer = wx.wxFlexGridSizer(0, 2, 0, 0) -- 2 columns, auto-adjust rows
     sizer:AddGrowableCol(1, 1)
-    propertiesPanel:SetSizer(sizer)
-    propertiesPanel:Layout()
+    self.propertiesPanel:SetSizer(sizer)
+    self.propertiesPanel:Layout()
     local font = wx.wxFont(8, wx.wxFONTFAMILY_DEFAULT, wx.wxFONTSTYLE_NORMAL, wx.wxFONTWEIGHT_NORMAL)
-    propertiesPanel:SetFont(font)
+    self.propertiesPanel:SetFont(font)
     propBox:SetFont(font)
     treeBox:SetFont(font)
     tree:SetFont(font)
-    propSizer:Add(propertiesPanel, 1, wx.wxEXPAND + wx.wxALL, 5)
+    propSizer:Add(self.propertiesPanel, 1, wx.wxEXPAND + wx.wxALL, 5)
     tree:Connect(wx.wxEVT_COMMAND_TREE_SEL_CHANGED, function(event)
-        --propertiesPanel:GetSizer():Clear(true)
+        self.propertiesPanel:GetSizer():Clear(true)
 
         local item = treedata[event:GetItem():GetValue()]
         local newSizer =  wx.wxFlexGridSizer(0, 2, 0, 0)
         newSizer:AddGrowableCol(1, 1)
 
         if item == self then
-            newSizer:AddGrowableRow(8,1)
+            newSizer:AddGrowableRow(7,1)
         end
-        propertiesPanel:SetSizer(newSizer)
+        self.propertiesPanel:SetSizer(newSizer)
 
-        propertiesPanel:SetSizer(item:initUi(propertiesPanel))
+        self.propertiesPanel:SetSizer(item:initUi(self.propertiesPanel))
 
-        propertiesPanel:Layout()
+        self.propertiesPanel:Layout()
     end)
     mainSizer:Add(treeSizer, 0, wx.wxEXPAND + wx.wxALL, 5)
     mainSizer:Add(propSizer, 1, wx.wxEXPAND + wx.wxALL, 5)
-    mcLuaPanelParent:SetSizer(mainSizer)
+    guiPanel:SetSizer(mainSizer)
     mainSizer:Layout()
 
     function Controller.go()
-        mcLuaPanelParent:Connect(wx.wxEVT_CLOSE_WINDOW, function()
-            mcLuaPanelParent:Destroy()
+        guiPanel:Connect(wx.wxEVT_CLOSE_WINDOW, function()
+            if self.dirtyConfig then
+                local answer = wx.wxMessageBox(
+                    "You have unsaved changes to your controller profile. Do you want to save before exiting? (If you exit without saving, your applied changes will remain applied for the current session.)",
+                    "Unsaved Changes",
+                    wx.wxYES_NO + wx.wxCANCEL + wx.wxICON_QUESTION
+                )
+    
+                if answer == wx.wxYES then
+                    -- Save the current profile
+                    self.profile:save()
+                elseif answer == wx.wxCANCEL then
+                    return false  -- Cancel closing the window
+                end
+            end
+           
+            guiPanel:Destroy()
+            
             wx.wxGetApp():ExitMainLoop()
             self.go = function() end
         end)
 
         local app = wx.wxApp(false)
-        wx.wxGetApp():SetTopWindow(mcLuaPanelParent)
-        mcLuaPanelParent:Show(true)
+        wx.wxGetApp():SetTopWindow(guiPanel)
+        guiPanel:Show(true)
         wx.wxGetApp():MainLoop()
     end
 
     self:go()
 end
 
+function Controller:statusMessage(msg)
+    if self.guiMode == "embedded" then
+        mc.mcCntlSetLastError(inst, msg)
+    else
+        self.panel:SetStatusText(msg)
+    end
+end
 
 function Controller:destroy()
     if self.timer then
         self.timer:Stop()
         self.timer = nil
+    end
+
+    if self.dirtyConfig then
+        local choice = wx.wxMessageBox(
+            "You have unsaved changes. Do you want to save before exiting?",
+            "Unsaved Changes",
+            wx.wxYES_NO + wx.wxICON_QUESTION
+        )
+
+        if choice == wx.wxYES then
+            self.profile:save()
+        elseif choice == wx.wxNO then
+        end
     end
 end
 

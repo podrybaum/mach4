@@ -1,14 +1,19 @@
-
+local iniFile
+if mc then
+    iniFile = "C:\\Mach4Hobby\\Profiles\\" .. mc.mcProfileGetName(inst).. "\\xbcontroller.ini"
+end
 -- DEV_ONLY_START
 if not mc then
     require("mocks")
 end
-local iniFile = "C:\\Mach4Hobby\\Profiles\\" .. mc.mcProfileGetName(inst).. "\\xbcontroller.ini"
+
+
 
 if mc.mcInEditor() == 1 then
     iniFile = os.getenv("USERPROFILE") .. "\\mach4\\xbcontroller.ini"
 end
 -- DEV_ONLY_END
+
 
 ---@class Profile
 ---@field id string
@@ -117,6 +122,9 @@ end
 
 function Profile:load()
     self.controller:xcCntlLog("Loading profile: " .. self.name, 4)
+    if self.controller.dirtyConfig then
+        self.controller.dirtyConfig = false
+    end
     local file = io.open(self.iniFile, "r+")
     local iniLines = {}
     if not file then
@@ -206,7 +214,6 @@ xc.configValues.frequency=4
 xc.configValues.jogIncrement=0.1
 xc.configValues.logLevel=2.0
 xc.configValues.shiftButton=Btn_Y
-xc.configValues.simpleJogMapped=true
 xc.configValues.xYReversed=true]]
 
     if file then
@@ -220,6 +227,9 @@ end
 function Profile:save()
     self.profileData = self.controller:serialize()
     self:write()
+    if self.controller.dirtyConfig then
+        self.controller.dirtyConfig = false
+    end
 end
 
 function Profile.getProfiles(filePath)

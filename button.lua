@@ -1,15 +1,20 @@
+
 -- DEV_ONLY_START
+local object = require("object")
+local pairsByKeys = object.pairsByKeys
+local sortConfig = object.sortConfig
 local slots = {}
 -- DEV_ONLY_END
+
+
 
 local success, customSlots = pcall(require, "slot_functions")
 if success then
     for k, v in pairs(customSlots) do
         slots[k] = v
     end
-else
-    error("There is a problem with your slot_functions module:" .. customSlots)
 end
+
 
 
 
@@ -74,7 +79,7 @@ function Button:initUi(propertiesPanel)
         -- Slot labels and dropdowns
         local options = {""}
         local analogOptions = {""}
-        for name, slot in pairsByKeys(slots) do
+        for name, _ in pairsByKeys(slots) do
             options[#options + 1] = name
         end
         local idMapping = {}
@@ -87,30 +92,20 @@ function Button:initUi(propertiesPanel)
             else
                 choices = options
             end
-            local choice = wx.wxChoice(propertiesPanel, wx.wxID_ANY, wx.wxDefaultPosition, wx.wxDefaultSize,
-                choices)
+            local choice = wx.wxChoice(propertiesPanel, wx.wxID_ANY, wx.wxDefaultPosition, wx.wxDefaultSize,choices)
             idMapping[state] = choice
             if self.configValues[state] ~= "" then
                 choice:SetSelection(choice:FindString(self.configValues[state]))
             end
             propSizer:Add(choice, 1, wx.wxEXPAND + wx.wxALL, 5)
+            propertiesPanel:Connect(choice:GetId(), wx.wxEVT_COMMAND_CHOICE_SELECTED, function()
+                self:getRoot().dirtyConfig = true
+                self.configValues[state] = choice:GetString(choice:GetSelection())
+                self:getRoot():statusMessage(string.format("%s set to: %s", state, self.configValues[state]))
+            end)
         end
 
-        -- Add the apply button and the event handler 
-        propSizer:Add(0, 0)
-        local applyId = wx.wxNewId()
-        local apply = wx.wxButton(propertiesPanel, applyId, "Apply", wx.wxDefaultPosition, wx.wxDefaultSize)
-        propSizer:Add(apply, 0, wx.wxALIGN_RIGHT + wx.wxALL, 5)
-
-        -- Event handler
-    ---@diagnostic disable-next-line: undefined-field
-        propertiesPanel:Connect(applyId, wx.wxEVT_COMMAND_BUTTON_CLICKED, function()
-            for state, _ in pairsByKeys(self.configValues, sortConfig) do
-                local choice = idMapping[state]
-                local selection = choice:GetStringSelection()
-                self.configValues[state] = selection
-            end
-        end)
+       
 
         -- Refresh and return the layout
     ---@diagnostic disable-next-line: undefined-field
@@ -190,5 +185,5 @@ function Trigger:getState()
 end
 
 -- DEV_ONLY_START
-return {Button=Button, Trigger=Trigger}
+return {Button=Button, Trigger=Trigger, slots=slots}
 -- DEV_ONLY_END

@@ -1,0 +1,17 @@
+name: Run My Shell Script
+
+on: [push]
+
+jobs:
+  run-my-shell-script:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout the repo
+      uses: actions/checkout@v3 
+
+    - name: Make the shell script executable
+      run: chmod +x .github/workflows/action.sh
+
+    - name: Run the shell script
+      run: .github/workflows/action.sh

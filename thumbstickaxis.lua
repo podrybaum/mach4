@@ -78,6 +78,12 @@ function ThumbstickAxis:initUi(propertiesPanel)
     deadzoneCtrl:SetValue(self.configValues.deadzone)
     propSizer:Add(deadzoneCtrl, 1, wx.wxEXPAND + wx.wxALL, 5)
 
+    propertiesPanel:Connect(deadzoneCtrl:GetId(), wx.wxEVT_COMMAND_TEXT_UPDATED, function()
+        self:getRoot().dirtyConfig = true
+        self.configValues.deadzone = deadzoneCtrl:GetValue()
+        self:getRoot():statusMessage("Update deadzone set to: " .. self.configValues.deadzone)
+    end)
+
     -- axis label and control
     local label = wx.wxStaticText(propertiesPanel, wx.wxID_ANY, "Connect to axis:")
     propSizer:Add(label, 0, wx.wxALIGN_CENTER_VERTICAL + wx.wxALL, 5)
@@ -86,27 +92,22 @@ function ThumbstickAxis:initUi(propertiesPanel)
     propSizer:Add(choice, 1, wx.wxEXPAND + wx.wxALL, 5)
     choice:SetSelection(tonumber(self.configValues.axis) or 7)
 
+    propertiesPanel:Connect(choice:GetId(), wx.wxEVT_COMMAND_CHOICE_SELECTED, function()
+        self:getRoot().dirtyConfig = true
+        self.configValues.axis = choice:GetString(choice:GetSelection())
+        self:getRoot():statusMessage("Axis set to: " .. choice:GetString(choice:GetSelection()))
+    end)
+
     propSizer:Add(0, 0)
     local invertCheck = wx.wxCheckBox(propertiesPanel, wx.wxID_ANY, "Invert axis:", wx.wxDefaultPosition,
         wx.wxDefaultSize, wx.wxALIGN_RIGHT)
     invertCheck:SetValue(self.configValues.inverted == "true")
     propSizer:Add(invertCheck, 1, wx.wxEXPAND + wx.wxALL, 5)
 
-    -- apply button
-    propSizer:Add(0, 0)
-    local applyId = wx.wxNewId()
-    local apply = wx.wxButton(propertiesPanel, applyId, "Apply", wx.wxDefaultPosition, wx.wxDefaultSize)
-    propSizer:Add(apply, 0, wx.wxALIGN_RIGHT + wx.wxALL, 5)
-
-    -- event handler
-    ---@diagnostic disable-next-line: undefined-field
-    propertiesPanel:Connect(applyId, wx.wxEVT_COMMAND_BUTTON_CLICKED, function()
-        local axes = {mc.X_AXIS, mc.Y_AXIS, mc.Z_AXIS, mc.A_AXIS, mc.B_AXIS, mc.C_AXIS}
-        local deadzone = deadzoneCtrl:GetValue()
-        self.configValues.deadzone = deadzone
-        local selection = choice:GetSelection()
-        self.configValues.axis = selection
+    propertiesPanel:Connect(invertCheck:GetId(), wx.wxEVT_COMMAND_CHECKBOX_CLICKED, function()
+        self:getRoot().dirtyConfig = true
         self.configValues.inverted = tostring(invertCheck:GetValue())
+        self:getRoot():statusMessage("Inverted set to: " .. invertCheck:GetValue())
     end)
 
     -- Refresh and return the new layout

@@ -1,6 +1,10 @@
+if mc then
+    inst = mc.mcGetInstance()
+end
+-- DEV_ONLY_START
 require("stringsExtended")
-
-local function pairsByKeys(t, f)
+-- DEV_ONLY_END
+function pairsByKeys(t, f)
     local a = {}
     for n in pairs(t) do
         a[#a+1] = n
@@ -20,7 +24,7 @@ local function pairsByKeys(t, f)
 end
 
 
-local function sortConfig(a, b)
+function sortConfig(a, b)
     if a == b then
         return false
     end
