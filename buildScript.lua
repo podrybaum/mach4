@@ -1,10 +1,6 @@
 -- List of files to be concatenated, in the correct order based on dependencies.
 --local home = os.getenv("USERPROFILE")
 
-local wx_dll_path = debug.getinfo(1, "S").source:match("@(.*[/\\])") .. "build/?.dll"
-
--- Update package.cpath to include the directory with wx.dll
-package.cpath = package.cpath .. ";" .. wx_dll_path
 
 local inputFiles = {
     "stringsExtended.lua", -- dependency
