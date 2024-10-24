@@ -1,15 +1,13 @@
 @echo off
 
-REM Install Lua 5.3 using Chocolatey
-REM choco install lua53 -y
 
 REM Add Lua to the PATH
-REM set PATH=%PATH%;C:\ProgramData\chocolatey\lib\lua53\tools
+set PATH=%PATH%;C:\ProgramData\chocolatey\lib\lua53\tools
 
 refreshenv
 
 REM Confirm Lua is in the PATH
-REM lua53 -v
+lua -v
 
 REM Update the package path for the Windows environment
 setlocal enabledelayedexpansion
