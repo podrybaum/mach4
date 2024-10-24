@@ -1,8 +1,6 @@
-@echo off
-
 REM Download Lua 5.3 Windows 32-bit binaries
 echo Downloading Lua 5.3 Windows 32-bit binaries...
-curl -L https://sourceforge.net/projects/luabinaries/files/5.3.6/Tools%20Executables/lua-5.3.6_Win32_bin.zip/download -o lua.zip
+curl.exe -L https://sourceforge.net/projects/luabinaries/files/5.3.6/Tools%20Executables/lua-5.3.6_Win32_bin.zip/download -o lua.zip
 
 REM Verify that the file was downloaded
 if not exist lua.zip (
@@ -23,7 +21,11 @@ if not exist lua53.exe (
 REM Move Lua binaries to C:\Lua53 (create the directory if it doesn't exist)
 echo Moving Lua binaries...
 mkdir C:\Lua53
-move *lua* C:\Lua53
+foreach ($file in Get-ChildItem -Path ". " -File) {
+
+    if ($file -match "w*luac*53\...."){
+        move $file C:\Lua53}
+}
 
 REM Verify the move was successful
 if not exist C:\Lua53\lua53.exe (
