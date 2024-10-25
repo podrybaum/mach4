@@ -1,5 +1,6 @@
 -- List of files to be concatenated, in the correct order based on dependencies.
---local home = os.getenv("USERPROFILE")
+local current_dir = os.getenv("CD") or "." 
+package.path = package.path .. ";" .. current_dir .. "\\?.lua"
 
 
 local inputFiles = {
@@ -16,18 +17,10 @@ local inputFiles = {
 local success, _, rc = os.execute('if exist tests.lua lua53 tests.lua')
 if success and rc == 0 then
 
-    local function mkdir(dirname)
-    os.execute(string.format("if not exist %s mkdir %s", dirname, dirname))
-    end
+    
 
-    mkdir(string.format("%s\\mach4\\build", home))
-
-    for idx, file in ipairs(inputFiles) do
-    inputFiles[idx] = string.format("%s\\mach4\\%s", home, file)
-    end
-
-    local outputFile = string.format("%s\\mach4\\build\\xc.lua", home)
-    local precompiledOutput = string.format("%s\\mach4\\build\\combined.luac", home)
+    local outputFile = string.format("%s\\build\\xc.lua", (current_dir))
+    --local precompiledOutput = string.format("%s\\build\\xc_compiled.luac", (current_dir))
     local removeDevSections = true  -- Toggle to strip dev-specific code
 
 
@@ -90,8 +83,17 @@ if success and rc == 0 then
     -- Run the build process
     concatenateFiles()
 
-    os.execute("darklua process C:\\Users\\Michael\\mach4\\build\\xc.lua C:\\Users\\Michael\\mach4\\build\\xc_dark.lua")
-    os.execute("darklua minify C:\\Users\\Michael\\mach4\\build\\xc_dark.lua C:\\Users\\Michael\\mach4\\build\\xc_dark_min.lua")
+    os.execute(string.format("darklua process %s %s_dark.lua", outputFile, outputFile))
+    os.execute(string.format("darklua minify %._dark.lua %s_dark_min.lua", outputFile, outputFile))
+
+
+    local commit_message = "Automated build: updating xc.lua, xc_dark.lua, and xc_dark_min.lua"
+    os.execute('git add build/xc.lua build/xc_dark.lua build/xc_dark_min.lua')
+    os.execute(string.format('git commit -m "%s"', commit_message))
+    os.execute('git push origin HEAD')
+
+    print("Build completed and changes pushed.")
 else
+    print("Tests failed. Exiting build process.")
     os.exit(1)
 end
