@@ -13,14 +13,6 @@ if %errorlevel% neq 0 (
     exit /b 1
 )
 
-REM Set up the Lua paths for modules and dlls
-set LUA_MODULES_PATH=%CD%
-set LUA_CPATH=%CD%\build
-
-REM Update package.path and package.cpath for Lua scripts
-lua53 -e "package.path = package.path .. ';%LUA_MODULES_PATH%\\?.lua;'; package.cpath = package.cpath .. ';%LUA_CPATH%\\?.dll'; print('Updated package.path:', package.path); print('Updated package.cpath:', package.cpath);"
-
-
 REM Run the build script using CALL to avoid 'unexpected at this time' error
 echo Running the build script...
 CALL lua53 buildScript.lua
