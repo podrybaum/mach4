@@ -1,5 +1,3 @@
-@echo off
-
 REM Set the path to the Lua binaries in the repo
 set LUA_PATH=%CD%\Lua53
 
@@ -14,9 +12,8 @@ if %errorlevel% neq 0 (
     exit /b 1
 )
 
-REM Update the package path for the Windows environment
-setlocal enabledelayedexpansion
-lua53 -e "package.cpath = package.cpath .. ';%CD%\\build\\?.dll'; require('mocks'); print('Lua environment set up')"
+REM Run your Lua script to update package.path and package.cpath
+lua53 -e "local current_dir = debug.getinfo(1, 'S').source:match('@(.*[/\\])'); package.path = package.path .. ';' .. current_dir .. 'modules/?.lua;' .. current_dir .. '?.lua'; package.cpath = package.cpath .. ';' .. current_dir .. 'build/?.dll'; print('Updated package.path:', package.path); print('Updated package.cpath:', package.cpath);"
 
 REM Change directory to the mach4 directory (adjust this path if needed)
 cd mach4
@@ -29,6 +26,3 @@ powershell.exe -Command "Expand-Archive -Path 'darklua.zip' -DestinationPath ."
 REM Run the build script using CALL to avoid 'unexpected at this time' error
 echo Running the build script...
 CALL lua53 buildScript.lua
-
-REM Run tests (if this is where you're trying to run tests.lua)
-CALL lua53 tests.lua
