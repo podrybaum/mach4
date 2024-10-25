@@ -1,6 +1,12 @@
 -- List of files to be concatenated, in the correct order based on dependencies.
 local current_dir = os.getenv("CD") or "." 
-package.path = package.path .. ";" .. current_dir .. "\\?.lua"
+
+-- Append the current directory to package.path to look for Lua modules
+package.path = package.path .. ";" .. current_dir .. "\\?.lua;"
+package.cpath = package.cpath ..";" .. current_dir .. "\\build\\?.dll"
+
+-- Confirm that package.path includes the current directory for debugging purposes
+print("Current directory: " .. current_dir)
 
 
 local inputFiles = {
