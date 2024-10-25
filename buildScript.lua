@@ -13,7 +13,7 @@ local inputFiles = {
     "xc.lua",              -- Main controller instantiation
 }
 
-local success, _, rc = os.execute("if lua tests.lua; then exit 0; else exit 1; fi")
+local success, _, rc = os.execute('if exist tests.lua lua53 tests.lua')
 if success and rc == 0 then
 
     local function mkdir(dirname)
