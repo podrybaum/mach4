@@ -21,7 +21,7 @@ REM Update package.path and package.cpath for Lua scripts
 lua53 -e "package.path = package.path .. ';%LUA_MODULES_PATH%\\?.lua;'; package.cpath = package.cpath .. ';%LUA_CPATH%\\?.dll'; print('Updated package.path:', package.path); print('Updated package.cpath:', package.cpath);"
 
 REM Change directory to the mach4 directory (adjust this path if needed)
-REM cd mach4
+cd mach4
 
 
 REM Run the build script using CALL to avoid 'unexpected at this time' error
