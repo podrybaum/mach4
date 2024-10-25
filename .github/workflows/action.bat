@@ -1,3 +1,4 @@
+
 REM Set the path to the Lua binaries in the repo
 set LUA_PATH=%CD%\Lua53
 
@@ -12,11 +13,15 @@ if %errorlevel% neq 0 (
     exit /b 1
 )
 
-REM Run your Lua script to update package.path and package.cpath
-lua53 -e "local current_dir = debug.getinfo(1, 'S').source:match('@(.*[/\\])'); package.path = package.path .. ';' .. current_dir .. 'modules/?.lua;' .. current_dir .. '?.lua'; package.cpath = package.cpath .. ';' .. current_dir .. 'build/?.dll'; print('Updated package.path:', package.path); print('Updated package.cpath:', package.cpath);"
+REM Set up the Lua paths for modules and dlls
+set LUA_MODULES_PATH=%CD%
+set LUA_CPATH=%CD%\build
+
+REM Update package.path and package.cpath for Lua scripts
+lua53 -e "package.path = package.path .. ';%LUA_MODULES_PATH%\\?.lua;'; package.cpath = package.cpath .. ';%LUA_CPATH%\\?.dll'; print('Updated package.path:', package.path); print('Updated package.cpath:', package.cpath);"
 
 REM Change directory to the mach4 directory (adjust this path if needed)
-cd mach4
+REM cd mach4
 
 REM Download and unzip darklua
 echo Downloading and unzipping DarkLua...
